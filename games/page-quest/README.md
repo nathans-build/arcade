@@ -201,9 +201,9 @@ arcade kit (copy the canonical `kit/` folder there before building).
 
 ## Deploying
 
-Page Quest lives in SpiderBen10's Arcade repository at `games/page-quest/`. The arcade's deploy
-workflow builds and tests it and publishes it at `/page-quest/` on the arcade's Azure app (Vite
-`base: "./"`), so it needs no Azure app or token of its own. See the arcade README.
+Page Quest lives in SpiderBen10's Arcade repository (`games/page-quest/`). The arcade's deploy workflow
+builds and tests it and publishes it at `/page-quest/` on the arcade's Azure app, so it needs no Azure
+app or token of its own. See the arcade README.
 
 ## Credits
 

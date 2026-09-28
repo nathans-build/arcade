@@ -212,15 +212,6 @@ function BookDetail({ book, playerBand, onOpen, onWriter }: { book: Book; player
         <div className="meta">
           by {s.author || "?"} · {bandLabel(s.band)} · <span className="y">{tag}</span> · reading level {book.readingLevel.toFixed(1)}
         </div>
-        <div className="blurb">{s.blurb}</div>
-        <div className="meta">
-          Endings found: <b className="y">{nFound} / {book.endings.length}</b>
-          {nFound > 0 && (
-            <span className="dim">
-              {" "}— {book.endings.filter((e) => found.includes(e.page)).map((e) => e.name).join(", ")}
-            </span>
-          )}
-        </div>
         {book.errors.length > 0 ? (
           <div className="pq-btnrow">
             <span className="no">{book.errors.length} problem{book.errors.length > 1 ? "s" : ""} to fix first.</span>
@@ -239,6 +230,15 @@ function BookDetail({ book, playerBand, onOpen, onWriter }: { book: Book; player
             {book.draft && <button className="pq-cta ghost" onClick={() => onWriter(book.id.replace(/^draft\//, ""))}>Edit</button>}
           </div>
         )}
+        <div className="blurb">{s.blurb}</div>
+        <div className="meta">
+          Endings found: <b className="y">{nFound} / {book.endings.length}</b>
+          {nFound > 0 && (
+            <span className="dim">
+              {" "}— {book.endings.filter((e) => found.includes(e.page)).map((e) => e.name).join(", ")}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

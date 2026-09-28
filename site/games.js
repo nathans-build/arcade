@@ -120,4 +120,14 @@ window.GAMES = [
     image: "img/cube-hop.png",
     year: 2026,
   },
+  {
+    id: "page-quest",
+    title: "Page Quest",
+    tagline: "Choose your own adventure: mystery, adventure and space stories where reading closely is how you win.",
+    subjects: ["ELA"],
+    url: "/page-quest/",
+    grades: ["4", "5", "6", "7", "8", "9", "10", "11", "12"],
+    image: "img/page-quest.png",
+    year: 2026,
+  },
 ];
