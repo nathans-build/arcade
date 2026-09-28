@@ -1,0 +1,263 @@
+/* City Shield — arcade presentation layer (SpiderBen10 reds & blues on a navy night) */
+
+.cs-root {
+  --cs-bg: #0a0f2e;
+  --cs-deep: #050818;
+  --cs-red: #e3262f;
+  --cs-blue: #2456e8;
+  --cs-lightblue: #6ea0ff;
+  --cs-cyan: #7ff3ff;
+  --cs-yellow: #ffd23f;
+  --cs-green: #5fff8a;
+  --cs-white: #f2f4ff;
+  --cs-dim: #6a78b8;
+  height: 100vh;
+  height: 100dvh;
+  box-sizing: border-box;
+  background: var(--cs-bg);
+  color: var(--cs-white);
+  font-family: "VT323", ui-monospace, monospace;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 16px 10px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  overflow: hidden;
+}
+
+.cs-pixel { font-family: "Press Start 2P", ui-monospace, monospace; letter-spacing: 0.02em; }
+.cs-root .y { color: var(--cs-yellow); }
+.cs-root .c { color: var(--cs-cyan); }
+.cs-root .r { color: var(--cs-red); }
+.cs-root .dim { color: var(--cs-dim); }
+
+.cs-cabinet {
+  width: 100%; max-width: 960px;
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+}
+.cs-toolbar, .cs-hud, .cs-target, .cs-threats { flex: none; }
+
+/* The stage takes whatever height is left; the 16:10 screen scales to fit it both ways. */
+.cs-stage {
+  flex: 1; min-height: 120px;
+  display: flex; align-items: flex-start; justify-content: center;
+}
+
+.cs-toolbar { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; margin-bottom: 2px; gap: 8px; }
+.cs-tools { display: flex; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
+.cs-toolbar a, .cs-toolbar button {
+  font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--cs-lightblue);
+  background: none; border: 0; cursor: pointer; text-decoration: none; padding: 6px 0;
+}
+.cs-toolbar a { color: var(--cs-red); }
+.cs-toolbar a:hover, .cs-toolbar button:hover { color: var(--cs-yellow); }
+
+.cs-hud {
+  display: grid;
+  grid-template-columns: repeat(5, auto);
+  justify-content: space-between;
+  gap: 4px 12px;
+  font-size: clamp(8px, 1.5vw, 12px);
+  padding: 5px 2px;
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--cs-red);
+  margin-bottom: 6px;
+}
+.cs-hud .lbl { color: var(--cs-lightblue); margin-right: 6px; }
+.cs-hud .val { color: var(--cs-white); }
+.cs-hud .cities { color: var(--cs-cyan); letter-spacing: 1px; }
+.cs-hud .cities .lost { color: #2a3470; }
+.cs-hud .streak { color: var(--cs-yellow); margin-left: 8px; }
+
+/* TARGET bar */
+.cs-target {
+  display: flex; align-items: center; gap: 10px; flex-wrap: nowrap;
+  min-height: 34px; white-space: nowrap; overflow: hidden;
+  margin: 0 0 6px; padding: 2px 8px;
+  border: 2px solid var(--cs-yellow);
+  border-left: 6px solid var(--cs-red);
+  background: linear-gradient(90deg, rgba(227, 38, 47, 0.16), rgba(36, 86, 232, 0.2));
+  font-size: clamp(20px, 2.8vw, 30px); line-height: 1;
+}
+.cs-target.wrong { border-color: var(--cs-red); }
+.cs-target .tag { font-size: clamp(8px, 1.2vw, 11px); color: var(--cs-deep); background: var(--cs-yellow); padding: 4px 6px; flex: none; }
+.cs-target .tag.red { background: var(--cs-red); color: #fff; }
+.cs-target .val { color: var(--cs-yellow); flex: none; font-size: 1.15em; }
+.cs-target .val.dim { color: var(--cs-dim); font-size: 0.8em; }
+.cs-target .ctx { color: var(--cs-cyan); flex: none; font-size: 0.85em; }
+.cs-target .note { color: var(--cs-dim); font-size: 0.7em; margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+.cs-speak {
+  flex: none; font-size: 18px; line-height: 1; padding: 3px 6px; cursor: pointer;
+  background: #0c1450; border: 2px solid var(--cs-dim); color: var(--cs-lightblue);
+}
+.cs-speak.on { color: var(--cs-yellow); border-color: var(--cs-yellow); }
+
+.cs-screen {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 320 / 200;
+  box-sizing: border-box;
+  border: 3px solid #1c2a78;
+  box-shadow: 0 0 0 2px #000, 0 0 40px rgba(36, 86, 232, 0.25);
+  overflow: hidden;
+  background: var(--cs-bg);
+}
+.cs-screen canvas {
+  width: 100%; height: 100%; display: block;
+  image-rendering: pixelated; image-rendering: crisp-edges;
+  touch-action: none;
+}
+/* CRT scanlines */
+.cs-screen::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0) 0 2px, rgba(0, 0, 0, 0.18) 2px 3px);
+}
+
+/* A–D threat buttons under the screen: every lettered missile is always one tap away. */
+/* The row keeps its space when hidden, so the game screen never jumps in size. */
+.cs-threats { display: grid; visibility: hidden; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 6px; }
+.cs-threats.show { visibility: visible; }
+.cs-threat {
+  display: flex; align-items: center; gap: 8px; min-width: 0;
+  font-family: "VT323", ui-monospace, monospace; font-size: clamp(18px, 2.4vw, 24px); line-height: 1;
+  color: var(--cs-white); background: #0c1450; cursor: pointer; text-align: left;
+  border: 2px solid var(--cs-lightblue); box-shadow: 3px 3px 0 #000;
+  padding: 6px 8px; min-height: 38px; touch-action: none;
+}
+.cs-threat b { font-weight: normal; font-size: 0.5em; color: var(--cs-deep); background: var(--cs-yellow); padding: 4px 5px; flex: none; }
+.cs-threat span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cs-threat:hover:not(:disabled) { border-color: var(--cs-yellow); }
+.cs-threat:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #000; }
+.cs-threat.empty { opacity: 0.35; cursor: default; }
+.cs-threat.locked { border-color: var(--cs-cyan); color: var(--cs-cyan); }
+.cs-threat.locked b { background: var(--cs-cyan); }
+.cs-threats.touch .cs-threat { min-height: 52px; }
+
+.cs-overlay {
+  position: absolute; inset: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  padding: 3%;
+  background: rgba(5, 8, 24, 0.82);
+  overflow-y: auto;
+}
+.cs-panel {
+  width: 100%; max-width: 780px; max-height: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  border: 3px solid var(--cs-lightblue);
+  background: #070c30;
+  padding: clamp(10px, 2.3vw, 20px);
+  box-shadow: 6px 6px 0 #000;
+}
+.cs-panel.title { border-color: var(--cs-red); }
+
+.cs-title {
+  font-size: clamp(18px, 5vw, 44px);
+  color: var(--cs-yellow);
+  text-shadow: 3px 3px 0 var(--cs-red), 6px 6px 0 var(--cs-blue);
+  text-align: center; line-height: 1.2;
+}
+.cs-sub { text-align: center; color: var(--cs-lightblue); font-size: clamp(7px, 1.4vw, 11px); margin-top: 10px; }
+.cs-sub.badge { color: var(--cs-yellow); }
+
+.cs-grades { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 14px 0 10px; }
+.cs-grade {
+  font-size: clamp(9px, 1.4vw, 12px);
+  min-width: 36px; padding: 9px 4px;
+  background: #0c1450; color: var(--cs-white); cursor: pointer;
+  border: 2px solid var(--cs-dim); box-shadow: 3px 3px 0 #000;
+}
+.cs-grade:hover, .cs-grade:focus-visible { border-color: var(--cs-cyan); outline: none; }
+.cs-grade.on { background: var(--cs-red); border-color: var(--cs-yellow); color: #fff; }
+
+.cs-h { font-size: clamp(9px, 1.7vw, 13px); color: var(--cs-cyan); margin-bottom: 8px; line-height: 1.4; }
+.cs-tagrow { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.cs-tag { display: inline-block; font-size: clamp(7px, 1.2vw, 10px); padding: 3px 6px; border: 1px solid currentColor; }
+.cs-tag.math { color: var(--cs-yellow); }
+.cs-tag.std { color: var(--cs-dim); }
+
+.cs-passage {
+  font-size: clamp(18px, 2.6vw, 24px); line-height: 1.15;
+  color: #cfd6ff; border-left: 4px solid var(--cs-dim); padding: 4px 10px; margin: 10px 0;
+}
+.cs-prompt { font-size: clamp(20px, 3.1vw, 30px); line-height: 1.1; margin: 10px 0 12px; }
+
+.cs-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (max-width: 640px) { .cs-choices { grid-template-columns: 1fr; } }
+
+.cs-btn {
+  font-family: "VT323", ui-monospace, monospace;
+  font-size: clamp(18px, 2.6vw, 24px); line-height: 1.05;
+  text-align: left;
+  color: var(--cs-white); background: #0c1450;
+  border: 2px solid var(--cs-dim);
+  padding: 8px 10px;
+  box-shadow: 3px 3px 0 #000;
+  cursor: pointer;
+  display: flex; gap: 10px; align-items: flex-start;
+}
+.cs-btn:hover:not(:disabled), .cs-btn:focus-visible { border-color: var(--cs-cyan); background: #142070; outline: none; }
+.cs-btn:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #000; }
+.cs-btn .key { font-family: "Press Start 2P", monospace; font-size: 0.55em; color: var(--cs-yellow); padding-top: 4px; }
+.cs-btn.right { border-color: var(--cs-green); background: #0d3a22; }
+.cs-btn.wrong { border-color: var(--cs-red); background: #3a0d12; }
+.cs-btn:disabled { cursor: default; }
+
+.cs-cta {
+  font-family: "Press Start 2P", monospace; font-size: clamp(9px, 1.6vw, 13px);
+  color: var(--cs-deep); background: var(--cs-yellow); border: 0; padding: 12px 16px;
+  box-shadow: 4px 4px 0 var(--cs-red); cursor: pointer; text-transform: uppercase;
+}
+.cs-cta:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--cs-red); }
+.cs-cta.ghost { background: transparent; color: var(--cs-cyan); box-shadow: none; border: 2px solid var(--cs-cyan); }
+
+.cs-feedback { margin-top: 12px; font-size: clamp(18px, 2.6vw, 24px); line-height: 1.15; }
+.cs-feedback .verdict { font-family: "Press Start 2P", monospace; font-size: clamp(9px, 1.7vw, 13px); margin-bottom: 6px; }
+.cs-feedback .verdict.ok { color: var(--cs-green); }
+.cs-feedback .verdict.no { color: var(--cs-red); }
+
+.cs-help { font-size: clamp(16px, 2.1vw, 20px); color: #b8c0f0; line-height: 1.15; }
+.cs-help.center { text-align: center; }
+.cs-help.big { font-size: 22px; }
+.cs-help.small { font-size: clamp(15px, 1.9vw, 18px); color: var(--cs-lightblue); }
+.cs-help .gl { color: var(--cs-yellow); font-weight: normal; }
+.cs-help kbd { font-family: "Press Start 2P", monospace; font-size: 0.5em; color: var(--cs-yellow); border: 1px solid var(--cs-dim); padding: 2px 4px; }
+
+.cs-report-table { width: 100%; border-collapse: collapse; font-size: clamp(16px, 2.2vw, 20px); margin-top: 8px; }
+.cs-report-table th { font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--cs-dim); text-align: left; padding: 4px; }
+.cs-report-table td { padding: 3px 4px; border-top: 1px solid #1c2450; }
+
+@keyframes cs-blink { 50% { opacity: 0.25; } }
+.cs-blink { animation: cs-blink 1s steps(2) infinite; }
+
+/* Early readers (K-2): bigger text everywhere */
+.cs-root.early .cs-prompt { font-size: clamp(26px, 4vw, 38px); }
+.cs-root.early .cs-btn { font-size: clamp(24px, 3.4vw, 32px); }
+.cs-root.early .cs-target { font-size: clamp(24px, 3.4vw, 36px); }
+.cs-root.early .cs-threat { font-size: clamp(22px, 3vw, 30px); }
+.cs-root.early .cs-feedback { font-size: clamp(22px, 3vw, 28px); }
+
+@media (max-width: 700px), (max-height: 640px) {
+  /* Small screens: the game screen is too short for text panels, so they take the viewport */
+  .cs-overlay { position: fixed; padding: 12px; align-items: flex-start; }
+  .cs-panel { max-height: none; }
+  .cs-target .note { display: none; }
+}
+@media (max-width: 640px) {
+  .cs-target { flex-wrap: wrap; white-space: normal; min-height: 0; }
+  .cs-threats { grid-template-columns: repeat(2, 1fr); }
+  .cs-hud { grid-template-columns: repeat(3, auto); }
+  .cs-root { padding: 4px 8px 8px; }
+  .cs-toolbar a, .cs-toolbar button { font-size: 7px; }
+}
+@media (max-height: 560px) {
+  .cs-root { padding-top: 2px; padding-bottom: 4px; }
+  .cs-hud { padding: 2px; margin-bottom: 3px; }
+  .cs-target { margin-bottom: 3px; min-height: 0; font-size: 18px; }
+  .cs-threat, .cs-threats.touch .cs-threat { min-height: 30px; padding: 2px 6px; font-size: 18px; }
+  .cs-threats { margin-top: 3px; }
+}
