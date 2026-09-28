@@ -23,6 +23,7 @@ import {
   type Grade,
   type Subject,
   type SubjectMode,
+  gradeFromArcade,
 } from "@/kit";
 import { InvadersEngine, LABEL_W, W, type Action, type AnswerResult, type AnswerSlot, type HudState } from "@/invaders/engine";
 import "@/invaders/invaders.css";
@@ -490,7 +491,13 @@ function TitleScreen({
         <div className="wi-title wi-pixel">WEB INVADERS</div>
         <div className="wi-sub wi-pixel">SPIDERBEN10'S ARCADE · K–12 · NC STANDARDS</div>
 
-        <div className="wi-h wi-pixel" style={{ marginTop: 14 }}>1. PICK YOUR GRADE</div>
+        {!gradeFromArcade() && <div className="wi-h wi-pixel" style={{ marginTop: 14 }}>1. PICK YOUR GRADE</div>}
+        {gradeFromArcade() ? (
+        <div className="wi-sub wi-pixel" style={{ marginTop: 12 }}>
+          {gradeLabel(grade).toUpperCase()} ·{" "}
+          <a href={arcadeLink(grade)} style={{ color: "inherit" }}>CHANGE GRADE IN THE ARCADE</a>
+        </div>
+        ) : (
         <div className="wi-grades" role="radiogroup" aria-label="Grade">
           {GRADES.map((g) => (
             <button
@@ -505,8 +512,9 @@ function TitleScreen({
             </button>
           ))}
         </div>
+        )}
 
-        <div className="wi-h wi-pixel" style={{ marginTop: 12 }}>2. PICK A SUBJECT TO START · {gradeLabel(grade).toUpperCase()}</div>
+        <div className="wi-h wi-pixel" style={{ marginTop: 12 }}>{gradeFromArcade() ? "" : "2. "}PICK A SUBJECT TO START · {gradeLabel(grade).toUpperCase()}</div>
         <div className="wi-subjects">
           {MODES.map((m) => (
             <button key={m} className="wi-subject" onClick={() => onStart(m)}>
