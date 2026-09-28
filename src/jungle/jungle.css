@@ -1,0 +1,285 @@
+/* Jungle Run — arcade presentation layer (SpiderBen10's Arcade reds & blues) */
+
+.jr-root {
+  --jr-bg: #0a0f2e;
+  --jr-panel: #0c1440;
+  --jr-red: #e3262f;
+  --jr-blue: #2456e8;
+  --jr-lightblue: #6ea0ff;
+  --jr-yellow: #ffd23f;
+  --jr-cyan: #7ff3ff;
+  --jr-green: #5fff8a;
+  --jr-white: #f2f4ff;
+  --jr-dim: #6a78b8;
+  height: 100vh;
+  height: 100dvh;
+  box-sizing: border-box;
+  background: var(--jr-bg);
+  color: var(--jr-white);
+  font-family: "VT323", ui-monospace, monospace;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 16px 12px;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.jr-pixel { font-family: "Press Start 2P", ui-monospace, monospace; letter-spacing: 0.02em; }
+
+.jr-cabinet {
+  width: 100%; max-width: 960px;
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+}
+.jr-toolbar, .jr-hud, .jr-banner, .jr-controls { flex: none; }
+
+/* The stage takes whatever height is left; the 16:10 screen scales to fit it both ways. */
+.jr-stage {
+  flex: 1; min-height: 120px;
+  display: flex; align-items: flex-start; justify-content: center;
+}
+
+.jr-toolbar { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; margin-bottom: 2px; gap: 8px; }
+.jr-tools { display: flex; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
+.jr-toolbar a, .jr-toolbar button {
+  font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--jr-lightblue);
+  background: none; border: 0; cursor: pointer; text-decoration: none; padding: 6px 0;
+}
+.jr-toolbar a { color: var(--jr-red); }
+.jr-toolbar a:hover, .jr-toolbar button:hover { color: var(--jr-yellow); }
+
+.jr-hud {
+  display: grid;
+  grid-template-columns: repeat(5, auto);
+  justify-content: space-between;
+  gap: 4px 12px;
+  font-size: clamp(8px, 1.6vw, 12px);
+  padding: 5px 2px;
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--jr-red);
+  margin-bottom: 6px;
+}
+.jr-hud .lbl { color: var(--jr-lightblue); margin-right: 6px; }
+.jr-hud .val { color: var(--jr-white); }
+.jr-hud .lives { color: var(--jr-red); }
+.jr-hud .streak { color: var(--jr-yellow); margin-left: 8px; }
+
+.jr-screen {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 320 / 200;
+  box-sizing: border-box;
+  border: 3px solid #1c2a78;
+  box-shadow: 0 0 0 2px #000, 0 0 40px rgba(36, 86, 232, 0.25);
+  overflow: hidden;
+  background: var(--jr-bg);
+}
+.jr-screen canvas {
+  width: 100%; height: 100%; display: block;
+  image-rendering: pixelated; image-rendering: crisp-edges;
+}
+/* CRT scanlines */
+.jr-screen::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0) 0 2px, rgba(0, 0, 0, 0.18) 2px 3px);
+}
+
+
+.jr-overlay {
+  position: absolute; inset: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  padding: 3%;
+  background: rgba(10, 15, 46, 0.8);
+  overflow-y: auto;
+}
+.jr-panel {
+  width: 100%; max-width: 780px; max-height: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  border: 3px solid var(--jr-blue);
+  background: var(--jr-panel);
+  padding: clamp(10px, 2.2vw, 20px);
+  box-shadow: 6px 6px 0 #000;
+}
+
+.jr-title {
+  font-size: clamp(18px, 4.6vw, 40px);
+  color: var(--jr-yellow);
+  text-shadow: 3px 3px 0 var(--jr-red), 6px 6px 0 #000;
+  text-align: center; line-height: 1.2;
+}
+.jr-sub { text-align: center; color: var(--jr-lightblue); font-size: clamp(7px, 1.4vw, 11px); margin-top: 10px; }
+
+.jr-h { font-size: clamp(8px, 1.5vw, 12px); color: var(--jr-cyan); margin-bottom: 8px; }
+.jr-tag { display: inline-block; font-size: clamp(7px, 1.2vw, 10px); padding: 3px 6px; margin-right: 6px; border: 1px solid currentColor; }
+.jr-tag.math { color: var(--jr-yellow); }
+.jr-tag.science { color: var(--jr-green); }
+.jr-tag.ela { color: var(--jr-lightblue); }
+
+.jr-grades { display: grid; grid-template-columns: repeat(13, 1fr); gap: 5px; }
+@media (max-width: 640px) { .jr-grades { grid-template-columns: repeat(7, 1fr); } }
+.jr-grade {
+  font-size: clamp(9px, 1.4vw, 12px);
+  padding: 9px 0; background: #111c5a; color: var(--jr-white); cursor: pointer;
+  border: 2px solid var(--jr-dim); box-shadow: 2px 2px 0 #000;
+}
+.jr-grade.on { background: var(--jr-red); border-color: var(--jr-yellow); color: #fff; }
+.jr-grade:hover, .jr-grade:focus-visible { border-color: var(--jr-yellow); outline: none; }
+
+.jr-subjects { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 0 0 12px; }
+@media (max-width: 640px) { .jr-subjects { grid-template-columns: 1fr 1fr; } }
+.jr-subject {
+  font-family: "Press Start 2P", monospace; font-size: clamp(9px, 1.5vw, 12px);
+  padding: 12px 6px; background: #111c5a; color: var(--jr-white); cursor: pointer;
+  border: 2px solid var(--jr-blue); box-shadow: 3px 3px 0 #000; line-height: 1.6;
+}
+.jr-subject small { display: block; font-family: "VT323", monospace; font-size: 16px; color: var(--jr-lightblue); }
+.jr-subject:hover, .jr-subject:focus-visible { border-color: var(--jr-yellow); background: #1a2a80; outline: none; }
+
+.jr-cta {
+  font-family: "Press Start 2P", monospace; font-size: clamp(9px, 1.6vw, 13px);
+  color: var(--jr-bg); background: var(--jr-yellow); border: 0; padding: 12px 16px;
+  box-shadow: 4px 4px 0 var(--jr-red); cursor: pointer; text-transform: uppercase;
+}
+.jr-cta:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--jr-red); }
+.jr-cta.ghost { background: transparent; color: var(--jr-cyan); box-shadow: none; border: 2px solid var(--jr-cyan); }
+
+/* Question banner: sits between the HUD and the screen so it never hides the invaders. */
+.jr-banner {
+  position: relative;
+  background: #0c1440;
+  border: 2px solid var(--jr-blue);
+  border-left: 6px solid var(--jr-red);
+  padding: 5px 10px 8px;
+  margin-bottom: 6px;
+  font-size: clamp(17px, 2.4vw, 24px); line-height: 1.05;
+}
+.jr-banner.correct { border-color: var(--jr-green); }
+.jr-banner.wrong, .jr-banner.invaded { border-color: var(--jr-red); }
+.jr-banner .head {
+  font-size: clamp(6px, 1.1vw, 9px); color: var(--jr-lightblue);
+  display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px;
+}
+.jr-banner.correct .head { color: var(--jr-green); }
+.jr-banner.wrong .head, .jr-banner.invaded .head { color: var(--jr-red); }
+.jr-banner .head .std { color: var(--jr-dim); white-space: nowrap; }
+.jr-banner .prompt { display: flex; align-items: flex-start; gap: 8px; }
+.jr-banner .speak {
+  flex: none; font-size: 0.9em; padding: 2px 5px; margin-top: 1px;
+  background: #111c5a; color: var(--jr-lightblue); border: 1px solid var(--jr-dim); cursor: pointer;
+}
+.jr-banner .speak.on { color: var(--jr-yellow); border-color: var(--jr-yellow); }
+.jr-banner .opts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px 8px; margin-top: 5px; }
+@media (max-width: 560px) { .jr-banner .opts { grid-template-columns: 1fr 1fr; } }
+.jr-banner .opt {
+  display: flex; gap: 6px; align-items: baseline;
+  font: inherit; color: #d6dcff; text-align: left; cursor: pointer;
+  background: #111c5a; border: 2px solid #1f2d7a; padding: 3px 6px;
+  touch-action: none; min-height: 34px;
+}
+.jr-banner .opt b { font-family: "Press Start 2P", monospace; font-size: 0.5em; font-weight: normal; color: var(--jr-yellow); }
+.jr-banner .opt:hover:not(:disabled) { border-color: var(--jr-yellow); }
+.jr-banner .opt:disabled { cursor: default; }
+.jr-banner .opt.picked { border-color: var(--jr-cyan); color: var(--jr-cyan); }
+.jr-banner .opt.ans { border-color: var(--jr-green); color: var(--jr-green); background: #0d3a22; }
+.jr-banner .opt.wrong { border-color: var(--jr-red); color: #ffb0b4; background: #3a0d12; }
+.jr-banner .info { margin-top: 4px; color: #b8c0f0; font-size: 0.8em; min-height: 2.1em; }
+.jr-banner.wrong .info, .jr-banner.invaded .info, .jr-banner.correct .info { color: var(--jr-white); }
+/* How far the invaders have marched toward the city */
+.jr-banner .danger { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: #1a2360; }
+.jr-banner .danger .fill { height: 100%; background: linear-gradient(90deg, var(--jr-yellow), var(--jr-red)); transition: width 0.2s linear; }
+
+.jr-controls { display: none; margin-top: 8px; gap: 10px; justify-content: space-between; }
+.jr-controls.show { display: flex; }
+.jr-pad { display: flex; gap: 10px; }
+.jr-touch {
+  font-family: "Press Start 2P", monospace; font-size: 12px;
+  width: 80px; height: 60px; border-radius: 10px;
+  background: #111c5a; color: var(--jr-white); border: 2px solid var(--jr-lightblue);
+  touch-action: none;
+}
+.jr-touch.big { width: 120px; }
+.jr-touch.fire { border-color: var(--jr-red); color: var(--jr-red); }
+.jr-touch:active { background: #1c2a90; }
+
+.jr-help { font-size: clamp(16px, 2.1vw, 20px); color: #b8c0f0; line-height: 1.15; }
+.jr-help kbd { font-family: "Press Start 2P", monospace; font-size: 0.5em; color: var(--jr-yellow); border: 1px solid var(--jr-dim); padding: 2px 4px; }
+
+.jr-report-table { width: 100%; border-collapse: collapse; font-size: clamp(16px, 2.2vw, 20px); margin-top: 8px; }
+.jr-report-table th { font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--jr-dim); text-align: left; padding: 4px; }
+.jr-report-table td { padding: 3px 4px; border-top: 1px solid #1c2a78; }
+
+@keyframes jr-blink { 50% { opacity: 0.25; } }
+
+/* Early readers (K-2): bigger question text and answer buttons. */
+.jr-root.early .jr-banner { font-size: clamp(20px, 3vw, 30px); }
+.jr-root.early .jr-banner .opt { min-height: 42px; }
+
+@media (max-width: 700px), (max-height: 640px) {
+  /* Small screens: the game screen is too short for text panels, so they take the viewport */
+  .jr-overlay { position: fixed; padding: 12px; align-items: flex-start; }
+  .jr-panel { max-height: none; }
+}
+@media (max-height: 560px) {
+  .jr-root { padding-top: 2px; padding-bottom: 6px; }
+  .jr-hud { padding: 2px; margin-bottom: 3px; }
+  .jr-banner { padding: 3px 8px 6px; margin-bottom: 4px; font-size: 17px; }
+  .jr-banner .info { min-height: 0; }
+  .jr-banner .info.hint { display: none; }
+  .jr-banner .opt { min-height: 28px; padding: 1px 5px; }
+  .jr-touch { height: 46px; }
+  .jr-controls { margin-top: 4px; }
+}
+
+/* ---------------------------------------------------------------- Jungle Run additions */
+.jr-hud .val.low { color: var(--jr-red); animation: jr-blink 0.5s steps(2) infinite; }
+.jr-badge { color: var(--jr-yellow); }
+.jr-screen canvas { touch-action: none; cursor: pointer; }
+
+.jr-banner .prompt { flex-wrap: wrap; align-items: center; }
+.jr-banner .rule { flex: 1 1 60%; color: var(--jr-white); }
+.jr-banner .next {
+  flex: none; font-family: "Press Start 2P", monospace; font-size: clamp(7px, 1.1vw, 10px);
+  color: var(--jr-yellow); border: 1px solid var(--jr-yellow); padding: 4px 6px; background: #111c5a;
+}
+.jr-banner .next b { font-weight: normal; color: var(--jr-white); }
+.jr-banner .next.none { color: var(--jr-dim); border-color: #1f2d7a; }
+.jr-banner .tally { font-size: 0.75em; color: var(--jr-lightblue); margin-bottom: 3px; }
+.jr-banner .passage {
+  font-size: 0.78em; color: #d6dcff; background: #0a1036; border-left: 3px solid var(--jr-blue);
+  padding: 3px 8px; margin: 2px 0 4px; max-height: 5.5em; overflow-y: auto; line-height: 1.1;
+}
+.jr-banner .info.result { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+.jr-banner .info.result span { flex: 1; }
+.jr-cta.small { padding: 8px 10px; font-size: clamp(8px, 1.2vw, 11px); flex: none; }
+
+.jr-touch.small { width: 64px; font-size: 9px; }
+.jr-root.early .jr-banner .rule { font-size: 1.1em; }
+.jr-root.early .jr-banner .next { font-size: clamp(9px, 1.4vw, 12px); }
+@media (max-width: 560px) {
+  .jr-hud { grid-template-columns: repeat(3, auto); }
+  .jr-touch { width: 56px; }
+  .jr-touch.small { width: 50px; font-size: 8px; }
+  .jr-touch.big { width: 84px; }
+}
+.jr-tag.social { color: #ff9f4a; }
+.jr-subjects { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 760px) { .jr-subjects { grid-template-columns: 1fr 1fr; } }
+.jr-subject.first { border-color: #ff9f4a; }
+.jr-hud { grid-template-columns: repeat(6, auto); }
+.jr-hud .val.low { color: var(--jr-red); animation: jr-blink 0.5s steps(2) infinite; }
+.jr-banner .opt small { display: block; font-size: 0.7em; color: var(--jr-lightblue); }
+.jr-banner .opt .num { font-family: "Press Start 2P", monospace; font-size: 0.45em; color: var(--jr-green); margin-left: auto; white-space: nowrap; }
+.jr-banner .opt.done { border-color: var(--jr-green); color: var(--jr-green); background: #0d3a22; }
+.jr-banner .opt.gate { flex-wrap: wrap; }
+.jr-banner.map { border-left-color: #ff9f4a; }
+.jr-banner.gate { border-left-color: var(--jr-yellow); }
+.jr-banner.camp { border-left-color: var(--jr-cyan); }
+.jr-touch.up, .jr-touch.down { width: 64px; }
+@media (max-width: 560px) { .jr-hud { grid-template-columns: repeat(3, auto); } }
+.jr-banner .opt.gate > span:not(.num) { font-size: 0.78em; line-height: 1; }
+.jr-subject small { font-size: 15px; line-height: 1.1; margin-top: 4px; }
+.jr-banner .prompt > span:not(.rule) { flex: 1 1 60%; }
