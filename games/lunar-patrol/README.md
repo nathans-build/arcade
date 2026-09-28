@@ -19,24 +19,9 @@ npm run dev        # http://localhost:8080
 npm run build      # type-check + production build into dist/
 ```
 
-## Deploying to Azure
+## Deploying
 
-Every push to `main` builds the game and publishes it to Azure Static Web Apps
-(`.github/workflows/azure-static-web-apps.yml`). Pull requests get their own preview link.
-The deploy step is skipped until the token below is added, so the build still runs and checks the code.
+Lunar Patrol Academy lives in SpiderBen10's Arcade repository (`games/lunar-patrol/`). The arcade's deploy workflow
+builds and tests it and publishes it at `/lunar-patrol/` on the arcade's Azure app. (It used to have its
+own repository and Azure app; the repository is archived.)
 
-One-time setup, from any browser at https://shell.azure.com (Bash):
-
-```sh
-az group create -n rg-lunar-patrol -l eastus2
-az deployment group create -g rg-lunar-patrol -f infra/main.bicep   # or: az staticwebapp create -n lunar-patrol-academy -g rg-lunar-patrol -l eastus2 --sku Free
-az staticwebapp secrets list -n lunar-patrol-academy -g rg-lunar-patrol --query properties.apiKey -o tsv
-```
-
-Copy the printed token into this repository under
-**Settings → Secrets and variables → Actions → New repository secret**, named
-`AZURE_STATIC_WEB_APPS_API_TOKEN`. The next push to `main` publishes the game at
-`https://<name>.azurestaticapps.net`.
-
-The token can only publish to that one web app. Revoke or rotate it in the Azure portal at any time.
-The Free tier covers this game (static files only, no server).

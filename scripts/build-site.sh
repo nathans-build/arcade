@@ -18,6 +18,8 @@ for pkg in games/*/package.json; do
   echo "::group::Build $name"
   (cd "$dir" && npm ci --no-audit --no-fund && { npm test --if-present; } && npm run build)
   cp -r "$dir/dist" "_deploy/$name"
+  # Only the arcade's own staticwebapp.config.json (at the root) should apply.
+  rm -f "_deploy/$name/staticwebapp.config.json"
   echo "::endgroup::"
 done
 

@@ -74,24 +74,9 @@ Code map: `src/FactorBlaster.tsx` (screens, HUD, transmissions, report), `src/bl
 `src/blaster/font.ts` (the 3×5 pixel font for rock labels), `src/blaster/sprites.ts`,
 `scripts/check-splits.ts` (math checks), `scripts/playtest.cjs` (optional Playwright playtest).
 
-## Deploying to Azure
+## Deploying
 
-Every push to `main` builds the game and publishes it to Azure Static Web Apps
-(`.github/workflows/azure-static-web-apps.yml`). Pull requests get their own preview link.
-The deploy step is skipped until the token below is added, so the build still runs and checks the code.
+Factor Blaster lives in SpiderBen10's Arcade repository (`games/factor-blaster/`). The arcade's deploy workflow
+builds and tests it and publishes it at `/factor-blaster/` on the arcade's Azure app. (It used to have its
+own repository and Azure app; the repository is archived.)
 
-One-time setup, from any browser at https://shell.azure.com (Bash):
-
-```sh
-az group create -n rg-factor-blaster -l eastus2
-az deployment group create -g rg-factor-blaster -f infra/main.bicep   # or: az staticwebapp create -n factor-blaster -g rg-factor-blaster -l eastus2 --sku Free
-az staticwebapp secrets list -n factor-blaster -g rg-factor-blaster --query properties.apiKey -o tsv
-```
-
-Copy the printed token into this repository under
-**Settings → Secrets and variables → Actions → New repository secret**, named
-`AZURE_STATIC_WEB_APPS_API_TOKEN`. The next push to `main` publishes the game at
-`https://<name>.azurestaticapps.net`.
-
-The token can only publish to that one web app. Revoke or rotate it in the Azure portal at any time.
-The Free tier covers this game (static files only, no server).

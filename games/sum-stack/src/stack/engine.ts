@@ -141,7 +141,7 @@ export class StackEngine {
   start() {
     this.last = performance.now();
     const loop = (now: number) => {
-      const dt = Math.min(0.05, (now - this.last) / 1000);
+      const dt = Math.max(0, Math.min(0.05, (now - this.last) / 1000)); // first frame can be slightly negative
       this.last = now;
       this.update(dt);
       this.draw();
