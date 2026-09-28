@@ -57,4 +57,13 @@ window.GAMES = [
     image: "img/city-shield.png",
     year: 2026,
   },
+  {
+    id: "rock-driller",
+    title: "Rock Driller",
+    tagline: "Drill through real rock layers and collect the fossils and gems buried inside.",
+    subjects: ["Science"],
+    url: "/rock-driller/",
+    image: "img/rock-driller.png",
+    year: 2026,
+  },
 ];

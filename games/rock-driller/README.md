@@ -136,25 +136,11 @@ npm run build      # type-check + production build into dist/
 (`debugTeleport`, `debugChallenge`, `debugFinishGoal`, `godMode`).
 Playtest: `npx vite preview --port 4402 --host 127.0.0.1` then `node scripts/playtest.cjs`.
 
-## Deploying to Azure
+## Deploying
 
-Every push to `main` builds the game and publishes it to Azure Static Web Apps
-(`.github/workflows/azure-static-web-apps.yml`). Pull requests get their own preview link.
-The deploy step is skipped until the token below is added, so the build still runs and checks
-the code.
-
-One-time setup, from any browser at https://shell.azure.com (Bash):
-
-```sh
-az group create -n rg-rock-driller -l eastus2
-az deployment group create -g rg-rock-driller -f infra/main.bicep   # or: az staticwebapp create -n rock-driller -g rg-rock-driller -l eastus2 --sku Free
-az staticwebapp secrets list -n rock-driller -g rg-rock-driller --query properties.apiKey -o tsv
-```
-
-Copy the printed token into this repository under
-**Settings → Secrets and variables → Actions → New repository secret**, named
-`AZURE_STATIC_WEB_APPS_API_TOKEN`. The next push to `main` publishes the game at
-`https://<name>.azurestaticapps.net`.
+Rock Driller lives in SpiderBen10's Arcade repository (`games/rock-driller/`). The arcade's deploy workflow
+builds and tests it and publishes it at `/rock-driller/` on the arcade's Azure app, so it needs no Azure
+app or token of its own. See the arcade README.
 
 ## NC standard codes to verify
 
