@@ -19,6 +19,7 @@ import {
   submitScore,
   type DealtQuestion,
   type Grade,
+  gradeFromArcade,
 } from "@/kit";
 import { StackEngine, type Action, type HudState, type PowerUp, type RowStat } from "@/stack/engine";
 import { plainLabel } from "@/stack/font";
@@ -401,6 +402,12 @@ function TitleScreen({
       <div className="ss-panel" style={{ borderColor: "var(--ss-red)" }}>
         <div className="ss-title ss-pixel">SUM STACK</div>
         <div className="ss-sub ss-pixel">SPIDERBEN10'S ARCADE · K–12 MATH · NC STANDARDS</div>
+        {gradeFromArcade() ? (
+        <div className="ss-sub ss-pixel" style={{ marginTop: 12 }}>
+          {gradeLabel(grade).toUpperCase()} ·{" "}
+          <a href={arcadeLink(grade)} style={{ color: "inherit" }}>CHANGE GRADE IN THE ARCADE</a>
+        </div>
+        ) : (
         <div className="ss-grades" role="radiogroup" aria-label="Grade">
           {GRADES.map((g) => (
             <button key={g} role="radio" aria-checked={g === grade} className={`ss-grade ${g === grade ? "on" : ""}`} onClick={() => onGrade(g)}>
@@ -408,6 +415,7 @@ function TitleScreen({
             </button>
           ))}
         </div>
+        )}
         <div className="ss-rulebox">
           <b>{gradeLabel(grade)}: {plainLabel(rule.title)}</b>
           {rule.context.length > 0 && <> · {rule.context.map(plainLabel).join(" · ")}</>} — like <b>{example}</b>

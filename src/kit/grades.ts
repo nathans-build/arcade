@@ -40,6 +40,20 @@ export function courseName(g: Grade, subject: Subject): string | null {
   return ["Earth & Environmental Science", "Biology", "Chemistry", "Physics"][i];
 }
 
+/**
+ * True when the game was opened from the arcade menu with a grade (`?grade=`).
+ * The arcade owns the grade choice then, so games show the grade instead of a picker.
+ * Opened directly (no grade in the link), games still show their own picker.
+ */
+export function gradeFromArcade(): boolean {
+  try {
+    const q = new URLSearchParams(window.location.search).get("grade");
+    return isGrade(q ? q.toUpperCase() : null);
+  } catch {
+    return false;
+  }
+}
+
 const STORAGE_KEY = "arcade.grade";
 
 /**
