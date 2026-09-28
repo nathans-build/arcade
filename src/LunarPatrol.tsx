@@ -25,6 +25,7 @@ import {
   speakQuestion,
   speechSupported,
   stopSpeaking,
+  gradeFromArcade,
 } from "@/kit";
 import "@/lunar/lunar.css";
 
@@ -470,6 +471,12 @@ function TitleScreen({
       <div className="lp-panel" style={{ borderColor: "var(--lp-magenta)" }}>
         <div className="lp-title lp-pixel">LUNAR PATROL</div>
         <div className="lp-sub lp-pixel">ACADEMY · {gradeLabel(grade).toUpperCase()} · NC STANDARDS</div>
+        {gradeFromArcade() ? (
+        <div className="lp-sub lp-pixel" style={{ marginTop: 12 }}>
+          {gradeLabel(grade).toUpperCase()} ·{" "}
+          <a href={arcadeLink(grade)} style={{ color: "inherit" }}>CHANGE GRADE IN THE ARCADE</a>
+        </div>
+        ) : (
         <div className="lp-grades" role="group" aria-label="Grade level">
           {GRADES.map((g) => (
             <button
@@ -484,6 +491,7 @@ function TitleScreen({
             </button>
           ))}
         </div>
+        )}
         {course && <div className="lp-sub" style={{ marginTop: 4 }}>High school: {course} · {courseName(grade, "ela")} · {courseName(grade, "science")}</div>}
         <div className="lp-subjects">
           {MODES.map((m) => (
