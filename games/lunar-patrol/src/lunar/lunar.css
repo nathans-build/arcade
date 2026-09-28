@@ -1,0 +1,247 @@
+/* Lunar Patrol Academy — arcade presentation layer */
+
+.lp-root {
+  --lp-bg: #000010;
+  --lp-cyan: #5ff5ff;
+  --lp-magenta: #e24ae2;
+  --lp-yellow: #ffe25a;
+  --lp-green: #5fff8a;
+  --lp-red: #ff4a4a;
+  --lp-white: #f2f2ff;
+  --lp-dim: #6a78b8;
+  height: 100vh;
+  height: 100dvh;
+  box-sizing: border-box;
+  background: var(--lp-bg);
+  color: var(--lp-white);
+  font-family: "VT323", ui-monospace, monospace;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 16px 16px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.lp-pixel { font-family: "Press Start 2P", ui-monospace, monospace; letter-spacing: 0.02em; }
+
+.lp-cabinet {
+  width: 100%; max-width: 960px;
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+}
+.lp-toolbar, .lp-hud, .lp-track, .lp-controls, .lp-wave.below { flex: none; }
+
+/* The stage takes whatever height is left; the 16:10 screen scales to fit it both ways. */
+.lp-stage {
+  flex: 1; min-height: 120px;
+  display: flex; align-items: flex-start; justify-content: center;
+}
+
+.lp-hud {
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  justify-content: space-between;
+  gap: 4px 12px;
+  font-size: clamp(8px, 1.6vw, 12px);
+  padding: 6px 2px;
+  text-transform: uppercase;
+}
+.lp-hud .lbl { color: var(--lp-dim); margin-right: 6px; }
+.lp-hud .val { color: var(--lp-white); }
+
+.lp-track {
+  position: relative;
+  height: 14px;
+  margin: 2px 2px 6px;
+  border-top: 2px solid var(--lp-dim);
+}
+.lp-track .tick {
+  position: absolute; top: -2px; transform: translateX(-50%);
+  font-size: clamp(6px, 1.2vw, 8px); color: var(--lp-dim); padding-top: 4px;
+}
+.lp-track .tick.on { color: var(--lp-yellow); }
+.lp-track .car {
+  position: absolute; top: -6px; width: 8px; height: 6px; background: var(--lp-magenta);
+  transform: translateX(-50%); transition: left 0.1s linear;
+}
+
+.lp-fuel { display: flex; align-items: center; gap: 6px; }
+.lp-fuel .bar { width: clamp(50px, 12vw, 110px); height: 8px; border: 1px solid var(--lp-dim); position: relative; }
+.lp-fuel .fill { position: absolute; inset: 0 auto 0 0; background: var(--lp-green); }
+.lp-fuel .fill.low { background: var(--lp-red); animation: lp-blink 0.5s steps(2) infinite; }
+
+.lp-screen {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 320 / 200;
+  box-sizing: border-box;
+  border: 3px solid #1c2450;
+  box-shadow: 0 0 0 2px #000, 0 0 40px rgba(95, 245, 255, 0.12);
+  overflow: hidden;
+  background: var(--lp-bg);
+}
+.lp-screen canvas {
+  width: 100%; height: 100%; display: block;
+  image-rendering: pixelated; image-rendering: crisp-edges;
+}
+/* CRT scanlines */
+.lp-screen::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0) 0 2px, rgba(0, 0, 0, 0.18) 2px 3px);
+}
+
+.lp-overlay {
+  position: absolute; inset: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  padding: 3%;
+  background: rgba(0, 0, 16, 0.78);
+  overflow-y: auto;
+}
+.lp-panel {
+  width: 100%; max-width: 760px; max-height: 100%;
+  overflow-y: auto;
+  border: 3px solid var(--lp-cyan);
+  background: #05082a;
+  padding: clamp(10px, 2.5vw, 22px);
+  box-shadow: 6px 6px 0 #000;
+}
+
+.lp-title {
+  font-size: clamp(18px, 5vw, 44px);
+  color: var(--lp-yellow);
+  text-shadow: 3px 3px 0 var(--lp-magenta), 6px 6px 0 #000;
+  text-align: center; line-height: 1.2;
+}
+.lp-sub { text-align: center; color: var(--lp-cyan); font-size: clamp(8px, 1.6vw, 13px); margin-top: 10px; }
+
+.lp-h { font-size: clamp(9px, 1.8vw, 14px); color: var(--lp-cyan); margin-bottom: 10px; }
+.lp-tag { display: inline-block; font-size: clamp(7px, 1.2vw, 10px); padding: 3px 6px; margin-right: 6px; border: 1px solid currentColor; }
+.lp-tag.math { color: var(--lp-yellow); }
+.lp-tag.science { color: var(--lp-green); }
+.lp-tag.ela { color: var(--lp-magenta); }
+.lp-tag.std { color: var(--lp-dim); }
+
+.lp-passage {
+  font-size: clamp(18px, 2.6vw, 24px); line-height: 1.15;
+  color: #cfd6ff; border-left: 4px solid var(--lp-dim); padding: 4px 10px; margin: 10px 0;
+}
+.lp-prompt { font-size: clamp(20px, 3.2vw, 30px); line-height: 1.1; margin: 10px 0 12px; }
+
+.lp-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (max-width: 640px) { .lp-choices { grid-template-columns: 1fr; } }
+
+.lp-btn {
+  font-family: "VT323", ui-monospace, monospace;
+  font-size: clamp(18px, 2.6vw, 24px); line-height: 1.05;
+  text-align: left;
+  color: var(--lp-white); background: #0c1248;
+  border: 2px solid var(--lp-dim);
+  padding: 8px 10px;
+  box-shadow: 3px 3px 0 #000;
+  cursor: pointer;
+  display: flex; gap: 10px; align-items: flex-start;
+}
+.lp-btn:hover:not(:disabled), .lp-btn:focus-visible { border-color: var(--lp-cyan); background: #142070; outline: none; }
+.lp-btn:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #000; }
+.lp-btn .key { font-family: "Press Start 2P", monospace; font-size: 0.55em; color: var(--lp-yellow); padding-top: 4px; }
+.lp-btn.right { border-color: var(--lp-green); background: #0d3a22; }
+.lp-btn.wrong { border-color: var(--lp-red); background: #3a0d12; }
+.lp-btn:disabled { cursor: default; }
+
+.lp-cta {
+  font-family: "Press Start 2P", monospace; font-size: clamp(9px, 1.6vw, 13px);
+  color: #000010; background: var(--lp-yellow); border: 0; padding: 12px 16px;
+  box-shadow: 4px 4px 0 var(--lp-magenta); cursor: pointer; text-transform: uppercase;
+}
+.lp-cta:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--lp-magenta); }
+.lp-cta.ghost { background: transparent; color: var(--lp-cyan); box-shadow: none; border: 2px solid var(--lp-cyan); }
+
+.lp-grades { display: grid; grid-template-columns: repeat(13, minmax(0, 1fr)); gap: 4px; margin: 14px 0 0; }
+@media (max-width: 640px) { .lp-grades { grid-template-columns: repeat(7, minmax(0, 1fr)); } }
+.lp-grade {
+  font-size: clamp(8px, 1.3vw, 11px); min-height: 32px; padding: 4px 0; cursor: pointer;
+  color: var(--lp-white); background: #0c1248; border: 2px solid var(--lp-dim); box-shadow: 2px 2px 0 #000;
+}
+.lp-grade:hover, .lp-grade:focus-visible { border-color: var(--lp-yellow); outline: none; }
+.lp-grade.on { background: var(--lp-magenta); border-color: var(--lp-yellow); color: #fff; }
+
+.lp-subjects { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 18px 0 12px; }
+@media (max-width: 640px) { .lp-subjects { grid-template-columns: 1fr 1fr; } }
+.lp-subject {
+  font-family: "Press Start 2P", monospace; font-size: clamp(9px, 1.5vw, 12px);
+  padding: 14px 6px; background: #0c1248; color: var(--lp-white); cursor: pointer;
+  border: 2px solid var(--lp-dim); box-shadow: 3px 3px 0 #000; line-height: 1.6;
+}
+.lp-subject small { display: block; font-family: "VT323", monospace; font-size: 16px; color: var(--lp-dim); }
+.lp-subject:hover, .lp-subject:focus-visible { border-color: var(--lp-yellow); outline: none; }
+
+.lp-feedback { margin-top: 12px; font-size: clamp(18px, 2.6vw, 24px); line-height: 1.15; }
+.lp-feedback .verdict { font-family: "Press Start 2P", monospace; font-size: clamp(10px, 1.8vw, 14px); margin-bottom: 6px; }
+.lp-feedback .verdict.ok { color: var(--lp-green); }
+.lp-feedback .verdict.no { color: var(--lp-red); }
+
+/* Quiz Squadron banner sits across the sky so the road and the UFOs stay visible */
+.lp-wave {
+  position: absolute; left: 0; right: 0; top: 0; z-index: 1;
+  background: rgba(0, 0, 16, 0.86); border-bottom: 2px solid var(--lp-green);
+  padding: 6px 10px 8px;
+  font-size: clamp(14px, 2.3vw, 22px); line-height: 1.05;
+  pointer-events: none;
+}
+.lp-wave .head { font-family: "Press Start 2P", monospace; font-size: clamp(6px, 1.2vw, 10px); color: var(--lp-green); display: flex; justify-content: space-between; margin-bottom: 4px; }
+.lp-wave .opts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px 10px; margin-top: 4px; color: #cfd6ff; }
+@media (max-width: 640px) { .lp-wave .opts { grid-template-columns: 1fr 1fr; } }
+.lp-wave .opts b { color: var(--lp-yellow); font-weight: normal; }
+.lp-wave .opt {
+  pointer-events: auto; cursor: pointer; text-align: left;
+  font: inherit; color: inherit; background: none; border: 1px solid transparent;
+  padding: 2px 4px; margin: -2px -4px; touch-action: none;
+}
+.lp-wave .opt:disabled { cursor: default; }
+.lp-wave .opt.picked { border-color: var(--lp-yellow); }
+.lp-wave .opt.ans { color: var(--lp-green); }
+.lp-wave .timer { height: 3px; background: var(--lp-green); margin-top: 5px; transition: width 0.1s linear; }
+
+.lp-controls { display: none; margin-top: 10px; gap: 10px; justify-content: space-between; }
+.lp-controls.show { display: flex; }
+.lp-pad { display: flex; gap: 10px; }
+.lp-touch {
+  font-family: "Press Start 2P", monospace; font-size: 11px;
+  width: 72px; height: 60px; border-radius: 10px;
+  background: #0c1248; color: var(--lp-white); border: 2px solid var(--lp-dim);
+  touch-action: none;
+}
+.lp-touch.big { width: 88px; }
+.lp-touch.fire { border-color: var(--lp-red); color: var(--lp-red); }
+.lp-touch.jump { border-color: var(--lp-cyan); color: var(--lp-cyan); }
+.lp-touch:active { background: #1c2a90; }
+
+.lp-help { font-size: clamp(16px, 2.2vw, 20px); color: #b8c0f0; line-height: 1.15; }
+.lp-help kbd { font-family: "Press Start 2P", monospace; font-size: 0.5em; color: var(--lp-yellow); border: 1px solid var(--lp-dim); padding: 2px 4px; }
+
+.lp-report-table { width: 100%; border-collapse: collapse; font-size: clamp(16px, 2.2vw, 20px); margin-top: 8px; }
+.lp-report-table th { font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--lp-dim); text-align: left; padding: 4px; }
+.lp-report-table td { padding: 3px 4px; border-top: 1px solid #1c2450; }
+
+.lp-toolbar { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; margin-bottom: 4px; }
+.lp-toolbar a, .lp-toolbar button {
+  font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--lp-dim);
+  background: none; border: 0; cursor: pointer; text-decoration: none; padding: 6px 0;
+}
+.lp-toolbar a:hover, .lp-toolbar button:hover { color: var(--lp-cyan); }
+
+@keyframes lp-blink { 50% { opacity: 0.2; } }
+.lp-blink { animation: lp-blink 1s steps(2) infinite; }
+
+/* Wave banner copy shown under the screen on phones */
+.lp-wave.below { position: static; border: 2px solid var(--lp-green); margin-top: 8px; display: none; }
+
+@media (max-width: 700px), (max-height: 640px) {
+  /* Small screens: the game screen is too short for text panels, so they take the viewport */
+  .lp-overlay { position: fixed; padding: 12px; align-items: flex-start; }
+  .lp-panel { max-height: none; }
+  .lp-screen .lp-wave { display: none; }
+  .lp-wave.below { display: block; }
+}
