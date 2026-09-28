@@ -1,0 +1,267 @@
+/* Route Runner — arcade presentation layer (SpiderBen10's Arcade reds & blues) */
+
+.rr-root {
+  --rr-bg: #0a0f2e;
+  --rr-panel: #0c1440;
+  --rr-red: #e3262f;
+  --rr-blue: #2456e8;
+  --rr-lightblue: #6ea0ff;
+  --rr-yellow: #ffd23f;
+  --rr-cyan: #7ff3ff;
+  --rr-green: #5fff8a;
+  --rr-white: #f2f4ff;
+  --rr-dim: #6a78b8;
+  height: 100vh;
+  height: 100dvh;
+  box-sizing: border-box;
+  background: var(--rr-bg);
+  color: var(--rr-white);
+  font-family: "VT323", ui-monospace, monospace;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 16px 12px;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.rr-pixel { font-family: "Press Start 2P", ui-monospace, monospace; letter-spacing: 0.02em; }
+
+.rr-cabinet {
+  width: 100%; max-width: 960px;
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+}
+.rr-toolbar, .rr-hud, .rr-banner, .rr-controls { flex: none; }
+
+/* The stage takes whatever height is left; the 16:10 screen scales to fit it both ways. */
+.rr-stage {
+  flex: 1; min-height: 120px;
+  display: flex; align-items: flex-start; justify-content: center;
+}
+
+.rr-toolbar { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; margin-bottom: 2px; gap: 8px; }
+.rr-tools { display: flex; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
+.rr-toolbar a, .rr-toolbar button {
+  font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--rr-lightblue);
+  background: none; border: 0; cursor: pointer; text-decoration: none; padding: 6px 0;
+}
+.rr-toolbar a { color: var(--rr-red); }
+.rr-toolbar a:hover, .rr-toolbar button:hover { color: var(--rr-yellow); }
+
+.rr-hud {
+  display: grid;
+  grid-template-columns: repeat(5, auto);
+  justify-content: space-between;
+  gap: 4px 12px;
+  font-size: clamp(8px, 1.6vw, 12px);
+  padding: 5px 2px;
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--rr-red);
+  margin-bottom: 6px;
+}
+.rr-hud .lbl { color: var(--rr-lightblue); margin-right: 6px; }
+.rr-hud .val { color: var(--rr-white); }
+.rr-hud .lives { color: var(--rr-red); }
+.rr-hud .streak { color: var(--rr-yellow); margin-left: 8px; }
+
+.rr-screen {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 320 / 200;
+  box-sizing: border-box;
+  border: 3px solid #1c2a78;
+  box-shadow: 0 0 0 2px #000, 0 0 40px rgba(36, 86, 232, 0.25);
+  overflow: hidden;
+  background: var(--rr-bg);
+}
+.rr-screen canvas {
+  width: 100%; height: 100%; display: block;
+  image-rendering: pixelated; image-rendering: crisp-edges;
+}
+/* CRT scanlines */
+.rr-screen::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0) 0 2px, rgba(0, 0, 0, 0.18) 2px 3px);
+}
+
+
+.rr-overlay {
+  position: absolute; inset: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  padding: 3%;
+  background: rgba(10, 15, 46, 0.8);
+  overflow-y: auto;
+}
+.rr-panel {
+  width: 100%; max-width: 780px; max-height: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  border: 3px solid var(--rr-blue);
+  background: var(--rr-panel);
+  padding: clamp(10px, 2.2vw, 20px);
+  box-shadow: 6px 6px 0 #000;
+}
+
+.rr-title {
+  font-size: clamp(18px, 4.6vw, 40px);
+  color: var(--rr-yellow);
+  text-shadow: 3px 3px 0 var(--rr-red), 6px 6px 0 #000;
+  text-align: center; line-height: 1.2;
+}
+.rr-sub { text-align: center; color: var(--rr-lightblue); font-size: clamp(7px, 1.4vw, 11px); margin-top: 10px; }
+
+.rr-h { font-size: clamp(8px, 1.5vw, 12px); color: var(--rr-cyan); margin-bottom: 8px; }
+.rr-tag { display: inline-block; font-size: clamp(7px, 1.2vw, 10px); padding: 3px 6px; margin-right: 6px; border: 1px solid currentColor; }
+.rr-tag.math { color: var(--rr-yellow); }
+.rr-tag.science { color: var(--rr-green); }
+.rr-tag.ela { color: var(--rr-lightblue); }
+
+.rr-grades { display: grid; grid-template-columns: repeat(13, 1fr); gap: 5px; }
+@media (max-width: 640px) { .rr-grades { grid-template-columns: repeat(7, 1fr); } }
+.rr-grade {
+  font-size: clamp(9px, 1.4vw, 12px);
+  padding: 9px 0; background: #111c5a; color: var(--rr-white); cursor: pointer;
+  border: 2px solid var(--rr-dim); box-shadow: 2px 2px 0 #000;
+}
+.rr-grade.on { background: var(--rr-red); border-color: var(--rr-yellow); color: #fff; }
+.rr-grade:hover, .rr-grade:focus-visible { border-color: var(--rr-yellow); outline: none; }
+
+.rr-subjects { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 0 0 12px; }
+@media (max-width: 640px) { .rr-subjects { grid-template-columns: 1fr 1fr; } }
+.rr-subject {
+  font-family: "Press Start 2P", monospace; font-size: clamp(9px, 1.5vw, 12px);
+  padding: 12px 6px; background: #111c5a; color: var(--rr-white); cursor: pointer;
+  border: 2px solid var(--rr-blue); box-shadow: 3px 3px 0 #000; line-height: 1.6;
+}
+.rr-subject small { display: block; font-family: "VT323", monospace; font-size: 16px; color: var(--rr-lightblue); }
+.rr-subject:hover, .rr-subject:focus-visible { border-color: var(--rr-yellow); background: #1a2a80; outline: none; }
+
+.rr-cta {
+  font-family: "Press Start 2P", monospace; font-size: clamp(9px, 1.6vw, 13px);
+  color: var(--rr-bg); background: var(--rr-yellow); border: 0; padding: 12px 16px;
+  box-shadow: 4px 4px 0 var(--rr-red); cursor: pointer; text-transform: uppercase;
+}
+.rr-cta:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--rr-red); }
+.rr-cta.ghost { background: transparent; color: var(--rr-cyan); box-shadow: none; border: 2px solid var(--rr-cyan); }
+
+/* Question banner: sits between the HUD and the screen so it never hides the invaders. */
+.rr-banner {
+  position: relative;
+  background: #0c1440;
+  border: 2px solid var(--rr-blue);
+  border-left: 6px solid var(--rr-red);
+  padding: 5px 10px 8px;
+  margin-bottom: 6px;
+  font-size: clamp(17px, 2.4vw, 24px); line-height: 1.05;
+}
+.rr-banner.correct { border-color: var(--rr-green); }
+.rr-banner.wrong, .rr-banner.invaded { border-color: var(--rr-red); }
+.rr-banner .head {
+  font-size: clamp(6px, 1.1vw, 9px); color: var(--rr-lightblue);
+  display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px;
+}
+.rr-banner.correct .head { color: var(--rr-green); }
+.rr-banner.wrong .head, .rr-banner.invaded .head { color: var(--rr-red); }
+.rr-banner .head .std { color: var(--rr-dim); white-space: nowrap; }
+.rr-banner .prompt { display: flex; align-items: flex-start; gap: 8px; }
+.rr-banner .speak {
+  flex: none; font-size: 0.9em; padding: 2px 5px; margin-top: 1px;
+  background: #111c5a; color: var(--rr-lightblue); border: 1px solid var(--rr-dim); cursor: pointer;
+}
+.rr-banner .speak.on { color: var(--rr-yellow); border-color: var(--rr-yellow); }
+.rr-banner .opts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px 8px; margin-top: 5px; }
+@media (max-width: 560px) { .rr-banner .opts { grid-template-columns: 1fr 1fr; } }
+.rr-banner .opt {
+  display: flex; gap: 6px; align-items: baseline;
+  font: inherit; color: #d6dcff; text-align: left; cursor: pointer;
+  background: #111c5a; border: 2px solid #1f2d7a; padding: 3px 6px;
+  touch-action: none; min-height: 34px;
+}
+.rr-banner .opt b { font-family: "Press Start 2P", monospace; font-size: 0.5em; font-weight: normal; color: var(--rr-yellow); }
+.rr-banner .opt:hover:not(:disabled) { border-color: var(--rr-yellow); }
+.rr-banner .opt:disabled { cursor: default; }
+.rr-banner .opt.picked { border-color: var(--rr-cyan); color: var(--rr-cyan); }
+.rr-banner .opt.ans { border-color: var(--rr-green); color: var(--rr-green); background: #0d3a22; }
+.rr-banner .opt.wrong { border-color: var(--rr-red); color: #ffb0b4; background: #3a0d12; }
+.rr-banner .info { margin-top: 4px; color: #b8c0f0; font-size: 0.8em; min-height: 2.1em; }
+.rr-banner.wrong .info, .rr-banner.invaded .info, .rr-banner.correct .info { color: var(--rr-white); }
+/* How far the invaders have marched toward the city */
+.rr-banner .danger { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: #1a2360; }
+.rr-banner .danger .fill { height: 100%; background: linear-gradient(90deg, var(--rr-yellow), var(--rr-red)); transition: width 0.2s linear; }
+
+.rr-controls { display: none; margin-top: 8px; gap: 10px; justify-content: space-between; }
+.rr-controls.show { display: flex; }
+.rr-pad { display: flex; gap: 10px; }
+.rr-touch {
+  font-family: "Press Start 2P", monospace; font-size: 12px;
+  width: 80px; height: 60px; border-radius: 10px;
+  background: #111c5a; color: var(--rr-white); border: 2px solid var(--rr-lightblue);
+  touch-action: none;
+}
+.rr-touch.big { width: 120px; }
+.rr-touch.fire { border-color: var(--rr-red); color: var(--rr-red); }
+.rr-touch:active { background: #1c2a90; }
+
+.rr-help { font-size: clamp(16px, 2.1vw, 20px); color: #b8c0f0; line-height: 1.15; }
+.rr-help kbd { font-family: "Press Start 2P", monospace; font-size: 0.5em; color: var(--rr-yellow); border: 1px solid var(--rr-dim); padding: 2px 4px; }
+
+.rr-report-table { width: 100%; border-collapse: collapse; font-size: clamp(16px, 2.2vw, 20px); margin-top: 8px; }
+.rr-report-table th { font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--rr-dim); text-align: left; padding: 4px; }
+.rr-report-table td { padding: 3px 4px; border-top: 1px solid #1c2a78; }
+
+@keyframes rr-blink { 50% { opacity: 0.25; } }
+
+/* Early readers (K-2): bigger question text and answer buttons. */
+.rr-root.early .rr-banner { font-size: clamp(20px, 3vw, 30px); }
+.rr-root.early .rr-banner .opt { min-height: 42px; }
+
+@media (max-width: 700px), (max-height: 640px) {
+  /* Small screens: the game screen is too short for text panels, so they take the viewport */
+  .rr-overlay { position: fixed; padding: 12px; align-items: flex-start; }
+  .rr-panel { max-height: none; }
+}
+@media (max-height: 560px) {
+  .rr-root { padding-top: 2px; padding-bottom: 6px; }
+  .rr-hud { padding: 2px; margin-bottom: 3px; }
+  .rr-banner { padding: 3px 8px 6px; margin-bottom: 4px; font-size: 17px; }
+  .rr-banner .info { min-height: 0; }
+  .rr-banner .info.hint { display: none; }
+  .rr-banner .opt { min-height: 28px; padding: 1px 5px; }
+  .rr-touch { height: 46px; }
+  .rr-controls { margin-top: 4px; }
+}
+
+/* ---------------------------------------------------------------- Route Runner additions */
+.rr-hud .val.low { color: var(--rr-red); animation: rr-blink 0.5s steps(2) infinite; }
+.rr-badge { color: var(--rr-yellow); }
+.rr-screen canvas { touch-action: none; cursor: pointer; }
+
+.rr-banner .prompt { flex-wrap: wrap; align-items: center; }
+.rr-banner .rule { flex: 1 1 60%; color: var(--rr-white); }
+.rr-banner .next {
+  flex: none; font-family: "Press Start 2P", monospace; font-size: clamp(7px, 1.1vw, 10px);
+  color: var(--rr-yellow); border: 1px solid var(--rr-yellow); padding: 4px 6px; background: #111c5a;
+}
+.rr-banner .next b { font-weight: normal; color: var(--rr-white); }
+.rr-banner .next.none { color: var(--rr-dim); border-color: #1f2d7a; }
+.rr-banner .tally { font-size: 0.75em; color: var(--rr-lightblue); margin-bottom: 3px; }
+.rr-banner .passage {
+  font-size: 0.78em; color: #d6dcff; background: #0a1036; border-left: 3px solid var(--rr-blue);
+  padding: 3px 8px; margin: 2px 0 4px; max-height: 5.5em; overflow-y: auto; line-height: 1.1;
+}
+.rr-banner .info.result { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+.rr-banner .info.result span { flex: 1; }
+.rr-cta.small { padding: 8px 10px; font-size: clamp(8px, 1.2vw, 11px); flex: none; }
+
+.rr-touch.small { width: 64px; font-size: 9px; }
+.rr-root.early .rr-banner .rule { font-size: 1.1em; }
+.rr-root.early .rr-banner .next { font-size: clamp(9px, 1.4vw, 12px); }
+@media (max-width: 560px) {
+  .rr-hud { grid-template-columns: repeat(3, auto); }
+  .rr-touch { width: 56px; }
+  .rr-touch.small { width: 50px; font-size: 8px; }
+  .rr-touch.big { width: 84px; }
+}
