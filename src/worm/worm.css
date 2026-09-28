@@ -1,0 +1,295 @@
+/* Word Worm — arcade presentation layer (SpiderBen10 red & blue on deep space) */
+
+.ww-root {
+  --ww-bg: #0a0f2e;
+  --ww-deep: #050818;
+  --ww-red: #e3262f;
+  --ww-blue: #2456e8;
+  --ww-cyan: #6ea0ff;
+  --ww-yellow: #ffd23f;
+  --ww-green: #5fff8a;
+  --ww-white: #f2f4ff;
+  --ww-dim: #6a78b8;
+  height: 100vh;
+  height: 100dvh;
+  box-sizing: border-box;
+  background: var(--ww-bg);
+  color: var(--ww-white);
+  font-family: "VT323", ui-monospace, monospace;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 16px 16px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  overflow: hidden;
+}
+
+.ww-pixel { font-family: "Press Start 2P", ui-monospace, monospace; letter-spacing: 0.02em; }
+.ww-root .y { color: var(--ww-yellow); }
+.ww-root .c { color: var(--ww-cyan); }
+.ww-root .dim { color: var(--ww-dim); }
+
+.ww-cabinet {
+  width: 100%; max-width: 960px;
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+}
+.ww-toolbar, .ww-hud, .ww-banner, .ww-controls { flex: none; }
+
+/* The stage takes whatever height is left; the 16:10 screen scales to fit it both ways. */
+.ww-stage {
+  flex: 1; min-height: 120px;
+  display: flex; align-items: flex-start; justify-content: center;
+}
+
+.ww-hud {
+  display: grid;
+  grid-template-columns: repeat(5, auto);
+  justify-content: space-between;
+  gap: 4px 12px;
+  font-size: clamp(8px, 1.6vw, 12px);
+  padding: 6px 2px;
+  text-transform: uppercase;
+}
+.ww-hud .lbl { color: var(--ww-dim); margin-right: 6px; }
+.ww-hud .val { color: var(--ww-white); }
+.ww-hud .lives { color: var(--ww-red); letter-spacing: 2px; }
+.ww-hud .streak { color: var(--ww-yellow); margin-left: 8px; }
+.ww-hud .shield .on { color: var(--ww-cyan); }
+.ww-hud .shield .off { color: #1c2450; }
+
+/* Word banner: the target, the tray, the pick strip and the reason for each shot. */
+.ww-banner {
+  position: relative;
+  background: #0c1440;
+  border: 2px solid var(--ww-blue);
+  border-left: 6px solid var(--ww-red);
+  padding: 4px 10px 7px;
+  margin: 0 0 6px;
+  font-size: clamp(17px, 2.4vw, 24px); line-height: 1.05;
+}
+.ww-banner.idle { padding: 6px 10px; }
+.ww-banner.correct { border-color: var(--ww-green); }
+.ww-banner.wrong { border-color: var(--ww-red); }
+.ww-banner .head {
+  font-size: clamp(6px, 1.1vw, 9px); color: var(--ww-cyan);
+  display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px;
+}
+.ww-banner.correct .head { color: var(--ww-green); }
+.ww-banner .head .std { color: var(--ww-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.ww-banner .prompt { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ww-banner .ptext { flex: 1 1 260px; min-width: 0; }
+.ww-banner .dim { color: var(--ww-dim); }
+.ww-banner .tray { display: flex; gap: 4px; margin-left: auto; font-family: "Press Start 2P", monospace; font-size: 0.62em; }
+.ww-banner .tray .cell { padding: 3px 4px; border-bottom: 2px solid #26336e; color: #6a78b8; min-width: 0.8em; text-align: center; }
+.ww-banner .tray .cell.done { color: var(--ww-green); border-color: var(--ww-green); }
+.ww-banner .tray .cell.next { color: var(--ww-yellow); border-color: var(--ww-yellow); }
+.ww-banner .tray .cell.ghost { color: #9aa6e0; }
+.ww-banner .opts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px 8px; margin-top: 5px; }
+.ww-banner .opt {
+  display: flex; gap: 8px; align-items: center; justify-content: center;
+  font-family: "Press Start 2P", monospace; font-size: 0.6em; color: var(--ww-white); cursor: pointer;
+  background: #111c5a; border: 2px solid #1f2d7a; padding: 3px 6px;
+  touch-action: none; min-height: 34px; box-shadow: 2px 2px 0 #000;
+}
+@media (max-width: 560px) { .ww-banner .opts { grid-template-columns: 1fr 1fr; } }
+.ww-banner .opt span { overflow-wrap: anywhere; }
+.ww-banner .opt b { font-weight: normal; color: var(--ww-yellow); font-size: 0.75em; }
+.ww-banner .opt:hover:not(:disabled) { border-color: var(--ww-yellow); }
+.ww-banner .opt:active:not(:disabled) { transform: translate(1px, 1px); box-shadow: 1px 1px 0 #000; }
+.ww-banner .opt:disabled { cursor: default; opacity: 0.55; }
+.ww-banner .info { margin-top: 4px; color: #b8c0f0; font-size: 0.8em; min-height: 2.1em; }
+.ww-banner .info.ok { color: var(--ww-green); }
+.ww-banner .info.no { color: #ffb0b4; }
+/* How far down the page the worm has wound */
+.ww-banner .danger { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: #1a2360; }
+.ww-banner .danger .fill { height: 100%; background: linear-gradient(90deg, var(--ww-yellow), var(--ww-red)); transition: width 0.2s linear; }
+
+.ww-screen {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 320 / 200;
+  box-sizing: border-box;
+  border: 3px solid #1c2a78;
+  box-shadow: 0 0 0 2px #000, 0 0 40px rgba(36, 86, 232, 0.25);
+  overflow: hidden;
+  background: var(--ww-bg);
+}
+.ww-screen canvas {
+  width: 100%; height: 100%; display: block;
+  image-rendering: pixelated; image-rendering: crisp-edges;
+}
+/* CRT scanlines */
+.ww-screen::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0) 0 2px, rgba(0, 0, 0, 0.18) 2px 3px);
+}
+
+.ww-overlay {
+  position: absolute; inset: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  padding: 3%;
+  background: rgba(5, 8, 24, 0.8);
+  overflow-y: auto;
+}
+.ww-panel {
+  width: 100%; max-width: 760px; max-height: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  border: 3px solid var(--ww-cyan);
+  background: #070c30;
+  padding: clamp(10px, 2.5vw, 22px);
+  box-shadow: 6px 6px 0 #000;
+}
+.ww-panel.title { border-color: var(--ww-red); }
+
+.ww-title {
+  font-size: clamp(18px, 5vw, 44px);
+  color: var(--ww-yellow);
+  text-shadow: 3px 3px 0 var(--ww-red), 6px 6px 0 var(--ww-blue);
+  text-align: center; line-height: 1.2;
+}
+.ww-sub { text-align: center; color: var(--ww-cyan); font-size: clamp(7px, 1.4vw, 12px); margin-top: 10px; }
+
+.ww-grades { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 14px 0 10px; }
+.ww-grade {
+  font-size: clamp(9px, 1.4vw, 12px);
+  min-width: 36px; padding: 9px 4px;
+  background: #0c1450; color: var(--ww-white); cursor: pointer;
+  border: 2px solid var(--ww-dim); box-shadow: 3px 3px 0 #000;
+}
+.ww-grade:hover, .ww-grade:focus-visible { border-color: var(--ww-cyan); outline: none; }
+.ww-grade.on { background: var(--ww-red); border-color: var(--ww-yellow); color: #fff; }
+
+.ww-h { font-size: clamp(9px, 1.8vw, 14px); color: var(--ww-cyan); margin-bottom: 10px; line-height: 1.4; }
+.ww-tagrow { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.ww-tag { display: inline-block; font-size: clamp(7px, 1.2vw, 10px); padding: 3px 6px; border: 1px solid currentColor; }
+.ww-tag.ela { color: var(--ww-cyan); }
+.ww-tag.std { color: var(--ww-dim); }
+
+.ww-speak {
+  font-size: 18px; line-height: 1; padding: 2px 6px; cursor: pointer;
+  background: #0c1450; border: 2px solid var(--ww-cyan); color: var(--ww-white);
+}
+.ww-speak.on { color: var(--ww-yellow); border-color: var(--ww-yellow); }
+
+.ww-passage {
+  font-size: clamp(18px, 2.6vw, 24px); line-height: 1.15;
+  color: #cfd6ff; border-left: 4px solid var(--ww-dim); padding: 4px 10px; margin: 10px 0;
+}
+.ww-prompt { font-size: clamp(20px, 3.2vw, 30px); line-height: 1.1; margin: 10px 0 12px; }
+
+.ww-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (max-width: 640px) { .ww-choices { grid-template-columns: 1fr; } }
+
+.ww-btn {
+  font-family: "VT323", ui-monospace, monospace;
+  font-size: clamp(18px, 2.6vw, 24px); line-height: 1.05;
+  text-align: left;
+  color: var(--ww-white); background: #0c1450;
+  border: 2px solid var(--ww-dim);
+  padding: 8px 10px;
+  box-shadow: 3px 3px 0 #000;
+  cursor: pointer;
+  display: flex; gap: 10px; align-items: flex-start;
+}
+.ww-btn:hover:not(:disabled), .ww-btn:focus-visible { border-color: var(--ww-cyan); background: #142070; outline: none; }
+.ww-btn:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #000; }
+.ww-btn .key { font-family: "Press Start 2P", monospace; font-size: 0.55em; color: var(--ww-yellow); padding-top: 4px; }
+.ww-btn.right { border-color: var(--ww-green); background: #0d3a22; }
+.ww-btn.wrong { border-color: var(--ww-red); background: #3a0d12; }
+.ww-btn:disabled { cursor: default; }
+
+.ww-cta {
+  font-family: "Press Start 2P", monospace; font-size: clamp(9px, 1.6vw, 13px);
+  color: var(--ww-deep); background: var(--ww-yellow); border: 0; padding: 12px 16px;
+  box-shadow: 4px 4px 0 var(--ww-red); cursor: pointer; text-transform: uppercase;
+}
+.ww-cta:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--ww-red); }
+.ww-cta.ghost { background: transparent; color: var(--ww-cyan); box-shadow: none; border: 2px solid var(--ww-cyan); }
+
+.ww-feedback { margin-top: 12px; font-size: clamp(18px, 2.6vw, 24px); line-height: 1.15; }
+.ww-feedback .verdict { font-family: "Press Start 2P", monospace; font-size: clamp(10px, 1.8vw, 14px); margin-bottom: 6px; }
+.ww-feedback .verdict.ok { color: var(--ww-green); }
+.ww-feedback .verdict.no { color: var(--ww-red); }
+
+.ww-controls { display: none; margin-top: 10px; gap: 10px; justify-content: space-between; }
+.ww-controls.show { display: flex; }
+.ww-pad { display: flex; gap: 10px; }
+.ww-touch {
+  font-size: 11px;
+  width: 72px; height: 60px; border-radius: 10px;
+  background: #0c1450; color: var(--ww-white); border: 2px solid var(--ww-dim);
+  touch-action: none;
+}
+.ww-touch[aria-label] { font-family: ui-monospace, monospace; font-size: 30px; }
+.ww-touch.big { width: 96px; }
+.ww-touch.fire { border-color: var(--ww-red); color: var(--ww-red); }
+.ww-touch:active { background: #1c2a90; }
+
+.ww-help { font-size: clamp(16px, 2.2vw, 20px); color: #b8c0f0; line-height: 1.15; }
+.ww-help.center { text-align: center; }
+.ww-help.big { font-size: 22px; }
+.ww-help .gl { color: var(--ww-yellow); font-weight: normal; }
+.ww-help .ex { color: var(--ww-cyan); }
+.ww-help kbd { font-family: "Press Start 2P", monospace; font-size: 0.5em; color: var(--ww-yellow); border: 1px solid var(--ww-dim); padding: 2px 4px; }
+
+.ww-report-table { width: 100%; border-collapse: collapse; font-size: clamp(16px, 2.2vw, 20px); margin-top: 8px; }
+.ww-report-table th { font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--ww-dim); text-align: left; padding: 4px; }
+.ww-report-table td { padding: 3px 4px; border-top: 1px solid #1c2450; }
+
+.ww-toolbar { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; margin-bottom: 4px; gap: 8px; }
+.ww-tools { display: flex; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
+.ww-toolbar a, .ww-toolbar button {
+  font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--ww-dim);
+  background: none; border: 0; cursor: pointer; text-decoration: none; padding: 6px 0;
+}
+.ww-toolbar a:hover, .ww-toolbar button:hover { color: var(--ww-cyan); }
+
+@keyframes ww-blink { 50% { opacity: 0.2; } }
+.ww-blink { animation: ww-blink 1s steps(2) infinite; }
+
+/* Early readers (K-2): bigger text everywhere */
+.ww-root.early .ww-prompt { font-size: clamp(26px, 4vw, 38px); }
+.ww-root.early .ww-btn { font-size: clamp(24px, 3.4vw, 32px); }
+.ww-root.early .ww-banner { font-size: clamp(20px, 3vw, 30px); }
+.ww-root.early .ww-banner .opt { min-height: 44px; font-size: 0.75em; }
+.ww-root.early .ww-feedback { font-size: clamp(22px, 3vw, 28px); }
+
+@media (max-width: 700px), (max-height: 640px) {
+  /* Small screens: the game screen is too short for text panels, so they take the viewport */
+  .ww-overlay { position: fixed; padding: 12px; align-items: flex-start; }
+  .ww-panel { max-height: none; }
+}
+
+/* Short landscape screens (phones): touch pads move to the sides of the game screen */
+@media (max-height: 500px) and (orientation: landscape) {
+  .ww-root { padding: 4px 8px 6px; }
+  .ww-cabinet.touch-on { padding: 0 92px; box-sizing: border-box; max-width: none; }
+  .ww-controls.show {
+    position: fixed; left: 8px; right: 8px; bottom: 10px; margin: 0; z-index: 1;
+    pointer-events: none;
+  }
+  .ww-controls.show .ww-pad { flex-direction: column; pointer-events: auto; gap: 8px; }
+  .ww-controls.show .ww-pad.dpad { display: grid; grid-template-columns: repeat(2, auto); }
+  .ww-controls.show .ww-touch, .ww-controls.show .ww-touch.big { width: 76px; height: 64px; }
+  .ww-hud { padding: 2px; }
+  .ww-root .ww-banner, .ww-root.early .ww-banner { margin-bottom: 4px; padding: 2px 8px 5px; font-size: 16px; }
+  .ww-banner .head { margin-bottom: 1px; }
+  .ww-banner .info { min-height: 0; margin-top: 2px; }
+  .ww-banner .info.hint { display: none; }
+  .ww-banner .opts { margin-top: 3px; }
+  .ww-root .ww-banner .opt, .ww-root.early .ww-banner .opt { min-height: 26px; padding: 1px 6px; }
+  .ww-speak { font-size: 14px; }
+  .ww-toolbar a, .ww-toolbar button { padding: 3px 0; }
+}
+@media (max-width: 520px) {
+  .ww-root { padding: 6px 8px 10px; }
+  .ww-hud { grid-template-columns: repeat(3, auto); }
+  .ww-touch { width: 54px; height: 54px; }
+  .ww-touch.big { width: 80px; }
+  .ww-pad { gap: 6px; }
+  .ww-toolbar a, .ww-toolbar button { font-size: 7px; }
+}
