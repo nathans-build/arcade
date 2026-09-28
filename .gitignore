@@ -1,0 +1,7 @@
+node_modules
+dist
+*.local
+.DS_Store
+*.log
+# Shared arcade kit: symlinked for local development; the real folder is copied in before publishing.
+src/kit

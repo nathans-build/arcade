@@ -1,0 +1,252 @@
+/* Web Invaders — arcade presentation layer (SpiderBen10's Arcade reds & blues) */
+
+.wi-root {
+  --wi-bg: #0a0f2e;
+  --wi-panel: #0c1440;
+  --wi-red: #e3262f;
+  --wi-blue: #2456e8;
+  --wi-lightblue: #6ea0ff;
+  --wi-yellow: #ffd23f;
+  --wi-cyan: #7ff3ff;
+  --wi-green: #5fff8a;
+  --wi-white: #f2f4ff;
+  --wi-dim: #6a78b8;
+  height: 100vh;
+  height: 100dvh;
+  box-sizing: border-box;
+  background: var(--wi-bg);
+  color: var(--wi-white);
+  font-family: "VT323", ui-monospace, monospace;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 16px 12px;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.wi-pixel { font-family: "Press Start 2P", ui-monospace, monospace; letter-spacing: 0.02em; }
+
+.wi-cabinet {
+  width: 100%; max-width: 960px;
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+}
+.wi-toolbar, .wi-hud, .wi-banner, .wi-controls { flex: none; }
+
+/* The stage takes whatever height is left; the 16:10 screen scales to fit it both ways. */
+.wi-stage {
+  flex: 1; min-height: 120px;
+  display: flex; align-items: flex-start; justify-content: center;
+}
+
+.wi-toolbar { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; margin-bottom: 2px; gap: 8px; }
+.wi-tools { display: flex; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
+.wi-toolbar a, .wi-toolbar button {
+  font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--wi-lightblue);
+  background: none; border: 0; cursor: pointer; text-decoration: none; padding: 6px 0;
+}
+.wi-toolbar a { color: var(--wi-red); }
+.wi-toolbar a:hover, .wi-toolbar button:hover { color: var(--wi-yellow); }
+
+.wi-hud {
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  justify-content: space-between;
+  gap: 4px 12px;
+  font-size: clamp(8px, 1.6vw, 12px);
+  padding: 5px 2px;
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--wi-red);
+  margin-bottom: 6px;
+}
+.wi-hud .lbl { color: var(--wi-lightblue); margin-right: 6px; }
+.wi-hud .val { color: var(--wi-white); }
+.wi-hud .lives { color: var(--wi-red); }
+.wi-hud .streak { color: var(--wi-yellow); margin-left: 8px; }
+
+.wi-screen {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 320 / 200;
+  box-sizing: border-box;
+  border: 3px solid #1c2a78;
+  box-shadow: 0 0 0 2px #000, 0 0 40px rgba(36, 86, 232, 0.25);
+  overflow: hidden;
+  background: var(--wi-bg);
+}
+.wi-screen canvas {
+  width: 100%; height: 100%; display: block;
+  image-rendering: pixelated; image-rendering: crisp-edges;
+}
+/* CRT scanlines */
+.wi-screen::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0) 0 2px, rgba(0, 0, 0, 0.18) 2px 3px);
+}
+
+/* Choice text pinned above each answer invader (positioned every frame by the engine). */
+.wi-label {
+  position: absolute;
+  transform: translateX(-50%);
+  height: 4.5%;
+  display: flex; align-items: flex-end; justify-content: center;
+  padding: 0; margin: 0; border: 0; background: none;
+  font-family: "VT323", ui-monospace, monospace;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--wi-yellow);
+  text-shadow: 1px 1px 0 #000, -1px 0 0 #000, 0 -1px 0 #000;
+  cursor: pointer;
+  touch-action: none;
+}
+.wi-label[data-state="picked"] { color: var(--wi-cyan); }
+.wi-label[data-state="right"] { color: var(--wi-green); animation: wi-blink 0.4s steps(2) infinite; }
+
+.wi-overlay {
+  position: absolute; inset: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  padding: 3%;
+  background: rgba(10, 15, 46, 0.8);
+  overflow-y: auto;
+}
+.wi-panel {
+  width: 100%; max-width: 780px; max-height: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  border: 3px solid var(--wi-blue);
+  background: var(--wi-panel);
+  padding: clamp(10px, 2.2vw, 20px);
+  box-shadow: 6px 6px 0 #000;
+}
+
+.wi-title {
+  font-size: clamp(18px, 4.6vw, 40px);
+  color: var(--wi-yellow);
+  text-shadow: 3px 3px 0 var(--wi-red), 6px 6px 0 #000;
+  text-align: center; line-height: 1.2;
+}
+.wi-sub { text-align: center; color: var(--wi-lightblue); font-size: clamp(7px, 1.4vw, 11px); margin-top: 10px; }
+
+.wi-h { font-size: clamp(8px, 1.5vw, 12px); color: var(--wi-cyan); margin-bottom: 8px; }
+.wi-tag { display: inline-block; font-size: clamp(7px, 1.2vw, 10px); padding: 3px 6px; margin-right: 6px; border: 1px solid currentColor; }
+.wi-tag.math { color: var(--wi-yellow); }
+.wi-tag.science { color: var(--wi-green); }
+.wi-tag.ela { color: var(--wi-lightblue); }
+
+.wi-grades { display: grid; grid-template-columns: repeat(13, 1fr); gap: 5px; }
+@media (max-width: 640px) { .wi-grades { grid-template-columns: repeat(7, 1fr); } }
+.wi-grade {
+  font-size: clamp(9px, 1.4vw, 12px);
+  padding: 9px 0; background: #111c5a; color: var(--wi-white); cursor: pointer;
+  border: 2px solid var(--wi-dim); box-shadow: 2px 2px 0 #000;
+}
+.wi-grade.on { background: var(--wi-red); border-color: var(--wi-yellow); color: #fff; }
+.wi-grade:hover, .wi-grade:focus-visible { border-color: var(--wi-yellow); outline: none; }
+
+.wi-subjects { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 0 0 12px; }
+@media (max-width: 640px) { .wi-subjects { grid-template-columns: 1fr 1fr; } }
+.wi-subject {
+  font-family: "Press Start 2P", monospace; font-size: clamp(9px, 1.5vw, 12px);
+  padding: 12px 6px; background: #111c5a; color: var(--wi-white); cursor: pointer;
+  border: 2px solid var(--wi-blue); box-shadow: 3px 3px 0 #000; line-height: 1.6;
+}
+.wi-subject small { display: block; font-family: "VT323", monospace; font-size: 16px; color: var(--wi-lightblue); }
+.wi-subject:hover, .wi-subject:focus-visible { border-color: var(--wi-yellow); background: #1a2a80; outline: none; }
+
+.wi-cta {
+  font-family: "Press Start 2P", monospace; font-size: clamp(9px, 1.6vw, 13px);
+  color: var(--wi-bg); background: var(--wi-yellow); border: 0; padding: 12px 16px;
+  box-shadow: 4px 4px 0 var(--wi-red); cursor: pointer; text-transform: uppercase;
+}
+.wi-cta:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--wi-red); }
+.wi-cta.ghost { background: transparent; color: var(--wi-cyan); box-shadow: none; border: 2px solid var(--wi-cyan); }
+
+/* Question banner: sits between the HUD and the screen so it never hides the invaders. */
+.wi-banner {
+  position: relative;
+  background: #0c1440;
+  border: 2px solid var(--wi-blue);
+  border-left: 6px solid var(--wi-red);
+  padding: 5px 10px 8px;
+  margin-bottom: 6px;
+  font-size: clamp(17px, 2.4vw, 24px); line-height: 1.05;
+}
+.wi-banner.correct { border-color: var(--wi-green); }
+.wi-banner.wrong, .wi-banner.invaded { border-color: var(--wi-red); }
+.wi-banner .head {
+  font-size: clamp(6px, 1.1vw, 9px); color: var(--wi-lightblue);
+  display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px;
+}
+.wi-banner.correct .head { color: var(--wi-green); }
+.wi-banner.wrong .head, .wi-banner.invaded .head { color: var(--wi-red); }
+.wi-banner .head .std { color: var(--wi-dim); white-space: nowrap; }
+.wi-banner .prompt { display: flex; align-items: flex-start; gap: 8px; }
+.wi-banner .speak {
+  flex: none; font-size: 0.9em; padding: 2px 5px; margin-top: 1px;
+  background: #111c5a; color: var(--wi-lightblue); border: 1px solid var(--wi-dim); cursor: pointer;
+}
+.wi-banner .speak.on { color: var(--wi-yellow); border-color: var(--wi-yellow); }
+.wi-banner .opts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px 8px; margin-top: 5px; }
+@media (max-width: 560px) { .wi-banner .opts { grid-template-columns: 1fr 1fr; } }
+.wi-banner .opt {
+  display: flex; gap: 6px; align-items: baseline;
+  font: inherit; color: #d6dcff; text-align: left; cursor: pointer;
+  background: #111c5a; border: 2px solid #1f2d7a; padding: 3px 6px;
+  touch-action: none; min-height: 34px;
+}
+.wi-banner .opt b { font-family: "Press Start 2P", monospace; font-size: 0.5em; font-weight: normal; color: var(--wi-yellow); }
+.wi-banner .opt:hover:not(:disabled) { border-color: var(--wi-yellow); }
+.wi-banner .opt:disabled { cursor: default; }
+.wi-banner .opt.picked { border-color: var(--wi-cyan); color: var(--wi-cyan); }
+.wi-banner .opt.ans { border-color: var(--wi-green); color: var(--wi-green); background: #0d3a22; }
+.wi-banner .opt.wrong { border-color: var(--wi-red); color: #ffb0b4; background: #3a0d12; }
+.wi-banner .info { margin-top: 4px; color: #b8c0f0; font-size: 0.8em; min-height: 2.1em; }
+.wi-banner.wrong .info, .wi-banner.invaded .info, .wi-banner.correct .info { color: var(--wi-white); }
+/* How far the invaders have marched toward the city */
+.wi-banner .danger { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: #1a2360; }
+.wi-banner .danger .fill { height: 100%; background: linear-gradient(90deg, var(--wi-yellow), var(--wi-red)); transition: width 0.2s linear; }
+
+.wi-controls { display: none; margin-top: 8px; gap: 10px; justify-content: space-between; }
+.wi-controls.show { display: flex; }
+.wi-pad { display: flex; gap: 10px; }
+.wi-touch {
+  font-family: "Press Start 2P", monospace; font-size: 12px;
+  width: 80px; height: 60px; border-radius: 10px;
+  background: #111c5a; color: var(--wi-white); border: 2px solid var(--wi-lightblue);
+  touch-action: none;
+}
+.wi-touch.big { width: 120px; }
+.wi-touch.fire { border-color: var(--wi-red); color: var(--wi-red); }
+.wi-touch:active { background: #1c2a90; }
+
+.wi-help { font-size: clamp(16px, 2.1vw, 20px); color: #b8c0f0; line-height: 1.15; }
+.wi-help kbd { font-family: "Press Start 2P", monospace; font-size: 0.5em; color: var(--wi-yellow); border: 1px solid var(--wi-dim); padding: 2px 4px; }
+
+.wi-report-table { width: 100%; border-collapse: collapse; font-size: clamp(16px, 2.2vw, 20px); margin-top: 8px; }
+.wi-report-table th { font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--wi-dim); text-align: left; padding: 4px; }
+.wi-report-table td { padding: 3px 4px; border-top: 1px solid #1c2a78; }
+
+@keyframes wi-blink { 50% { opacity: 0.25; } }
+
+/* Early readers (K-2): bigger question text and answer buttons. */
+.wi-root.early .wi-banner { font-size: clamp(20px, 3vw, 30px); }
+.wi-root.early .wi-banner .opt { min-height: 42px; }
+
+@media (max-width: 700px), (max-height: 640px) {
+  /* Small screens: the game screen is too short for text panels, so they take the viewport */
+  .wi-overlay { position: fixed; padding: 12px; align-items: flex-start; }
+  .wi-panel { max-height: none; }
+}
+@media (max-height: 560px) {
+  .wi-root { padding-top: 2px; padding-bottom: 6px; }
+  .wi-hud { padding: 2px; margin-bottom: 3px; }
+  .wi-banner { padding: 3px 8px 6px; margin-bottom: 4px; font-size: 17px; }
+  .wi-banner .info { min-height: 0; }
+  .wi-banner .info.hint { display: none; }
+  .wi-banner .opt { min-height: 28px; padding: 1px 5px; }
+  .wi-touch { height: 46px; }
+  .wi-controls { margin-top: 4px; }
+}
