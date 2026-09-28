@@ -1,6 +1,7 @@
 // Shared types for SpiderBen10's Arcade games.
 
-export type Subject = "math" | "science" | "ela";
+/** "social" = social studies (history, geography, civics & government, economics). */
+export type Subject = "math" | "science" | "ela" | "social";
 
 export type Grade = "K" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10" | "11" | "12";
 

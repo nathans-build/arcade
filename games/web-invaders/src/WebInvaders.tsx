@@ -56,7 +56,7 @@ const KEYMAP: Record<string, Action> = {
   z: "fire", Z: "fire", x: "fire", X: "fire",
 };
 
-const SUBJECT_LABELS: Record<Subject, string> = { math: "MATH", science: "SCIENCE", ela: "ELA" };
+const SUBJECT_LABELS: Record<Subject, string> = { math: "MATH", science: "SCIENCE", ela: "ELA", social: "SOCIAL STUDIES" };
 
 function subjectNote(mode: SubjectMode, g: Grade): string {
   if (mode === "mixed") return "All three subjects";
@@ -68,6 +68,7 @@ function subjectNote(mode: SubjectMode, g: Grade): string {
     math: ["Counting · Add & subtract", "Multiply · Fractions", "Ratios · Equations"],
     science: ["Weather · Plants · Animals", "Matter · Energy · Earth", "Cells · Forces · Space"],
     ela: ["Letters · Words · Stories", "Reading · Grammar", "Vocabulary · Grammar"],
+    social: ["Community · Maps", "NC · US History", "World · Civics"],
   };
   return notes[mode][band];
 }

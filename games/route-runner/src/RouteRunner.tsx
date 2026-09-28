@@ -71,7 +71,7 @@ const KEYMAP: Record<string, Action> = {
   z: "throw", Z: "throw", x: "throw", X: "throw",
 };
 
-const SUBJECT_LABELS: Record<Subject, string> = { math: "MATH", science: "SCIENCE", ela: "ELA" };
+const SUBJECT_LABELS: Record<Subject, string> = { math: "MATH", science: "SCIENCE", ela: "ELA", social: "SOCIAL STUDIES" };
 const MODES: SubjectMode[] = ["science", "math", "ela", "mixed"];
 
 function subjectNote(mode: SubjectMode, g: Grade): string {

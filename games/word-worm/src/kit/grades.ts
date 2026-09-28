@@ -37,6 +37,8 @@ export function courseName(g: Grade, subject: Subject): string | null {
   const i = n - 9;
   if (subject === "math") return ["NC Math 1", "NC Math 2", "NC Math 3", "NC Math 4"][i];
   if (subject === "ela") return ["English I", "English II", "English III", "English IV"][i];
+  // NC lets districts choose the order of the four required courses; this is the common one.
+  if (subject === "social") return ["World History", "Civic Literacy", "American History", "Economics & Personal Finance"][i];
   return ["Earth & Environmental Science", "Biology", "Chemistry", "Physics"][i];
 }
 

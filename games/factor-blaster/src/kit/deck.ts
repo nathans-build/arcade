@@ -57,6 +57,7 @@ export class QuestionDeck {
     mode: SubjectMode | Subject[],
     private opts: { quickOnly?: boolean; gameId?: string } = {},
   ) {
+    // "mixed" stays math/science/ELA so existing games behave the same; pass an array to include social studies.
     this.subjects = Array.isArray(mode) ? mode : mode === "mixed" ? ["math", "science", "ela"] : [mode];
     this.progress = loadProgress(opts.gameId ?? "arcade");
   }

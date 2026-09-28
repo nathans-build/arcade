@@ -52,7 +52,7 @@ interface RoundView {
   correct: boolean | null;
 }
 
-const SUBJECT_LABELS: Record<Subject, string> = { math: "MATH", science: "SCIENCE", ela: "ELA" };
+const SUBJECT_LABELS: Record<Subject, string> = { math: "MATH", science: "SCIENCE", ela: "ELA", social: "SOCIAL STUDIES" };
 const MODES: SubjectMode[] = ["math", "science", "ela", "mixed"];
 
 const KEYMAP: Record<string, Action> = {

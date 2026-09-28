@@ -19,6 +19,7 @@ export const SUBJECT_LABELS: Record<Subject, string> = {
   math: "MATH",
   science: "SCIENCE",
   ela: "ELA",
+  social: "SOCIAL STUDIES",
 };
 
 /** Checkpoints use any question; Quiz Squadron waves need short ("quick") ones. */
