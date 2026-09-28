@@ -1,0 +1,8 @@
+node_modules
+dist
+*.local
+.DS_Store
+*.log
+# The shared arcade kit is copied into src/kit by the arcade coordinator before publishing.
+src/kit
+.playtest

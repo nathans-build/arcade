@@ -1,0 +1,204 @@
+/* Sum Stack — arcade presentation layer (layout adapted from Lunar Patrol Academy) */
+
+.ss-root {
+  --ss-bg: #0a0f2e;
+  --ss-red: #e3262f;
+  --ss-blue: #2456e8;
+  --ss-sky: #6ea0ff;
+  --ss-yellow: #ffd23f;
+  --ss-green: #5fff8a;
+  --ss-white: #f2f4ff;
+  --ss-dim: #7a88c8;
+  height: 100vh;
+  height: 100dvh;
+  box-sizing: border-box;
+  background: var(--ss-bg);
+  color: var(--ss-white);
+  font-family: "VT323", ui-monospace, monospace;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 16px 12px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  overflow-x: hidden;
+}
+
+.ss-pixel { font-family: "Press Start 2P", ui-monospace, monospace; letter-spacing: 0.02em; }
+
+.ss-cabinet {
+  width: 100%; max-width: 960px;
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+}
+.ss-toolbar, .ss-hud, .ss-controls { flex: none; }
+
+/* The stage takes whatever height is left; the 16:10 screen scales to fit it both ways. */
+.ss-stage {
+  flex: 1; min-height: 120px;
+  display: flex; align-items: flex-start; justify-content: center;
+}
+
+.ss-hud {
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  justify-content: space-between;
+  gap: 4px 12px;
+  font-size: clamp(8px, 1.6vw, 12px);
+  padding: 6px 2px;
+  text-transform: uppercase;
+}
+.ss-hud .lbl { color: var(--ss-dim); margin-right: 6px; }
+.ss-hud .val { color: var(--ss-white); }
+.ss-hud .rule { color: var(--ss-yellow); }
+
+.ss-screen {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 320 / 200;
+  box-sizing: border-box;
+  border: 3px solid #1c2a70;
+  box-shadow: 0 0 0 2px #000, 0 0 40px rgba(227, 38, 47, 0.18);
+  overflow: hidden;
+  background: var(--ss-bg);
+}
+.ss-screen canvas {
+  width: 100%; height: 100%; display: block;
+  image-rendering: pixelated; image-rendering: crisp-edges;
+}
+/* CRT scanlines */
+.ss-screen::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0) 0 2px, rgba(0, 0, 0, 0.18) 2px 3px);
+}
+
+.ss-overlay {
+  position: absolute; inset: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  padding: 3%;
+  background: rgba(10, 15, 46, 0.8);
+  overflow-y: auto;
+}
+.ss-panel {
+  width: 100%; max-width: 780px; max-height: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  border: 3px solid var(--ss-sky);
+  background: #070b26;
+  padding: clamp(10px, 2.2vw, 20px);
+  box-shadow: 6px 6px 0 #000;
+}
+
+.ss-title {
+  font-size: clamp(18px, 5vw, 44px);
+  color: var(--ss-yellow);
+  text-shadow: 3px 3px 0 var(--ss-red), 6px 6px 0 #000;
+  text-align: center; line-height: 1.2;
+}
+.ss-sub { text-align: center; color: var(--ss-sky); font-size: clamp(7px, 1.4vw, 12px); margin-top: 8px; line-height: 1.6; }
+
+.ss-h { font-size: clamp(9px, 1.8vw, 14px); color: var(--ss-sky); margin-bottom: 10px; line-height: 1.4; }
+.ss-tag { display: inline-block; font-size: clamp(7px, 1.2vw, 10px); padding: 3px 6px; margin: 0 6px 4px 0; border: 1px solid currentColor; }
+.ss-tag.math { color: var(--ss-yellow); }
+.ss-tag.std { color: var(--ss-dim); }
+
+.ss-prompt { font-size: clamp(20px, 3.2vw, 30px); line-height: 1.1; margin: 10px 0 12px; }
+.ss-early .ss-prompt { font-size: clamp(24px, 3.8vw, 36px); }
+
+.ss-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (max-width: 640px) { .ss-choices { grid-template-columns: 1fr; } }
+
+.ss-btn {
+  font-family: "VT323", ui-monospace, monospace;
+  font-size: clamp(18px, 2.6vw, 24px); line-height: 1.05;
+  text-align: left;
+  color: var(--ss-white); background: #0e1650;
+  border: 2px solid var(--ss-dim);
+  padding: 8px 10px;
+  box-shadow: 3px 3px 0 #000;
+  cursor: pointer;
+  display: flex; gap: 10px; align-items: flex-start;
+}
+.ss-early .ss-btn { font-size: clamp(22px, 3.2vw, 30px); }
+.ss-btn:hover:not(:disabled), .ss-btn:focus-visible { border-color: var(--ss-sky); background: #16227a; outline: none; }
+.ss-btn:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #000; }
+.ss-btn .key { font-family: "Press Start 2P", monospace; font-size: 0.55em; color: var(--ss-yellow); padding-top: 4px; }
+.ss-btn.right { border-color: var(--ss-green); background: #0d3a22; }
+.ss-btn.wrong { border-color: var(--ss-red); background: #3a0d12; }
+.ss-btn:disabled { cursor: default; }
+
+.ss-cta {
+  font-family: "Press Start 2P", monospace; font-size: clamp(9px, 1.6vw, 13px);
+  color: var(--ss-bg); background: var(--ss-yellow); border: 0; padding: 12px 16px;
+  box-shadow: 4px 4px 0 var(--ss-red); cursor: pointer; text-transform: uppercase;
+}
+.ss-cta:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--ss-red); }
+.ss-cta.ghost { background: transparent; color: var(--ss-sky); box-shadow: none; border: 2px solid var(--ss-sky); }
+.ss-cta.small { font-size: clamp(7px, 1.2vw, 10px); padding: 8px 10px; }
+
+.ss-grades { display: grid; grid-template-columns: repeat(13, 1fr); gap: 6px; margin: 14px 0 10px; }
+@media (max-width: 760px) { .ss-grades { grid-template-columns: repeat(7, 1fr); } }
+.ss-grade {
+  font-family: "Press Start 2P", monospace; font-size: clamp(9px, 1.5vw, 12px);
+  padding: 10px 0; background: #0e1650; color: var(--ss-white); cursor: pointer;
+  border: 2px solid var(--ss-dim); box-shadow: 3px 3px 0 #000;
+}
+.ss-grade:hover, .ss-grade:focus-visible { border-color: var(--ss-sky); outline: none; }
+.ss-grade.on { border-color: var(--ss-yellow); background: var(--ss-red); color: #fff; }
+
+.ss-rulebox {
+  border: 2px dashed var(--ss-blue); padding: 8px 10px; margin: 6px 0 12px;
+  font-size: clamp(17px, 2.3vw, 22px); line-height: 1.15; color: #cfd8ff;
+}
+.ss-rulebox b { color: var(--ss-yellow); font-weight: normal; }
+
+.ss-feedback { margin-top: 12px; font-size: clamp(18px, 2.6vw, 24px); line-height: 1.15; }
+.ss-feedback .verdict { font-family: "Press Start 2P", monospace; font-size: clamp(9px, 1.7vw, 13px); margin-bottom: 6px; line-height: 1.5; }
+.ss-feedback .verdict.ok { color: var(--ss-green); }
+.ss-feedback .verdict.no { color: var(--ss-red); }
+.ss-power { color: var(--ss-yellow); margin-top: 6px; }
+
+.ss-controls { display: none; margin-top: 8px; gap: 10px; justify-content: space-between; }
+.ss-controls.show { display: flex; }
+.ss-pad { display: flex; gap: 10px; }
+.ss-touch {
+  font-family: "Press Start 2P", monospace; font-size: 11px;
+  width: 72px; height: 60px; border-radius: 10px;
+  background: #0e1650; color: var(--ss-white); border: 2px solid var(--ss-dim);
+  touch-action: none;
+}
+.ss-touch.big { width: 96px; }
+.ss-touch.rot { border-color: var(--ss-sky); color: var(--ss-sky); }
+.ss-touch.drop { border-color: var(--ss-red); color: var(--ss-red); }
+.ss-touch:active { background: #1c2a90; }
+
+.ss-help { font-size: clamp(16px, 2.2vw, 20px); color: #b8c0f0; line-height: 1.15; }
+.ss-help kbd { font-family: "Press Start 2P", monospace; font-size: 0.5em; color: var(--ss-yellow); border: 1px solid var(--ss-dim); padding: 2px 4px; }
+
+.ss-report-table { width: 100%; border-collapse: collapse; font-size: clamp(16px, 2.2vw, 20px); margin-top: 8px; }
+.ss-report-table th { font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--ss-dim); text-align: left; padding: 4px; }
+.ss-report-table td { padding: 3px 4px; border-top: 1px solid #1c2a70; }
+
+.ss-toolbar { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; margin-bottom: 2px; gap: 8px; }
+.ss-toolbar a, .ss-toolbar button {
+  font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--ss-dim);
+  background: none; border: 0; cursor: pointer; text-decoration: none; padding: 6px 0;
+}
+.ss-toolbar a:hover, .ss-toolbar button:hover { color: var(--ss-sky); }
+.ss-toolbar a { color: var(--ss-red); }
+
+@keyframes ss-blink { 50% { opacity: 0.2; } }
+.ss-blink { animation: ss-blink 1s steps(2) infinite; }
+
+@media (max-width: 700px), (max-height: 640px) {
+  /* Small screens: the game screen is too short for text panels, so they take the viewport */
+  .ss-overlay { position: fixed; padding: 12px; align-items: flex-start; }
+  .ss-panel { max-height: none; }
+}
+@media (max-width: 520px) {
+  .ss-hud { grid-template-columns: repeat(2, auto); }
+  .ss-toolbar { flex-wrap: wrap; }
+  .ss-touch { width: 58px; }
+  .ss-touch.big { width: 74px; }
+}
