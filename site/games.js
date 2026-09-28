@@ -84,4 +84,13 @@ window.GAMES = [
     image: "img/lane-leap.png",
     year: 2026,
   },
+  {
+    id: "maze-muncher",
+    title: "Maze Muncher",
+    tagline: "Chomp the dots and eat the power pellet with the right answer to turn the tables.",
+    subjects: ["Math", "Science", "ELA", "Social Studies"],
+    url: "/maze-muncher/",
+    image: "img/maze-muncher.png",
+    year: 2026,
+  },
 ];

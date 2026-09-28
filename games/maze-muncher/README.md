@@ -148,9 +148,9 @@ uncertain are in `src/kit/banks/*/NOTES.md`. This game adds no codes of its own.
 
 ## Deploying
 
-This game lives in the arcade repository at `games/maze-muncher/` and is published at
-`/maze-muncher/` by the arcade's deploy. `vite.config.ts` uses `base: "./"`, so the built `dist/`
-works from that subfolder.
+Maze Muncher lives in SpiderBen10's Arcade repository (`games/maze-muncher/`). The arcade's deploy workflow
+builds and tests it and publishes it at `/maze-muncher/` on the arcade's Azure app, so it needs no Azure
+app or token of its own. See the arcade README.
 
 ## Credits
 
