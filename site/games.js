@@ -75,4 +75,13 @@ window.GAMES = [
     image: "img/word-worm.png",
     year: 2026,
   },
+  {
+    id: "lane-leap",
+    title: "Lane Leap",
+    tagline: "Hop across traffic and the river, landing only on logs that fit the rule.",
+    subjects: ["Math", "Science", "ELA"],
+    url: "/lane-leap/",
+    image: "img/lane-leap.png",
+    year: 2026,
+  },
 ];

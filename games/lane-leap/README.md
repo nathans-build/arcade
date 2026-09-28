@@ -106,27 +106,11 @@ band), `src/leap/rules/` (math, science and ELA rule sets, the expression evalua
 (bitmap font), `src/leap/sprites.ts` (hero, vehicles, lily pads), `src/kit/` (the arcade's shared kit,
 unchanged).
 
-## Deploying to Azure
+## Deploying
 
-Every push to `main` builds the game and publishes it to Azure Static Web Apps
-(`.github/workflows/azure-static-web-apps.yml`). Pull requests get their own preview link.
-The deploy step is skipped until the token below is added, so the build still runs and checks the code.
-
-One-time setup, from any browser at https://shell.azure.com (Bash):
-
-```sh
-az group create -n rg-lane-leap -l eastus2
-az deployment group create -g rg-lane-leap -f infra/main.bicep   # or: az staticwebapp create -n lane-leap -g rg-lane-leap -l eastus2 --sku Free
-az staticwebapp secrets list -n lane-leap -g rg-lane-leap --query properties.apiKey -o tsv
-```
-
-Copy the printed token into this repository under
-**Settings → Secrets and variables → Actions → New repository secret**, named
-`AZURE_STATIC_WEB_APPS_API_TOKEN`. The next push to `main` publishes the game at
-`https://<name>.azurestaticapps.net`.
-
-The token can only publish to that one web app. Revoke or rotate it in the Azure portal at any time.
-The Free tier covers this game (static files only, no server).
+Lane Leap lives in SpiderBen10's Arcade repository (`games/lane-leap/`). The arcade's deploy workflow
+builds and tests it and publishes it at `/lane-leap/` on the arcade's Azure app, so it needs no Azure
+app or token of its own. See the arcade README.
 
 ## Standard codes to verify
 
