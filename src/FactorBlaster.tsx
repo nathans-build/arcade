@@ -20,6 +20,7 @@ import {
   submitScore,
   type DealtQuestion,
   type Grade,
+  gradeFromArcade,
 } from "@/kit";
 import { BlasterEngine, MAX_SHIELD, type Action, type HudState } from "@/blaster/engine";
 import { gradeInfo, type Rule } from "@/blaster/splits";
@@ -400,6 +401,12 @@ function TitleScreen({
       <div className="fb-panel title">
         <div className="fb-title fb-pixel">FACTOR BLASTER</div>
         <div className="fb-sub fb-pixel">SPIDERBEN10'S ARCADE · NC MATH K–12</div>
+        {gradeFromArcade() ? (
+        <div className="fb-sub fb-pixel" style={{ marginTop: 12 }}>
+          {gradeLabel(grade).toUpperCase()} ·{" "}
+          <a href={arcadeLink(grade)} style={{ color: "inherit" }}>CHANGE GRADE IN THE ARCADE</a>
+        </div>
+        ) : (
         <div className="fb-grades" role="radiogroup" aria-label="Grade">
           {GRADES.map((g) => (
             <button
@@ -413,6 +420,7 @@ function TitleScreen({
             </button>
           ))}
         </div>
+        )}
         <div className="fb-help center">
           <b className="gl">{gradeLabel(grade)}{course ? ` · ${course}` : ""}</b> — {info.blurb}
           <br />
