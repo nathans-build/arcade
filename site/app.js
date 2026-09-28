@@ -16,6 +16,11 @@
   function validGrade(v) { return typeof v === "string" && GRADES.indexOf(v.toUpperCase()) >= 0 ? v.toUpperCase() : null; }
   function gradeName(g) { return g === "K" ? "Kindergarten" : "Grade " + g; }
   function supports(game, g) { return !game.grades || game.grades.indexOf(g) >= 0; }
+  function gradesLabel(game) {
+    var gs = game.grades, n = gs.length;
+    var run = n > 2 && GRADES.indexOf(gs[n - 1]) - GRADES.indexOf(gs[0]) === n - 1;
+    return run ? "Grades " + gs[0] + "–" + gs[n - 1] + " only" : "Grade " + gs.join(", ") + " only";
+  }
 
   var grade = (function () {
     try {
@@ -103,7 +108,7 @@
       body.appendChild(el("p", null, game.tagline));
       var chips = el("div", "chips");
       var fits = supports(game, grade);
-      chips.appendChild(el("span", "chip grade" + (fits ? "" : " off"), fits ? gradeName(grade) : "Grade " + game.grades.join(", ") + " only"));
+      chips.appendChild(el("span", "chip grade" + (fits ? "" : " off"), fits ? gradeName(grade) : gradesLabel(game)));
       game.subjects.forEach(function (s) { chips.appendChild(el("span", "chip", s)); });
       body.appendChild(chips);
       card.appendChild(body);
