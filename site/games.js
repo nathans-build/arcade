@@ -48,4 +48,13 @@ window.GAMES = [
     image: "img/route-runner.png",
     year: 2026,
   },
+  {
+    id: "city-shield",
+    title: "City Shield",
+    tagline: "Stop the missiles whose math equals the target before they hit the city.",
+    subjects: ["Math"],
+    url: "/city-shield/",
+    image: "img/city-shield.png",
+    year: 2026,
+  },
 ];
