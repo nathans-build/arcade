@@ -1,0 +1,287 @@
+import type { Grade } from "@/kit";
+import type { BuildItem, CategoryRule } from "./types";
+
+/*
+ * Science content for Cube Hop, K–12 (NC Standard Course of Study for Science, 2023 codes
+ * as the arcade kit uses them). Build rounds are fill-the-fact sentences: the banner shows
+ * the fact with blanks and the hero hops the whole sentence, avoiding the misconception
+ * cubes. Color rounds sort labels into a science category.
+ */
+
+const K: Grade[] = ["K"];
+const K1: Grade[] = ["K", "1"];
+const G1: Grade[] = ["1"];
+const G12: Grade[] = ["1", "2"];
+const G2: Grade[] = ["2"];
+const G3: Grade[] = ["3"];
+const G4: Grade[] = ["4"];
+const G5: Grade[] = ["5"];
+const G6: Grade[] = ["6"];
+const G7: Grade[] = ["7"];
+const G8: Grade[] = ["8"];
+const G9: Grade[] = ["9"];
+const G10: Grade[] = ["10"];
+const G11: Grade[] = ["11"];
+const G12s: Grade[] = ["12"];
+
+let n = 0;
+function b(
+  grades: Grade[], standard: string, skill: string, prompt: string, sentence: string,
+  distractors: [string, string][], explain: string,
+): BuildItem {
+  n++;
+  return {
+    id: `s-b${n}`, subject: "science", grades, standard, skill, prompt,
+    tokens: sentence.split(" "),
+    distractors: distractors.map(([label, why]) => ({ label, why })),
+    explain,
+  };
+}
+
+export const SCIENCE_BUILDS: BuildItem[] = [
+  // ------------------------------------------------------------------ K-2
+  b(K1, "LS.1.1", "What plants need", "Build the fact: Plants need ___.", "Plants need water.",
+    [["rocks.", "Plants need water, air and light. They don't eat rocks."]], "Plants need water, air and sunlight to live and grow."),
+  b(K, "PS.K.1.1", "Properties of materials", "Build the fact: Ice is ___.", "Ice is cold.",
+    [["hot.", "Ice is frozen water, so it is cold."]], "Ice is frozen water. It is cold and hard."),
+  b(K, "LS.K.1.1", "Living and nonliving", "Build the fact: A ___ is alive.", "A dog is alive.",
+    [["rock", "A rock does not eat, grow or breathe, so it is not alive."]], "Living things eat, grow, breathe and have babies."),
+  b(K1, "PS.1.1", "Gravity", "Build the fact: Rain falls ___.", "Rain falls down.",
+    [["up.", "Gravity pulls things down toward Earth."]], "Gravity pulls rain, balls and apples down to the ground."),
+  b(K, "ESS.K.1.1", "Weather", "Build the fact: Snow is ___.", "Snow is cold.",
+    [["hot.", "Snow falls when the air is cold, and it melts when it gets warm."]], "Snow falls when the weather is cold."),
+  b(G1, "ESS.1.1", "The sun", "Build the fact: The sun is a ___.", "The sun is a star.",
+    [["moon.", "The sun is a star: a huge ball of hot gas that makes its own light."]], "The sun is the star closest to Earth."),
+  b(G1, "LS.1.1", "Plant parts", "Build the fact: ___ take in water.", "Roots take in water.",
+    [["Leaves", "Roots take in water from the soil. Leaves make food."]], "Roots hold the plant in the soil and take in water."),
+  b(G1, "LS.1.2", "Animal parts", "Build the fact: Birds have ___.", "Birds have wings.",
+    [["fins.", "Fish have fins. Birds have wings and feathers."]], "Wings and feathers help birds fly."),
+  b(G1, "ESS.1.1", "Day and night sky", "Build the fact: We see stars at ___.", "We see stars at night.",
+    [["noon.", "At noon the bright sun hides the stars. We see them at night."]], "Stars are in the sky all the time, but we see them at night."),
+  b(G2, "PS.2.1.1", "Heating and cooling", "Build the fact: Ice melts when ___.", "Ice melts when warm.",
+    [["cold.", "Heat makes ice melt. Cold keeps it frozen."]], "Heating makes a solid like ice melt into a liquid."),
+  b(G2, "PS.2.1.2", "Heating and cooling", "Build the fact: Water freezes when ___.", "Water freezes when cold.",
+    [["warm.", "Water freezes into ice when it gets very cold."]], "Cooling can turn liquid water into solid ice."),
+  b(G2, "LS.2.1", "Life cycles", "Build the fact: Frogs start as ___.", "Frogs start as eggs.",
+    [["seeds.", "Plants grow from seeds. Frogs hatch from eggs."]], "A frog's life cycle: egg, tadpole, froglet, frog."),
+  b(G2, "LS.2.2", "Traits from parents", "Build the fact: Kittens look like ___.", "Kittens look like cats.",
+    [["dogs.", "Young animals look like their parents. Kittens grow into cats."]], "Babies get traits from their parents."),
+  b(G12, "ESS.2.1", "Weather", "Build the fact: Rain comes from ___.", "Rain comes from clouds.",
+    [["grass.", "Rain falls from clouds, made of tiny drops of water."]], "Clouds are made of tiny water drops that can fall as rain."),
+  // ------------------------------------------------------------------ 3-5
+  b(G3, "PS.3.1.3", "Heating and cooling", "Build the fact: Water boils when ___.", "Water boils when heated.",
+    [["cooled.", "Adding heat makes water boil. Cooling can make it freeze."]], "Heating water enough makes it boil into water vapor."),
+  b(G3, "LS.3.1.1", "Muscles and bones", "Build the fact: ___ move our bones.", "Muscles move our bones.",
+    [["Lungs", "Lungs help us breathe. Muscles pull on bones to move them."]], "Muscles pull on bones to make the body move."),
+  b(G3, "ESS.3.1.1", "Earth and the sun", "Build the fact: Earth orbits the ___.", "Earth orbits the sun.",
+    [["moon.", "The moon orbits Earth. Earth orbits the sun."]], "Earth takes one year to orbit the sun."),
+  b(G3, "ESS.3.1.2", "Shadows", "Build the fact: Shadows point ___ from the sun.", "Shadows point away from the sun.",
+    [["toward", "An object blocks light, so its shadow falls on the side away from the sun."]], "A shadow forms on the side of an object away from the light."),
+  b(G3, "LS.3.2.2", "Plant life cycles", "Build the fact: Seeds grow into new ___.", "Seeds grow into new plants.",
+    [["rocks.", "Seeds are living. They grow into new plants, not rocks."]], "A seed plant's life cycle: seed, sprout, adult plant, flower, seeds."),
+  b(G4, "PS.4.2", "Conductors", "Build the fact: ___ wire carries current.", "Copper wire carries current.",
+    [["Rubber", "Rubber is an insulator. Copper, a metal, conducts electricity."]], "Metals like copper are good conductors of electricity."),
+  b(G4, "PS.4.1.1", "Magnets", "Build the fact: Magnets attract ___.", "Magnets attract iron.",
+    [["wood.", "Magnets attract iron and steel, not wood."]], "Magnets pull on iron, steel, nickel and cobalt."),
+  b(G4, "ESS.4.2.3", "Erosion", "Build the fact: Wind and water cause ___.", "Wind and water cause erosion.",
+    [["magnets.", "Moving wind and water wear away and carry off rock and soil: erosion."]], "Erosion moves weathered rock and soil to new places."),
+  b(G4, "LS.4.2.2", "Fossils", "Build the fact: Fossils show ___ life.", "Fossils show past life.",
+    [["future", "Fossils are remains of living things from long ago."]], "Fossils tell us about plants and animals of the past."),
+  b(G4, "PS.4.3.1", "Light", "Build the fact: Mirrors ___ light.", "Mirrors reflect light.",
+    [["absorb", "A mirror bounces light back: it reflects it."]], "Smooth, shiny surfaces reflect light."),
+  b(G5, "PS.5.2", "Friction", "Build the fact: Friction ___ things down.", "Friction slows things down.",
+    [["speeds", "Friction pushes against motion, so it slows things down."]], "Friction is a force that works against motion."),
+  b(G5, "LS.5.2", "Producers", "Build the fact: Plants make food from ___.", "Plants make food from sunlight.",
+    [["soil.", "Plants use light energy, water and carbon dioxide to make food. Soil gives water and minerals, not food."]], "Plants are producers: they make food using the sun's energy."),
+  b(G5, "LS.5.2.1", "Decomposers", "Build the fact: ___ break down dead matter.", "Fungi break down dead matter.",
+    [["Rocks", "Fungi and bacteria are decomposers. Rocks are not living."]], "Decomposers return nutrients to the soil."),
+  b(G5, "LS.5.1.1", "Body systems", "Build the fact: The ___ pumps blood.", "The heart pumps blood.",
+    [["lungs", "Lungs move air in and out. The heart pumps blood."]], "The heart is the pump of the circulatory system."),
+  b(G5, "PS.5.1.1", "Conservation of mass", "Build the fact: Mass stays the ___ when ice melts.", "Mass stays the same when ice melts.",
+    [["grows", "Melting changes the state, not the amount of matter."]], "When ice melts, the water has the same mass as the ice."),
+  // ------------------------------------------------------------------ 6-8
+  b(G6, "PS.6.2.1", "Heat transfer", "Build the fact: Heat flows from hot to ___.", "Heat flows from hot to cold.",
+    [["Cold", "Cold is not something that flows. Thermal energy moves from warmer to cooler."]], "Thermal energy always moves from a warmer object to a cooler one."),
+  b(G6, "PS.6.2.1", "Convection", "Build the fact: Convection moves heat in ___.", "Convection moves heat in fluids.",
+    [["solids.", "Convection needs matter that can flow: liquids and gases. Solids conduct heat."]], "Convection currents carry heat through liquids and gases."),
+  b(G6, "ESS.6.1", "Seasons", "Build the fact: Earth's ___ causes the seasons.", "Earth's tilt causes the seasons.",
+    [["distance", "Earth's distance from the sun changes very little. Its tilt causes seasons."]], "Earth's tilted axis changes how directly sunlight hits us during the year."),
+  b(G6, "ESS.6.2", "Plate tectonics", "Build the fact: Plate motion builds ___.", "Plate motion builds mountains.",
+    [["Rain", "Rain wears mountains down. Colliding plates push them up."]], "Colliding plates fold and lift rock into mountains."),
+  b(G6, "LS.6.1", "Photosynthesis", "Build the fact: Leaves use light to make ___.", "Leaves use light to make sugar.",
+    [["Roots", "Roots take in water. Leaves carry out photosynthesis."]], "Photosynthesis in leaves turns light energy into sugar."),
+  b(G7, "PS.7.1", "Speed", "Build the fact: Speed is distance over ___.", "Speed is distance over time.",
+    [["mass.", "Speed = distance ÷ time. Mass isn't part of speed."]], "Speed tells how far something goes in a unit of time."),
+  b(G7, "PS.7.2", "Kinetic energy", "Build the fact: A moving car has ___ energy.", "A moving car has kinetic energy.",
+    [["potential", "Moving objects have kinetic energy. Potential energy is stored."]], "Kinetic energy is the energy of motion."),
+  b(G7, "ESS.7.1", "Air pressure", "Build the fact: Air pressure ___ as altitude rises.", "Air pressure drops as altitude rises.",
+    [["increases", "Higher up, less air presses down, so pressure drops."]], "There is less air above you on a mountain, so air pressure is lower."),
+  b(G7, "LS.7.1", "Cells", "Build the fact: All living things are made of ___.", "All living things are made of cells.",
+    [["rocks.", "The cell is the basic unit of all living things."]], "Every living thing is made of one or more cells."),
+  b(G7, "LS.7.2", "Heredity", "Build the fact: Offspring inherit genes from ___.", "Offspring inherit genes from parents.",
+    [["friends.", "Genes are passed from parents to offspring."]], "Offspring get half their genes from each parent (in sexual reproduction)."),
+  b(G8, "PS.8.1", "Compounds", "Build the fact: Atoms combine to form ___.", "Atoms combine to form compounds.",
+    [["mixtures.", "In a mixture, substances are not chemically bonded. Bonded atoms form compounds."]], "Atoms of different elements bond to form compounds."),
+  b(G8, "PS.8.1", "Conservation of mass", "Build the fact: Mass is ___ in reactions.", "Mass is conserved in reactions.",
+    [["destroyed", "Atoms are rearranged, never destroyed, so mass is conserved."]], "The mass of the products equals the mass of the reactants."),
+  b(G8, "PS.8.2", "Energy resources", "Build the fact: ___ is not renewable.", "Coal is not renewable.",
+    [["Wind", "Wind is renewable. Coal takes millions of years to form."]], "Fossil fuels like coal can't be replaced in a human lifetime."),
+  b(G8, "ESS.8.1", "Rock layers", "Build the fact: Older rock layers lie ___.", "Older rock layers lie deeper.",
+    [["higher.", "Layers pile up over time, so the oldest are at the bottom."]], "The law of superposition: older layers are below younger ones."),
+  b(G8, "LS.8.1", "Vaccines", "Build the fact: Vaccines help ___ diseases.", "Vaccines help prevent diseases.",
+    [["cause", "Vaccines train the immune system to prevent disease."]], "A vaccine prepares the immune system before an infection."),
+  // ------------------------------------------------------------------ 9-12
+  b(G9, "ESS.EES.1", "Tides", "Build the fact: The moon's ___ causes tides.", "The moon's gravity causes tides.",
+    [["wind", "Tides come from the pull of the moon's gravity on the oceans."]], "The moon's gravity (and the sun's) pulls ocean water into tidal bulges."),
+  b(G9, "ESS.EES.1", "The sun's energy", "Build the fact: The sun makes energy by ___.", "The sun makes energy by fusion.",
+    [["fission.", "Fission splits heavy atoms. The sun fuses hydrogen into helium."]], "Nuclear fusion in the sun's core joins hydrogen into helium."),
+  b(G9, "ESS.EES.2", "Plate boundaries", "Build the fact: Oceanic plates sink at ___ zones.", "Oceanic plates sink at subduction zones.",
+    [["rise", "Dense oceanic plates sink (subduct) under other plates."]], "At subduction zones, dense oceanic crust sinks into the mantle."),
+  b(G9, "ESS.EES.4", "Greenhouse effect", "Build the fact: Greenhouse gases ___ heat.", "Greenhouse gases trap heat.",
+    [["reflect", "Greenhouse gases absorb and re-emit infrared heat, trapping it."]], "Greenhouse gases absorb heat radiated by Earth's surface."),
+  b(G10, "LS.Bio.1", "Organelles", "Build the fact: Ribosomes build ___.", "Ribosomes build proteins.",
+    [["lipids.", "Ribosomes link amino acids into proteins."]], "Ribosomes are where proteins are made."),
+  b(G10, "LS.Bio.5", "DNA replication", "Build the fact: DNA is copied ___ cells divide.", "DNA is copied before cells divide.",
+    [["after", "Each new cell needs a full copy, so DNA is copied first."]], "DNA replication happens before mitosis."),
+  b(G10, "LS.Bio.5", "Base pairing", "Build the fact: Adenine pairs with ___.", "Adenine pairs with thymine.",
+    [["guanine.", "In DNA, A pairs with T and G pairs with C."]], "Base pairs in DNA: A-T and G-C."),
+  b(G10, "LS.Bio.2", "Osmosis", "Build the fact: Water moves by ___.", "Water moves by osmosis.",
+    [["mitosis.", "Mitosis is cell division. Water crosses membranes by osmosis."]], "Osmosis is the diffusion of water across a membrane."),
+  b(G10, "LS.Bio.6", "Natural selection", "Build the fact: Natural selection favors ___ traits.", "Natural selection favors helpful traits.",
+    [["harmful", "Traits that help survival and reproduction become more common."]], "Helpful traits are passed on more often."),
+  b(G11, "PS.Chm.1", "Isotopes", "Build the fact: Isotopes differ in ___.", "Isotopes differ in neutrons.",
+    [["protons.", "Changing protons changes the element. Isotopes differ in neutrons."]], "Isotopes of an element have the same protons, different neutrons."),
+  b(G11, "PS.Chm.3", "Ionic bonding", "Build the fact: Metals lose electrons to form ___.", "Metals lose electrons to form cations.",
+    [["anions.", "Losing electrons makes a positive ion: a cation."]], "Metal atoms give up electrons and become cations."),
+  b(G11, "PS.Chm.5", "Acids and bases", "Build the fact: Acids have a pH ___ seven.", "Acids have a pH below seven.",
+    [["above", "Bases have a pH above 7. Acids are below 7."]], "pH below 7 is acidic; above 7 is basic."),
+  b(G12s, "PS.Phy.2", "Newton's first law", "Build the fact: An ___ force changes motion.", "An unbalanced force changes motion.",
+    [["balanced", "Balanced forces cancel out, so motion stays the same."]], "Only a net (unbalanced) force changes an object's motion."),
+  b(G12s, "PS.Phy.3", "Momentum", "Build the fact: Momentum is mass times ___.", "Momentum is mass times velocity.",
+    [["volume.", "p = mv: momentum is mass × velocity."]], "Momentum p = m × v."),
+  b(G12s, "PS.Phy.6", "Conservation of energy", "Build the fact: Energy ___ be created or destroyed.", "Energy cannot be created or destroyed.",
+    [["can", "Energy is conserved: it only changes form."]], "Energy changes form but the total stays the same."),
+];
+
+/* ------------------------------------------------------------------------------------------ */
+
+let m = 0;
+function r(
+  grades: Grade[], standard: string, skill: string, target: string, prompt: string,
+  yes: string[], no: string[], yesWhy: string, noWhy: string, notes?: Record<string, string>,
+): CategoryRule {
+  m++;
+  return { id: `s-r${m}`, subject: "science", grades, standard, skill, target, prompt, yes, no, yesWhy, noWhy, notes };
+}
+
+export const SCIENCE_RULES: CategoryRule[] = [
+  // ------------------------------------------------------------------ K-2
+  r(K1, "LS.K.1.1", "Living and nonliving", "LIVING THINGS", "Color the LIVING things.",
+    ["dog", "tree", "bird", "frog", "fish", "grass", "ant", "flower", "worm", "cat"],
+    ["rock", "car", "ball", "cloud", "chair", "sand", "toy", "cup", "shoe"],
+    "A {x} is alive: it grows, needs food and water, and makes more of its kind.", "A {x} is not alive: it doesn't eat, grow or breathe."),
+  r(["K", "1", "2"], "ESS.K.1.1", "Weather", "WEATHER", "Color the WEATHER words.",
+    ["rain", "snow", "wind", "sunny", "cloudy", "storm", "fog", "hail"],
+    ["rock", "dog", "apple", "book", "shoe", "bed", "chair", "car"],
+    "{x} describes the weather.", "{x} is a thing, not weather."),
+  r(G12, "ESS.1.1", "Objects in the sky", "IN THE SKY", "Color the things we see IN THE SKY.",
+    ["sun", "moon", "star", "cloud", "planet", "comet", "Mars", "meteor"],
+    ["tree", "rock", "river", "house", "dog", "sand", "grass", "car"],
+    "We can see the {x} in the sky.", "The {x} is on the ground, not in the sky.",
+    { Mars: "Mars is a planet. We can see it in the night sky." }),
+  r(G12, "LS.1.1", "Plant parts", "PLANT PARTS", "Color the PLANT parts.",
+    ["root", "stem", "leaf", "flower", "seed", "fruit", "petal", "bud"],
+    ["wing", "paw", "fur", "beak", "tail", "fin", "claw", "horn"],
+    "A {x} is part of a plant.", "A {x} is an animal part."),
+  r(G2, "PS.2.1.1", "Solids and liquids", "SOLIDS", "Color the SOLIDS: they keep their own shape.",
+    ["rock", "ice", "wood", "coin", "spoon", "brick", "crayon", "pencil"],
+    ["milk", "juice", "water", "oil", "soup", "rain", "soda", "honey"],
+    "{x} is a solid: it keeps its shape.", "{x} is a liquid: it flows and takes the shape of its container."),
+  r(G2, "LS.2.1", "Life cycles", "HATCH FROM EGGS", "Color the animals that HATCH FROM EGGS.",
+    ["chick", "frog", "turtle", "snake", "duck", "fish", "lizard", "robin"],
+    ["dog", "cat", "horse", "cow", "pig", "bear", "goat", "whale"],
+    "A {x} hatches from an egg.", "A {x} is a mammal: it is born alive, not hatched."),
+  // ------------------------------------------------------------------ 3-5
+  r(G3, "LS.3.1.1", "Skeletal system", "BONES", "Color the BONES.",
+    ["skull", "rib", "spine", "femur", "pelvis", "jawbone", "kneecap", "collarbone"],
+    ["heart", "lung", "brain", "stomach", "biceps", "liver", "skin", "kidney"],
+    "The {x} is part of the skeleton.", "The {x} is an organ or muscle, not a bone."),
+  r(["3", "4", "5"], "ESS.3.1.1", "The solar system", "PLANETS", "Color the PLANETS in our solar system.",
+    ["Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune"],
+    ["Moon/moon", "Sun/star", "Pluto/dwarf planet", "Ceres/dwarf planet", "Titan/moon", "Europa/moon", "Halley/comet", "Vesta/asteroid"],
+    "{x} is one of the eight planets.", "{x} is {ak}, not a planet."),
+  r(G4, "PS.4.2", "Conductors and insulators", "CONDUCTORS", "Color the good electrical CONDUCTORS.",
+    ["copper", "iron", "silver", "gold", "aluminum", "steel", "tin", "brass"],
+    ["rubber", "plastic", "wood", "glass", "cloth", "paper", "cork", "wool"],
+    "{x} is a metal, so electricity flows through it easily.", "{x} is an insulator: electricity doesn't flow through it easily."),
+  r(["4", "5"], "ESS.4.2.1", "Rocks", "SEDIMENTARY", "Color the SEDIMENTARY rocks (made from layers of sediment).",
+    ["sandstone", "shale", "limestone", "coal", "chalk", "mudstone", "siltstone", "breccia"],
+    ["granite/igneous rock", "basalt/igneous rock", "obsidian/igneous rock", "pumice/igneous rock", "marble/metamorphic rock", "slate/metamorphic rock", "quartzite/metamorphic rock", "gneiss/metamorphic rock"],
+    "{x} forms from layers of sediment pressed together.", "{x} is {ak}, not sedimentary."),
+  r(G5, "LS.5.2", "Producers", "PRODUCERS", "Color the PRODUCERS: living things that make their own food.",
+    ["grass", "oak tree", "algae", "moss", "fern", "cactus", "corn", "kelp"],
+    ["deer/consumer", "fox/consumer", "hawk/consumer", "mushroom/decomposer", "rabbit/consumer", "snake/consumer", "frog/consumer", "mold/decomposer"],
+    "{x} makes its own food by photosynthesis.", "{x} is {ak}: it can't make its own food."),
+  r(G5, "PS.5.1.2", "Physical and chemical changes", "PHYSICAL CHANGES", "Color the PHYSICAL changes (no new substance forms).",
+    ["melting", "freezing", "boiling", "tearing", "cutting", "folding", "crushing", "dissolving"],
+    ["burning", "rusting", "baking", "rotting", "tarnishing", "souring", "digesting", "cooking"],
+    "{x} changes size, shape or state, but no new substance forms.", "{x} is a chemical change: a new substance forms."),
+  // ------------------------------------------------------------------ 6-8
+  r(G6, "LS.6.2", "Abiotic factors", "ABIOTIC", "Color the ABIOTIC (nonliving) parts of an ecosystem.",
+    ["sunlight", "water", "soil", "air", "rock", "heat", "wind", "salt"],
+    ["grass", "deer", "fungi", "bacteria", "oak tree", "algae", "insect", "bird"],
+    "{x} is nonliving: an abiotic factor.", "{x} is living: a biotic factor."),
+  r(G6, "PS.6.2.3", "Thermal insulators", "INSULATORS", "Color the good thermal INSULATORS (slow heat transfer).",
+    ["wool", "foam", "air", "plastic", "wood", "rubber", "cork", "fiberglass"],
+    ["copper", "iron", "aluminum", "silver", "steel", "gold", "brass", "tin"],
+    "{x} slows heat transfer: an insulator.", "{x} is a metal: it conducts heat quickly."),
+  r(G7, "LS.7.1", "Cell parts", "INSIDE A CELL", "Color the parts found INSIDE A CELL.",
+    ["nucleus", "membrane", "cytoplasm", "vacuole", "ribosome", "cell wall", "lysosome", "nucleolus"],
+    ["organ", "tissue", "heart", "lung", "bone", "stomach", "skin", "brain"],
+    "The {x} is a part of a single cell.", "{x} is made of many cells, so it can't be inside one cell."),
+  r(G7, "PS.7.2", "Kinetic and potential energy", "KINETIC ENERGY", "Color the examples of KINETIC energy (energy of motion).",
+    ["rolling", "falling", "flowing", "spinning", "flying", "running", "swinging", "sliding"],
+    ["stretched", "raised", "coiled", "compressed", "perched", "dammed", "wound up", "lifted"],
+    "Something {x} is moving, so it has kinetic energy.", "Something {x} is storing energy: potential energy."),
+  r(G8, "PS.8.1", "Elements and compounds", "ELEMENTS", "Color the ELEMENTS (one kind of atom).",
+    ["oxygen", "carbon", "iron", "gold", "helium", "neon", "sodium", "copper", "silver", "nitrogen"],
+    ["water/compound", "salt/compound", "sugar/compound", "air/mixture", "rust/compound", "steel/mixture", "brass/mixture", "ammonia/compound"],
+    "{x} is an element on the periodic table.", "{x} is {ak}, made of more than one kind of atom."),
+  r(G8, "PS.8.2", "Energy resources", "RENEWABLE", "Color the RENEWABLE energy resources.",
+    ["solar", "wind", "hydropower", "biomass", "geothermal", "tidal", "wood", "wave"],
+    ["coal", "oil", "petroleum", "uranium", "propane", "diesel", "gasoline", "shale gas"],
+    "{x} energy can be replaced naturally in a human lifetime.", "{x} is nonrenewable: it takes millions of years to form or is used up."),
+  // ------------------------------------------------------------------ 9-12
+  r(G9, "ESS.EES.2", "Rock cycle", "IGNEOUS", "Color the IGNEOUS rocks (cooled from magma or lava).",
+    ["granite", "basalt", "obsidian", "pumice", "gabbro", "rhyolite", "andesite", "diorite"],
+    ["shale/sedimentary rock", "sandstone/sedimentary rock", "limestone/sedimentary rock", "marble/metamorphic rock", "slate/metamorphic rock", "gneiss/metamorphic rock", "schist/metamorphic rock", "quartzite/metamorphic rock"],
+    "{x} forms when magma or lava cools.", "{x} is {ak}, not igneous."),
+  r(["9", "10"], "ESS.EES.4", "Greenhouse gases", "GREENHOUSE GASES", "Color the GREENHOUSE gases.",
+    ["CO₂", "CH₄", "N₂O", "O₃", "H₂O", "CFCs", "HFCs", "SF₆"],
+    ["N₂", "O₂", "Ar", "He", "H₂", "Ne", "Kr", "Xe"],
+    "{x} absorbs infrared heat: a greenhouse gas.", "{x} doesn't absorb infrared heat well, so it is not a greenhouse gas."),
+  r(G10, "LS.Bio.1", "Prokaryotes and eukaryotes", "EUKARYOTES", "Color the EUKARYOTES (cells with a nucleus).",
+    ["yeast", "amoeba", "paramecium", "mushroom", "human", "fern", "euglena", "oak"],
+    ["E. coli", "bacteria", "archaea", "salmonella", "staph", "strep", "listeria", "MRSA"],
+    "{x} is made of cells with a nucleus: a eukaryote.", "{x} is a prokaryote: its cells have no nucleus."),
+  r(["10", "11"], "LS.Bio.1", "Biomolecules", "PROTEINS", "Color the PROTEINS.",
+    ["enzyme", "keratin", "collagen", "insulin", "hemoglobin", "actin", "myosin", "antibody"],
+    ["glucose/carbohydrate", "starch/carbohydrate", "cellulose/carbohydrate", "glycogen/carbohydrate", "DNA/nucleic acid", "RNA/nucleic acid", "wax/lipid", "fat/lipid"],
+    "{x} is a protein, built from amino acids.", "{x} is {ak}, not a protein."),
+  r(G11, "PS.Chm.2.2", "Metals and nonmetals", "METALS", "Color the METALS.",
+    ["Na", "Fe", "Cu", "Al", "Mg", "Zn", "Ag", "Au", "Ca", "K"],
+    ["C", "O", "N", "S", "Cl", "He", "Ne", "P", "F"],
+    "{x} is a metal: it sits left of the staircase on the periodic table.", "{x} is a nonmetal: it sits right of the staircase."),
+  r(["11", "12"], "PS.Chm.3", "Ionic and covalent bonds", "IONIC", "Color the IONIC compounds (metal + nonmetal).",
+    ["NaCl", "KBr", "MgO", "CaF₂", "LiF", "NaI", "KCl", "CaO", "Al₂O₃"],
+    ["H₂O", "CO₂", "CH₄", "NH₃", "HCl", "SO₂", "N₂O", "C₆H₁₂O₆"],
+    "{x} joins a metal and a nonmetal: ionic.", "{x} is made only of nonmetals: covalent."),
+  r(G12s, "PS.Phy.1", "Vectors and scalars", "VECTORS", "Color the VECTOR quantities (they have a direction).",
+    ["velocity", "force", "momentum", "weight", "impulse", "torque", "drag", "thrust"],
+    ["speed", "mass", "time", "energy", "distance", "power", "work", "volume"],
+    "{x} has size and direction: a vector.", "{x} has size only: a scalar."),
+  r(G12s, "PS.Phy.6", "Energy units", "ENERGY UNITS", "Color the units of ENERGY.",
+    ["joule", "calorie", "kWh", "eV", "BTU", "erg", "kcal", "therm"],
+    ["watt/power", "newton/force", "pascal/pressure", "volt/potential", "ampere/current", "ohm/resistance", "kelvin/temperature", "coulomb/charge"],
+    "A {x} is a unit of energy.", "A {x} is a unit of {k}, not energy."),
+];
