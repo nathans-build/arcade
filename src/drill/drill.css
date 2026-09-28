@@ -1,0 +1,309 @@
+/* Rock Driller — arcade presentation layer (layout adapted from Sum Stack and Web Invaders) */
+
+.rd-root {
+  --rd-bg: #0a0f2e;
+  --rd-red: #e3262f;
+  --rd-blue: #2456e8;
+  --rd-sky: #6ea0ff;
+  --rd-yellow: #ffd23f;
+  --rd-green: #5fff8a;
+  --rd-white: #f2f4ff;
+  --rd-dim: #7a88c8;
+  height: 100vh;
+  height: 100dvh;
+  box-sizing: border-box;
+  background: var(--rd-bg);
+  color: var(--rd-white);
+  font-family: "VT323", ui-monospace, monospace;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 16px 12px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  overflow: hidden;
+}
+
+.rd-pixel { font-family: "Press Start 2P", ui-monospace, monospace; letter-spacing: 0.02em; }
+
+.rd-cabinet {
+  width: 100%; max-width: 960px;
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+}
+.rd-toolbar, .rd-hud, .rd-controls { flex: none; }
+
+/* The stage takes whatever height is left; the 16:10 screen scales to fit it both ways. */
+.rd-stage {
+  flex: 1; min-height: 120px;
+  display: flex; align-items: flex-start; justify-content: center;
+}
+
+.rd-hud {
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  justify-content: space-between;
+  gap: 4px 12px;
+  font-size: clamp(8px, 1.6vw, 12px);
+  padding: 6px 2px;
+  text-transform: uppercase;
+}
+.rd-hud .lbl { color: var(--rd-dim); margin-right: 6px; }
+.rd-hud .val { color: var(--rd-white); }
+.rd-hud .rule { color: var(--rd-yellow); }
+
+.rd-screen {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 320 / 200;
+  box-sizing: border-box;
+  border: 3px solid #1c2a70;
+  box-shadow: 0 0 0 2px #000, 0 0 40px rgba(227, 38, 47, 0.18);
+  overflow: hidden;
+  background: var(--rd-bg);
+}
+.rd-screen canvas {
+  width: 100%; height: 100%; display: block;
+  image-rendering: pixelated; image-rendering: crisp-edges;
+}
+/* CRT scanlines */
+.rd-screen::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0) 0 2px, rgba(0, 0, 0, 0.18) 2px 3px);
+}
+
+.rd-overlay {
+  position: absolute; inset: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  padding: 3%;
+  background: rgba(10, 15, 46, 0.8);
+  overflow-y: auto;
+}
+.rd-panel {
+  width: 100%; max-width: 780px; max-height: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  border: 3px solid var(--rd-sky);
+  background: #070b26;
+  padding: clamp(10px, 2.2vw, 20px);
+  box-shadow: 6px 6px 0 #000;
+}
+
+.rd-title {
+  font-size: clamp(18px, 5vw, 44px);
+  color: var(--rd-yellow);
+  text-shadow: 3px 3px 0 var(--rd-red), 6px 6px 0 #000;
+  text-align: center; line-height: 1.2;
+}
+.rd-sub { text-align: center; color: var(--rd-sky); font-size: clamp(7px, 1.4vw, 12px); margin-top: 8px; line-height: 1.6; }
+
+.rd-h { font-size: clamp(9px, 1.8vw, 14px); color: var(--rd-sky); margin-bottom: 10px; line-height: 1.4; }
+.rd-tag { display: inline-block; font-size: clamp(7px, 1.2vw, 10px); padding: 3px 6px; margin: 0 6px 4px 0; border: 1px solid currentColor; }
+.rd-tag.math { color: var(--rd-yellow); }
+.rd-tag.std { color: var(--rd-dim); }
+
+.rd-prompt { font-size: clamp(20px, 3.2vw, 30px); line-height: 1.1; margin: 10px 0 12px; }
+.rd-early .rd-prompt { font-size: clamp(24px, 3.8vw, 36px); }
+
+.rd-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (max-width: 640px) { .rd-choices { grid-template-columns: 1fr; } }
+
+.rd-btn {
+  font-family: "VT323", ui-monospace, monospace;
+  font-size: clamp(18px, 2.6vw, 24px); line-height: 1.05;
+  text-align: left;
+  color: var(--rd-white); background: #0e1650;
+  border: 2px solid var(--rd-dim);
+  padding: 8px 10px;
+  box-shadow: 3px 3px 0 #000;
+  cursor: pointer;
+  display: flex; gap: 10px; align-items: flex-start;
+}
+.rd-early .rd-btn { font-size: clamp(22px, 3.2vw, 30px); }
+.rd-btn:hover:not(:disabled), .rd-btn:focus-visible { border-color: var(--rd-sky); background: #16227a; outline: none; }
+.rd-btn:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #000; }
+.rd-btn .key { font-family: "Press Start 2P", monospace; font-size: 0.55em; color: var(--rd-yellow); padding-top: 4px; }
+.rd-btn.right { border-color: var(--rd-green); background: #0d3a22; }
+.rd-btn.wrong { border-color: var(--rd-red); background: #3a0d12; }
+.rd-btn:disabled { cursor: default; }
+
+.rd-cta {
+  font-family: "Press Start 2P", monospace; font-size: clamp(9px, 1.6vw, 13px);
+  color: var(--rd-bg); background: var(--rd-yellow); border: 0; padding: 12px 16px;
+  box-shadow: 4px 4px 0 var(--rd-red); cursor: pointer; text-transform: uppercase;
+}
+.rd-cta:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--rd-red); }
+.rd-cta.ghost { background: transparent; color: var(--rd-sky); box-shadow: none; border: 2px solid var(--rd-sky); }
+.rd-cta.small { font-size: clamp(7px, 1.2vw, 10px); padding: 8px 10px; }
+
+.rd-grades { display: grid; grid-template-columns: repeat(13, 1fr); gap: 6px; margin: 14px 0 10px; }
+@media (max-width: 760px) { .rd-grades { grid-template-columns: repeat(7, 1fr); } }
+.rd-grade {
+  font-family: "Press Start 2P", monospace; font-size: clamp(9px, 1.5vw, 12px);
+  padding: 10px 0; background: #0e1650; color: var(--rd-white); cursor: pointer;
+  border: 2px solid var(--rd-dim); box-shadow: 3px 3px 0 #000;
+}
+.rd-grade:hover, .rd-grade:focus-visible { border-color: var(--rd-sky); outline: none; }
+.rd-grade.on { border-color: var(--rd-yellow); background: var(--rd-red); color: #fff; }
+
+.rd-rulebox {
+  border: 2px dashed var(--rd-blue); padding: 8px 10px; margin: 6px 0 12px;
+  font-size: clamp(17px, 2.3vw, 22px); line-height: 1.15; color: #cfd8ff;
+}
+.rd-rulebox b { color: var(--rd-yellow); font-weight: normal; }
+
+.rd-feedback { margin-top: 12px; font-size: clamp(18px, 2.6vw, 24px); line-height: 1.15; }
+.rd-feedback .verdict { font-family: "Press Start 2P", monospace; font-size: clamp(9px, 1.7vw, 13px); margin-bottom: 6px; line-height: 1.5; }
+.rd-feedback .verdict.ok { color: var(--rd-green); }
+.rd-feedback .verdict.no { color: var(--rd-red); }
+.rd-power { color: var(--rd-yellow); margin-top: 6px; }
+
+.rd-controls { display: none; margin-top: 8px; gap: 10px; justify-content: space-between; }
+.rd-controls.show { display: flex; }
+.rd-pad { display: flex; gap: 10px; }
+.rd-touch {
+  font-family: "Press Start 2P", monospace; font-size: 11px;
+  width: 72px; height: 60px; border-radius: 10px;
+  background: #0e1650; color: var(--rd-white); border: 2px solid var(--rd-dim);
+  touch-action: none;
+}
+.rd-touch.big { width: 96px; }
+.rd-touch.rot { border-color: var(--rd-sky); color: var(--rd-sky); }
+.rd-touch.drop { border-color: var(--rd-red); color: var(--rd-red); }
+.rd-touch:active { background: #1c2a90; }
+
+.rd-help { font-size: clamp(16px, 2.2vw, 20px); color: #b8c0f0; line-height: 1.15; }
+.rd-help kbd { font-family: "Press Start 2P", monospace; font-size: 0.5em; color: var(--rd-yellow); border: 1px solid var(--rd-dim); padding: 2px 4px; }
+
+.rd-report-table { width: 100%; border-collapse: collapse; font-size: clamp(16px, 2.2vw, 20px); margin-top: 8px; }
+.rd-report-table th { font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--rd-dim); text-align: left; padding: 4px; }
+.rd-report-table td { padding: 3px 4px; border-top: 1px solid #1c2a70; }
+
+.rd-toolbar { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; margin-bottom: 2px; gap: 8px; }
+.rd-toolbar a, .rd-toolbar button {
+  font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--rd-dim);
+  background: none; border: 0; cursor: pointer; text-decoration: none; padding: 6px 0;
+}
+.rd-toolbar a:hover, .rd-toolbar button:hover { color: var(--rd-sky); }
+.rd-toolbar a { color: var(--rd-red); }
+
+@keyframes rd-blink { 50% { opacity: 0.2; } }
+.rd-blink { animation: rd-blink 1s steps(2) infinite; }
+
+@media (max-width: 700px), (max-height: 640px) {
+  /* Small screens: the game screen is too short for text panels, so they take the viewport */
+  .rd-overlay { position: fixed; padding: 12px; align-items: flex-start; }
+  .rd-panel { max-height: none; }
+}
+@media (max-width: 520px) {
+  .rd-hud { grid-template-columns: repeat(2, auto); }
+  .rd-toolbar { flex-wrap: wrap; }
+  .rd-touch { width: 58px; }
+  .rd-touch.big { width: 74px; }
+}
+
+/* ---------- Rock Driller additions ---------- */
+.rd-tag.science { color: var(--rd-green); }
+.rd-hud .lives { color: var(--rd-red); }
+.rd-hud .goal { color: var(--rd-yellow); }
+
+/* Mission strip between the HUD and the screen: the level goal, or an open field challenge. */
+.rd-banner {
+  position: relative; flex: none;
+  background: #0c1440;
+  border: 2px solid var(--rd-blue);
+  border-left: 6px solid var(--rd-red);
+  padding: 5px 10px 6px;
+  margin-bottom: 6px;
+  font-size: clamp(17px, 2.3vw, 23px); line-height: 1.05;
+}
+.rd-banner.challenge { border-left-color: var(--rd-yellow); }
+.rd-banner.correct { border-color: var(--rd-green); }
+.rd-banner.wrong { border-color: var(--rd-red); }
+.rd-banner .head {
+  font-family: "Press Start 2P", monospace;
+  font-size: clamp(6px, 1.05vw, 9px); color: var(--rd-sky);
+  display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px; line-height: 1.4;
+}
+.rd-banner.challenge .head { color: var(--rd-yellow); }
+.rd-banner.correct .head { color: var(--rd-green); }
+.rd-banner.wrong .head { color: var(--rd-red); }
+.rd-banner .head .std { color: var(--rd-dim); white-space: nowrap; }
+.rd-banner .prompt { display: flex; align-items: flex-start; gap: 8px; min-height: 1.1em; }
+.rd-banner .speak {
+  flex: none; font-size: 0.9em; padding: 2px 5px; margin-top: 1px;
+  background: #111c5a; color: var(--rd-sky); border: 1px solid var(--rd-dim); cursor: pointer;
+}
+.rd-banner .speak.on { color: var(--rd-yellow); border-color: var(--rd-yellow); }
+.rd-banner .opts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px 8px; margin-top: 5px; }
+.rd-banner .opts.hidden { visibility: hidden; }
+@media (max-width: 620px) { .rd-banner .opts { grid-template-columns: 1fr 1fr; } }
+.rd-banner .opt {
+  display: flex; gap: 6px; align-items: center;
+  font: inherit; font-size: 0.85em; color: #d6dcff; text-align: left; cursor: pointer;
+  background: #111c5a; border: 2px solid #1f2d7a; padding: 2px 6px;
+  touch-action: none; min-height: 32px;
+}
+.rd-banner .opt b {
+  font-family: "Press Start 2P", monospace; font-size: 0.55em; font-weight: normal;
+  color: var(--rd-bg); background: var(--rd-yellow); padding: 3px 4px;
+}
+.rd-banner .opt:hover:not(:disabled) { border-color: var(--rd-yellow); }
+.rd-banner .opt:disabled { cursor: default; }
+.rd-banner .opt.ans { border-color: var(--rd-green); color: var(--rd-green); background: #0d3a22; }
+.rd-banner .opt.wrong { border-color: var(--rd-red); color: #ffb0b4; background: #3a0d12; }
+.rd-banner .info { margin-top: 4px; color: #b8c0f0; font-size: 0.78em; min-height: 2.1em; }
+.rd-banner.correct .info, .rd-banner.wrong .info { color: var(--rd-white); }
+.rd-stars { color: var(--rd-yellow); letter-spacing: 2px; margin-left: 8px; }
+
+.rd-gemhead { display: flex; gap: 10px; align-items: center; }
+.rd-gemhead canvas { width: 32px; height: 32px; image-rendering: pixelated; flex: none; border: 2px solid var(--rd-dim); background: #111; }
+.rd-where { color: var(--rd-sky); font-size: clamp(16px, 2.2vw, 20px); }
+.rd-fact { margin-top: 8px; padding: 6px 8px; border: 2px dashed var(--rd-blue); color: #cfd8ff; }
+.rd-fact b { color: var(--rd-yellow); font-weight: normal; }
+.rd-note { margin-top: 6px; color: var(--rd-yellow); }
+.rd-note.miss { color: #ffb0b4; }
+
+.rd-controls { display: none; margin-top: 8px; gap: 10px; justify-content: space-between; align-items: center; flex: none; }
+.rd-controls.show { display: flex; }
+.rd-dpad { display: grid; grid-template-columns: repeat(3, 58px); grid-template-rows: repeat(2, 44px); gap: 4px; }
+.rd-dpad .up { grid-column: 2; grid-row: 1; }
+.rd-dpad .left { grid-column: 1; grid-row: 2; }
+.rd-dpad .down { grid-column: 2; grid-row: 2; }
+.rd-dpad .right { grid-column: 3; grid-row: 2; }
+.rd-dpad .rd-touch { width: 58px; height: 44px; }
+.rd-touch.fire { width: 120px; height: 70px; border-color: var(--rd-sky); color: var(--rd-sky); }
+
+.rd-learn { border: 2px dashed var(--rd-blue); padding: 8px 10px; margin: 6px 0 12px; font-size: clamp(17px, 2.3vw, 22px); line-height: 1.15; color: #cfd8ff; }
+.rd-learn b { color: var(--rd-yellow); font-weight: normal; }
+
+.rd-root.rd-early .rd-banner { font-size: clamp(20px, 2.9vw, 28px); }
+.rd-root.rd-early .rd-banner .opt { min-height: 40px; }
+
+@media (max-height: 560px) {
+  .rd-root { padding-top: 2px; padding-bottom: 6px; }
+  .rd-hud { padding: 2px; }
+  .rd-banner { padding: 3px 8px 5px; margin-bottom: 4px; font-size: 17px; }
+  .rd-banner .info { min-height: 0; }
+  .rd-banner .opt { min-height: 28px; }
+  .rd-dpad { grid-template-rows: repeat(2, 36px); }
+  .rd-dpad .rd-touch { height: 36px; }
+  .rd-touch.fire { height: 60px; }
+  .rd-controls { margin-top: 4px; }
+}
+
+/* Gem questions and transmissions cover the whole cabinet, so long questions never need scrolling. */
+.rd-overlay.modal { position: fixed; inset: 0; z-index: 5; padding: 12px; background: rgba(5, 8, 26, 0.78); }
+.rd-overlay.modal .rd-panel { max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); }
+
+/* Challenge choices: fixed two-line height so the strip never changes size mid-level. */
+.rd-banner .opt { font-size: 0.8em; min-height: 2.35em; line-height: 1.05; }
+.rd-root.rd-early .rd-banner .opt { min-height: 2.35em; }
+
+/* Short screens (phones in landscape): the idle mission strip shrinks to one line. */
+@media (max-height: 560px) {
+  .rd-banner.idle .opts, .rd-banner.idle .info { display: none; }
+  .rd-banner .prompt { font-size: 0.9em; }
+  .rd-banner .info { font-size: 0.72em; }
+}
