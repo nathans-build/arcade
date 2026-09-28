@@ -3,5 +3,3 @@ dist
 *.local
 .DS_Store
 *.log
-# The shared arcade kit is symlinked in during development; the coordinator copies the real kit in before publishing.
-src/kit
