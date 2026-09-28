@@ -143,9 +143,9 @@ checks the grade picker. `?debug` exposes the engine as `window.__sc`.
 
 ## Deploying
 
-Stack Chef lives in SpiderBen10's Arcade repository (`games/stack-chef/`). The arcade's deploy
-workflow builds and tests it and publishes it at `/stack-chef/` on the arcade's Azure app, so it
-needs no Azure app or token of its own. See the arcade README.
+Stack Chef lives in SpiderBen10's Arcade repository (`games/stack-chef/`). The arcade's deploy workflow
+builds and tests it and publishes it at `/stack-chef/` on the arcade's Azure app, so it needs no Azure
+app or token of its own. See the arcade README.
 
 ## Credits
 

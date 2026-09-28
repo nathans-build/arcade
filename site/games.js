@@ -102,4 +102,13 @@ window.GAMES = [
     image: "img/jungle-run.png",
     year: 2026,
   },
+  {
+    id: "stack-chef",
+    title: "Stack Chef",
+    tagline: "Drop the slabs onto the plate in the right order: stories, life cycles, number sense.",
+    subjects: ["Math", "Science", "ELA"],
+    url: "/stack-chef/",
+    image: "img/stack-chef.png",
+    year: 2026,
+  },
 ];
