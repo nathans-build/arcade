@@ -111,4 +111,13 @@ window.GAMES = [
     image: "img/stack-chef.png",
     year: 2026,
   },
+  {
+    id: "cube-hop",
+    title: "Cube Hop",
+    tagline: "Hop the pyramid to build a correct sentence or color every cube that fits the rule.",
+    subjects: ["ELA", "Math", "Science"],
+    url: "/cube-hop/",
+    image: "img/cube-hop.png",
+    year: 2026,
+  },
 ];

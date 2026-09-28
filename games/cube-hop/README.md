@@ -125,9 +125,9 @@ the engine as `window.__ch` for it.
 
 ## Deploying
 
-Cube Hop lives in the arcade repository (`nathans-build/arcade`) at `games/cube-hop/` and is published
-at `/cube-hop/` by the arcade's deploy. Vite's `base: "./"` makes the built `dist/` work from that
-subfolder. The shared kit is copied into `src/kit/` (identical to the arcade's `kit/`).
+Cube Hop lives in SpiderBen10's Arcade repository (`games/cube-hop/`). The arcade's deploy workflow
+builds and tests it and publishes it at `/cube-hop/` on the arcade's Azure app, so it needs no Azure
+app or token of its own. See the arcade README.
 
 ## Standards codes to verify
 
