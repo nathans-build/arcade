@@ -1,6 +1,6 @@
 # Lunar Patrol Academy: design notes
 
-An arcade side-scroller in the style of *Moon Patrol* (Irem, 1982) where knowing grade 6 math, science and ELA
+An arcade side-scroller in the style of *Moon Patrol* (Irem, 1982) where knowing K–12 math, science and ELA
 keeps your rover moving.
 
 ## Core loop
@@ -49,42 +49,30 @@ sector C, and enemy UFOs drop bombs that blast new craters in the road ahead, as
 - **Sound**: all synthesized with WebAudio (`src/lunar/audio.ts`): square-wave shots, noise explosions, a rising "correct"
   arpeggio, a buzz for wrong answers, and an original looping bassline. `M` mutes and the setting is remembered.
 
-## Question bank
+## Questions: K–12, NC standards
 
-`src/lunar/questions/` has **116 items across 51 standards**: math 45, science 41, ELA 30. 85 of them are short enough
-for UFO waves.
+Questions come from the shared **arcade kit** in `src/kit/`, the same one every game in SpiderBen10's
+Arcade uses (canonical copy: `nathans-build/arcade`, folder `kit/`).
 
-- **Math**: NC Standard Course of Study for Mathematics (2017), grade 6: `NC.6.RP.1–4`, `NC.6.NS.1–8`, `NC.6.EE.1–9`,
-  `NC.6.G.1–4`, `NC.6.SP.1–5`.
-- **ELA**: NC ELA Standard Course of Study (2017), grade 6: `RL.6.x`, `RI.6.x`, `L.6.1/2/4/5`, `W.6.1`.
-- **Science**: NC Science Standard Course of Study (adopted 2023): `PS.6.1` (matter and phase change), `PS.6.2` (thermal
-  energy transfer), `ESS.6.1` (Earth–Moon–Sun), `ESS.6.2` (Earth's structure, plate tectonics, rocks), `ESS.6.3`
-  (lithosphere and humans), `LS.6.1` (plants), `LS.6.2` (ecosystems and biomes).
-  **Check these codes against the current WCPSS grade 6 science pacing guide.** The 2023 objective numbering couldn't
-  be fully confirmed from public sources, so `PS.6.2` in particular may need to be relabelled.
+- **Grade:** picked on the title screen (Kindergarten–12), or passed in from the arcade menu as
+  `?grade=4`. It's remembered in the browser.
+- **Math:** generated fresh every time, 10–14 question types per grade, tagged with NC Standard Course
+  of Study for Mathematics codes (`NC.K.CC.5` … `NC.8.G.9`; high school as NC Math 1–4:
+  `NC.M1.…` to `NC.M4.…`).
+- **Science:** 18 written questions per grade from the 2023 NC Science standards (`PS.5.1`,
+  `LS.Bio.3` …). High school: 9 Earth & Environmental, 10 Biology, 11 Chemistry, 12 Physics.
+- **ELA:** 18 written questions per grade from the 2017 NC ELA standards (`RF.K.3`, `RL.4.2`,
+  `RL.9-10.4` …). High school: English I–IV.
+- **Checkpoints** can use any question, including reading passages. **Quiz Squadron waves** only use
+  "quick" questions that fit on the banner.
+- **K–2:** read-aloud is on by default (browser speech), and the run is gentler: wider gaps between
+  hazards, slower fuel burn, UFOs arrive later.
 
-Wake County (WCPSS) teaches the state NC Standard Course of Study, so these are the standards its classrooms use.
+Some standard codes couldn't be confirmed against the official NC documents from the build environment.
+Each bank's `NOTES.md` in `src/kit/banks/` lists the codes to check against WCPSS pacing guides.
 
-### Adding questions
-
-Add an object to `math6.ts`, `science6.ts` or `ela6.ts`:
-
-```ts
-{
-  id: "m-rp-9",                 // unique
-  subject: "math",
-  standard: "NC.6.RP.3",
-  skill: "Rate & ratio problems", // groups results in the mission report
-  prompt: "…",
-  choices: ["correct", "wrong", "wrong", "wrong"],
-  answer: 0,                     // choices are shuffled at runtime, so 0 is fine
-  explanation: "Shown after every answer. Teach, don't just grade.",
-  quick: true,                   // optional: short enough for a UFO wave
-  passage: "…",                  // optional: checkpoint-only reading passage
-}
-```
-
-Adding grade 7 or 8 later means adding new bank files and a grade picker on the title screen.
+Wake County (WCPSS) teaches the state NC Standard Course of Study, so these are the standards its
+classrooms use. To add or fix questions, edit the kit in `nathans-build/arcade` and copy it into each game.
 
 ## Code map
 
@@ -94,5 +82,6 @@ Adding grade 7 or 8 later means adding new bank files and a grade picker on the 
 | `src/lunar/engine.ts` | Game loop, physics, spawning, collisions, waves, checkpoints, rendering |
 | `src/lunar/sprites.ts` | Pixel-art sprite grids and palette |
 | `src/lunar/audio.ts` | WebAudio chip sounds and music |
-| `src/lunar/questions/*` | Question banks, adaptive deck, saved progress |
+| `src/lunar/questions/index.ts` | Connects the game to the kit's decks and saved progress |
+| `src/kit/` | Shared arcade kit: K–12 questions, grades, read-aloud, chip audio |
 | `public/staticwebapp.config.json`, `infra/`, `.github/workflows/azure-static-web-apps.yml` | Azure hosting (see the README) |

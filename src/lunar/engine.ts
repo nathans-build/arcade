@@ -141,6 +141,12 @@ export class LunarEngine {
     cancelAnimationFrame(this.raf);
   }
 
+  /** Gentler run for early readers (K-2): wider gaps, slower fuel burn, later UFOs. */
+  private easy = false;
+  setEasy(on: boolean) {
+    this.easy = on;
+  }
+
   newGame() {
     this.mode = "play";
     // A new paint job every run, never the same as the last one.
@@ -315,7 +321,7 @@ export class LunarEngine {
     if (demo) return;
 
     // Fuel
-    this.fuel -= FUEL_DRAIN * dt;
+    this.fuel -= FUEL_DRAIN * (this.easy ? 0.7 : 1) * dt;
     if (this.fuel <= 0) {
       this.fuel = 0;
       this.mode = "stalling";
@@ -366,7 +372,7 @@ export class LunarEngine {
 
   private spawn(dt: number) {
     const diff = this.sector;
-    const gapBase = Math.max(95, 210 - diff * 12);
+    const gapBase = Math.max(95, 210 - diff * 12) + (this.easy ? 70 : 0);
     while (this.nextSpawnX < this.camX + W + 40) {
       const x = this.nextSpawnX;
       const cpDist = Math.abs(x - Math.round(x / SECTOR_LEN) * SECTOR_LEN);
@@ -391,7 +397,7 @@ export class LunarEngine {
     if (!this.wave) {
       this.ufoCd -= dt;
       const maxUfos = Math.min(1 + Math.floor(diff / 2), 3);
-      if (this.ufoCd <= 0 && this.ufos.length < maxUfos && diff >= 1) {
+      if (this.ufoCd <= 0 && this.ufos.length < maxUfos && diff >= (this.easy ? 2 : 1)) {
         this.ufos.push({ x: -16, y: 30, baseX: rand(90, 230), baseY: rand(30, 60), t: 0, life: rand(9, 14), bombCd: rand(1.5, 3) });
         this.ufoCd = rand(3, 7) - Math.min(diff, 4) * 0.4;
       }

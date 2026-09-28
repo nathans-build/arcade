@@ -2,15 +2,30 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChipAudio } from "@/lunar/audio";
 import { LunarEngine, SECTOR_LETTERS, WAVE_TIME, type Action, type HudState, type WaveResult } from "@/lunar/engine";
 import {
-  ALL_QUESTIONS,
   QuestionDeck,
   SUBJECT_LABELS,
   loadProgress,
   saveProgress,
   type DealtQuestion,
+  type Grade,
   type Progress,
   type SubjectMode,
 } from "@/lunar/questions";
+import {
+  GRADES,
+  arcadeLink,
+  courseName,
+  gradeLabel,
+  initialGrade,
+  isEarlyReader,
+  readAloudPref,
+  rememberGrade,
+  setReadAloudPref,
+  speak,
+  speakQuestion,
+  speechSupported,
+  stopSpeaking,
+} from "@/kit";
 import "@/lunar/lunar.css";
 
 type Screen = "title" | "playing" | "over";
@@ -29,14 +44,11 @@ const KEYMAP: Record<string, Action> = {
 };
 
 const MODES: { mode: SubjectMode; label: string; note: string }[] = [
-  { mode: "math", label: "MATH", note: "Ratios · Integers · Equations" },
-  { mode: "science", label: "SCIENCE", note: "Matter · Earth & Space · Life" },
-  { mode: "ela", label: "ELA", note: "Reading · Vocabulary · Grammar" },
+  { mode: "math", label: "MATH", note: "Numbers · Shapes · Problem solving" },
+  { mode: "science", label: "SCIENCE", note: "Earth · Life · Physical" },
+  { mode: "ela", label: "ELA", note: "Reading · Words · Grammar" },
   { mode: "mixed", label: "MIXED", note: "All three subjects" },
 ];
-
-/** SpiderBen10's Arcade menu (nathans-build/arcade). */
-const ARCADE_URL = "https://icy-smoke-05363610f.3.azurestaticapps.net/";
 
 const EMPTY_HUD: HudState = { score: 0, lives: 3, fuel: 100, sector: 0, sectorProgress: 0, streak: 0, waveTimeLeft: null, roverColor: "#e24ae2" };
 
@@ -48,6 +60,10 @@ export default function LunarPatrol({ standalone = false }: { standalone?: boole
   const progressRef = useRef<Progress>(loadProgress());
 
   const [screen, setScreen] = useState<Screen>("title");
+  const [grade, setGradeState] = useState<Grade>(() => initialGrade("6"));
+  const [readAloud, setReadAloud] = useState(() => readAloudPref(isEarlyReader(initialGrade("6"))));
+  const readAloudRef = useRef(readAloud);
+  readAloudRef.current = readAloud;
   const [mode, setMode] = useState<SubjectMode>("mixed");
   const [hud, setHud] = useState<HudState>(EMPTY_HUD);
   const [checkpoint, setCheckpoint] = useState<{ q: DealtQuestion; sector: number } | null>(null);
@@ -97,9 +113,11 @@ export default function LunarPatrol({ standalone = false }: { standalone?: boole
         }
         setPicked(null);
         setCheckpoint({ q, sector });
+        if (readAloudRef.current) speakQuestion(q.prompt, q.choices);
       },
       requestWaveQuestion: () => deckRef.current?.draw(true) ?? null,
       onWaveStart: (q) => {
+        if (readAloudRef.current) speakQuestion(q.prompt, q.choices);
         if (waveHideTimer.current) clearTimeout(waveHideTimer.current);
         setWaveChoice(null);
         setWave({ q, result: null });
@@ -143,7 +161,9 @@ export default function LunarPatrol({ standalone = false }: { standalone?: boole
       audio.unlock();
       audio.startMusic();
       setMode(m);
-      deckRef.current = new QuestionDeck(m, progressRef.current);
+      rememberGrade(grade);
+      deckRef.current = new QuestionDeck(m, grade);
+      engineRef.current?.setEasy(isEarlyReader(grade));
       setLog([]);
       setCheckpoint(null);
       setWave(null);
@@ -151,8 +171,22 @@ export default function LunarPatrol({ standalone = false }: { standalone?: boole
       setScreen("playing");
       engineRef.current?.newGame();
     },
-    [audio],
+    [audio, grade],
   );
+
+  const chooseGrade = useCallback((g: Grade) => {
+    setGradeState(g);
+    rememberGrade(g);
+    // Early readers get read-aloud by default unless they've set it themselves.
+    setReadAloud(readAloudPref(isEarlyReader(g)));
+  }, []);
+
+  const toggleReadAloud = useCallback(() => {
+    setReadAloud((on) => {
+      setReadAloudPref(!on);
+      return !on;
+    });
+  }, []);
 
   const answerCheckpoint = useCallback(
     (i: number) => {
@@ -161,6 +195,7 @@ export default function LunarPatrol({ standalone = false }: { standalone?: boole
       const correct = i === checkpoint.q.answer;
       if (correct) audio.correct();
       else audio.wrong();
+      if (readAloudRef.current) speak(correct ? `Correct! ${checkpoint.q.explanation}` : `The answer is ${checkpoint.q.choices[checkpoint.q.answer]}. ${checkpoint.q.explanation}`);
       record(checkpoint.q, correct, "checkpoint");
     },
     [checkpoint, picked, audio, record],
@@ -168,6 +203,7 @@ export default function LunarPatrol({ standalone = false }: { standalone?: boole
 
   const continueFromCheckpoint = useCallback(() => {
     if (!checkpoint || picked === null) return;
+    stopSpeaking();
     engineRef.current?.resolveCheckpoint(picked === checkpoint.q.answer);
     setCheckpoint(null);
     setPicked(null);
@@ -258,10 +294,11 @@ export default function LunarPatrol({ standalone = false }: { standalone?: boole
   return (
     <div className="lp-root">
       <div className="lp-toolbar">
-        {standalone ? <a href={ARCADE_URL}>◀ ARCADE</a> : <a href="/">◀ STORY SQUAD</a>}
+        {standalone ? <a href={arcadeLink(grade)}>◀ ARCADE</a> : <a href="/">◀ STORY SQUAD</a>}
         <div style={{ display: "flex", gap: 16 }}>
           {screen === "playing" && <button onClick={() => togglePause()}>{paused ? "RESUME" : "PAUSE"}</button>}
           <button onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {speechSupported() && <button onClick={toggleReadAloud}>{readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}</button>}
         </div>
       </div>
 
@@ -292,7 +329,7 @@ export default function LunarPatrol({ standalone = false }: { standalone?: boole
 
           {screen === "playing" && wave && <WaveBanner wave={wave} timeLeft={hud.waveTimeLeft} choice={waveChoice} onChoose={chooseWaveAnswer} />}
 
-          {screen === "title" && <TitleScreen onStart={startGame} highScore={highScore} progress={progressRef.current} />}
+          {screen === "title" && <TitleScreen onStart={startGame} highScore={highScore} progress={progressRef.current} grade={grade} onGrade={chooseGrade} />}
 
           {screen === "playing" && checkpoint && (
             <div className="lp-overlay">
@@ -421,14 +458,33 @@ function resultLabel(r: WaveResult) {
   return "⌛ THE SQUADRON ESCAPED";
 }
 
-function TitleScreen({ onStart, highScore, progress }: { onStart: (m: SubjectMode) => void; highScore: number; progress: Progress }) {
+function TitleScreen({
+  onStart, highScore, progress, grade, onGrade,
+}: {
+  onStart: (m: SubjectMode) => void; highScore: number; progress: Progress; grade: Grade; onGrade: (g: Grade) => void;
+}) {
   const seenStandards = Object.keys(progress.standards).length;
-  const totalStandards = new Set(ALL_QUESTIONS.map((q) => q.standard)).size;
+  const course = courseName(grade, "math");
   return (
     <div className="lp-overlay" style={{ background: "rgba(0,0,16,0.55)" }}>
       <div className="lp-panel" style={{ borderColor: "var(--lp-magenta)" }}>
         <div className="lp-title lp-pixel">LUNAR PATROL</div>
-        <div className="lp-sub lp-pixel">ACADEMY · GRADE 6 · NC STANDARDS</div>
+        <div className="lp-sub lp-pixel">ACADEMY · {gradeLabel(grade).toUpperCase()} · NC STANDARDS</div>
+        <div className="lp-grades" role="group" aria-label="Grade level">
+          {GRADES.map((g) => (
+            <button
+              key={g}
+              type="button"
+              className={`lp-grade lp-pixel ${g === grade ? "on" : ""}`}
+              aria-pressed={g === grade}
+              aria-label={gradeLabel(g)}
+              onClick={() => onGrade(g)}
+            >
+              {g}
+            </button>
+          ))}
+        </div>
+        {course && <div className="lp-sub" style={{ marginTop: 4 }}>High school: {course} · {courseName(grade, "ela")} · {courseName(grade, "science")}</div>}
         <div className="lp-subjects">
           {MODES.map((m) => (
             <button key={m.mode} className="lp-subject" onClick={() => onStart(m.mode)}>
@@ -445,7 +501,7 @@ function TitleScreen({ onStart, highScore, progress }: { onStart: (m: SubjectMod
           <span style={{ color: "var(--lp-green)" }}>Quiz Squadron</span> flies in — shoot the UFO carrying the right answer!
         </div>
         <div className="lp-help" style={{ marginTop: 8, color: "var(--lp-dim)" }}>
-          HI-SCORE {String(highScore).padStart(6, "0")} · Standards practiced: {seenStandards}/{totalStandards}
+          HI-SCORE {String(highScore).padStart(6, "0")} · Standards practiced: {seenStandards}
         </div>
       </div>
     </div>

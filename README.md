@@ -1,6 +1,6 @@
 # Lunar Patrol Academy
 
-A *Moon Patrol*-style arcade game where grade 6 players answer math, science and ELA questions
+A *Moon Patrol*-style arcade game where K–12 players answer math, science and ELA questions
 (NC Standard Course of Study) to keep their moon rover fueled.
 
 - Jump craters and boulders, shoot UFOs, and reach checkpoints A → Z.

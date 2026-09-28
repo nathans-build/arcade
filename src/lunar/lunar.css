@@ -158,6 +158,15 @@
 .lp-cta:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--lp-magenta); }
 .lp-cta.ghost { background: transparent; color: var(--lp-cyan); box-shadow: none; border: 2px solid var(--lp-cyan); }
 
+.lp-grades { display: grid; grid-template-columns: repeat(13, minmax(0, 1fr)); gap: 4px; margin: 14px 0 0; }
+@media (max-width: 640px) { .lp-grades { grid-template-columns: repeat(7, minmax(0, 1fr)); } }
+.lp-grade {
+  font-size: clamp(8px, 1.3vw, 11px); min-height: 32px; padding: 4px 0; cursor: pointer;
+  color: var(--lp-white); background: #0c1248; border: 2px solid var(--lp-dim); box-shadow: 2px 2px 0 #000;
+}
+.lp-grade:hover, .lp-grade:focus-visible { border-color: var(--lp-yellow); outline: none; }
+.lp-grade.on { background: var(--lp-magenta); border-color: var(--lp-yellow); color: #fff; }
+
 .lp-subjects { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 18px 0 12px; }
 @media (max-width: 640px) { .lp-subjects { grid-template-columns: 1fr 1fr; } }
 .lp-subject {
