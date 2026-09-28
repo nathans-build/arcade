@@ -66,4 +66,13 @@ window.GAMES = [
     image: "img/rock-driller.png",
     year: 2026,
   },
+  {
+    id: "word-worm",
+    title: "Word Worm",
+    tagline: "Shoot the letters and word parts that spell the target before the worm reaches you.",
+    subjects: ["ELA"],
+    url: "/word-worm/",
+    image: "img/word-worm.png",
+    year: 2026,
+  },
 ];

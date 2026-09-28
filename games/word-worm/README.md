@@ -118,27 +118,11 @@ transmission (key and tap), the layout and the mission report. `?debug` exposes 
 
 `src/kit` is the shared arcade kit. Copy the canonical `kit/` folder there before building.
 
-## Deploying to Azure
+## Deploying
 
-Every push to `main` builds the game and publishes it to Azure Static Web Apps
-(`.github/workflows/azure-static-web-apps.yml`). Pull requests get their own preview link.
-Until the token below is added, the deploy step is skipped, so the build still runs and checks the code.
-
-One-time setup, from any browser at https://shell.azure.com (Bash):
-
-```sh
-az group create -n rg-word-worm -l eastus2
-az deployment group create -g rg-word-worm -f infra/main.bicep   # or: az staticwebapp create -n word-worm -g rg-word-worm -l eastus2 --sku Free
-az staticwebapp secrets list -n word-worm -g rg-word-worm --query properties.apiKey -o tsv
-```
-
-Copy the printed token into this repository under
-**Settings → Secrets and variables → Actions → New repository secret**, named
-`AZURE_STATIC_WEB_APPS_API_TOKEN`. The next push to `main` publishes the game at
-`https://<name>.azurestaticapps.net`.
-
-The token can only publish to that one web app. You can revoke or rotate it in the Azure portal at any time.
-The Free tier covers this game, because it is only static files with no server.
+Word Worm lives in SpiderBen10's Arcade repository (`games/word-worm/`). The arcade's deploy workflow
+builds and tests it and publishes it at `/word-worm/` on the arcade's Azure app, so it needs no Azure
+app or token of its own. See the arcade README.
 
 ## Credits
 
