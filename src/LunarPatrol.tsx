@@ -35,6 +35,9 @@ const MODES: { mode: SubjectMode; label: string; note: string }[] = [
   { mode: "mixed", label: "MIXED", note: "All three subjects" },
 ];
 
+/** SpiderBen10's Arcade menu (nathans-build/arcade). */
+const ARCADE_URL = "https://icy-smoke-05363610f.3.azurestaticapps.net/";
+
 const EMPTY_HUD: HudState = { score: 0, lives: 3, fuel: 100, sector: 0, sectorProgress: 0, streak: 0, waveTimeLeft: null, roverColor: "#e24ae2" };
 
 export default function LunarPatrol({ standalone = false }: { standalone?: boolean }) {
@@ -255,7 +258,7 @@ export default function LunarPatrol({ standalone = false }: { standalone?: boole
   return (
     <div className="lp-root">
       <div className="lp-toolbar">
-        {standalone ? <span className="lp-pixel" style={{ fontSize: 9, color: "var(--lp-dim)" }}>LUNAR PATROL ACADEMY</span> : <a href="/">◀ STORY SQUAD</a>}
+        {standalone ? <a href={ARCADE_URL}>◀ ARCADE</a> : <a href="/">◀ STORY SQUAD</a>}
         <div style={{ display: "flex", gap: 16 }}>
           {screen === "playing" && <button onClick={() => togglePause()}>{paused ? "RESUME" : "PAUSE"}</button>}
           <button onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
