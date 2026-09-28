@@ -1,0 +1,9 @@
+{
+  "routes": [
+    { "route": "/img/*", "headers": { "cache-control": "public, max-age=86400" } }
+  ],
+  "globalHeaders": {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin"
+  }
+}
