@@ -39,4 +39,13 @@ window.GAMES = [
     image: "img/sum-stack.png",
     year: 2026,
   },
+  {
+    id: "route-runner",
+    title: "Route Runner",
+    tagline: "Ride the street and deliver only to houses that fit the rule.",
+    subjects: ["Science", "Math", "ELA"],
+    url: "/route-runner/",
+    image: "img/route-runner.png",
+    year: 2026,
+  },
 ];
