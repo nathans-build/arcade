@@ -6,11 +6,59 @@
   var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   /* ------------------------------------------------------------------ */
+  /* Grade picker (K-12). The choice rides along to every game as        */
+  /* ?grade=, and games link back with it, so it sticks across the arcade.*/
+  /* ------------------------------------------------------------------ */
+
+  var GRADES = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+  var GRADE_KEY = "arcade.grade";
+
+  function validGrade(v) { return typeof v === "string" && GRADES.indexOf(v.toUpperCase()) >= 0 ? v.toUpperCase() : null; }
+  function gradeName(g) { return g === "K" ? "Kindergarten" : "Grade " + g; }
+  function supports(game, g) { return !game.grades || game.grades.indexOf(g) >= 0; }
+
+  var grade = (function () {
+    try {
+      var q = validGrade(new URLSearchParams(window.location.search).get("grade") || "");
+      if (q) return q;
+    } catch (e) { /* ignore */ }
+    try {
+      var s = validGrade(localStorage.getItem(GRADE_KEY) || "");
+      if (s) return s;
+    } catch (e) { /* ignore */ }
+    return "6";
+  })();
+
+  var picker = document.getElementById("grades");
+  var gradeNow = document.getElementById("grade-now");
+  var gradeButtons = GRADES.map(function (g) {
+    var b = el("button", "grade-btn", g);
+    b.type = "button";
+    b.setAttribute("aria-label", gradeName(g));
+    b.addEventListener("click", function () { setGrade(g); blip(); });
+    picker.appendChild(b);
+    return b;
+  });
+
+  function setGrade(g) {
+    grade = g;
+    try { localStorage.setItem(GRADE_KEY, g); } catch (e) { /* ignore */ }
+    gradeButtons.forEach(function (b, i) {
+      var on = GRADES[i] === g;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    gradeNow.textContent = gradeName(g);
+    renderCabinets();
+  }
+
+  /* ------------------------------------------------------------------ */
   /* Cabinets                                                            */
   /* ------------------------------------------------------------------ */
 
   var list = document.getElementById("cabinets");
   var cabinets = [];
+  var selected = 0;
 
   function el(tag, cls, text) {
     var e = document.createElement(tag);
@@ -19,66 +67,68 @@
     return e;
   }
 
-  games.forEach(function (g, i) {
-    var li = el("li");
-    var a = el("a", "cabinet");
-    a.href = g.url;
-    a.setAttribute("aria-label", "Play " + g.title);
+  function gameHref(game) {
+    return game.url + (game.url.indexOf("?") >= 0 ? "&" : "?") + "grade=" + encodeURIComponent(grade);
+  }
 
-    a.appendChild(el("div", "cab-top", "Player 1 · Game " + (i + 1)));
-    var screen = el("div", "screen");
-    var img = el("img");
-    img.src = g.image;
-    img.alt = g.title + " gameplay";
-    img.loading = "lazy";
-    screen.appendChild(img);
-    a.appendChild(screen);
+  function renderCabinets() {
+    list.textContent = "";
+    cabinets = [];
+    games.forEach(function (game, i) {
+      var li = el("li");
+      var live = !!game.url;
+      var card = el(live ? "a" : "div", "cabinet" + (live ? "" : " soon"));
+      if (live) {
+        card.href = gameHref(game);
+        card.setAttribute("aria-label", "Play " + game.title + ", " + gradeName(grade));
+        card.addEventListener("click", function () { coin(); });
+        card.addEventListener("focus", function () { select(cabinets.indexOf(card), false); });
+      }
 
-    var body = el("div", "body");
-    body.appendChild(el("h3", null, g.title));
-    body.appendChild(el("p", null, g.tagline));
-    var chips = el("div", "chips");
-    chips.appendChild(el("span", "chip grade", g.grade));
-    g.subjects.forEach(function (s) { chips.appendChild(el("span", "chip", s)); });
-    body.appendChild(chips);
-    a.appendChild(body);
-    a.appendChild(el("div", "start", "Press start ▶"));
+      card.appendChild(el("div", "cab-top", "Game " + (i + 1) + (live ? " · Player 1" : " · Coming soon")));
+      var screen = el("div", "screen");
+      if (game.image) {
+        var img = el("img");
+        img.src = game.image;
+        img.alt = game.title + " gameplay";
+        img.loading = "lazy";
+        screen.appendChild(img);
+      } else {
+        screen.appendChild(el("span", null, "Now building…"));
+      }
+      card.appendChild(screen);
 
-    a.addEventListener("click", function () { coin(); });
-    a.addEventListener("focus", function () { select(i, false); });
-    li.appendChild(a);
-    list.appendChild(li);
-    cabinets.push(a);
-  });
+      var body = el("div", "body");
+      body.appendChild(el("h3", null, game.title));
+      body.appendChild(el("p", null, game.tagline));
+      var chips = el("div", "chips");
+      var fits = supports(game, grade);
+      chips.appendChild(el("span", "chip grade" + (fits ? "" : " off"), fits ? gradeName(grade) : "Grade " + game.grades.join(", ") + " only"));
+      game.subjects.forEach(function (s) { chips.appendChild(el("span", "chip", s)); });
+      body.appendChild(chips);
+      card.appendChild(body);
+      if (live) card.appendChild(el("div", "start", "Press start ▶"));
 
-  // The next cabinet slot, so the arcade reads as a growing collection.
-  var soonLi = el("li");
-  var soon = el("div", "cabinet soon");
-  soon.appendChild(el("div", "cab-top", "Game " + (games.length + 1)));
-  var soonScreen = el("div", "screen");
-  soonScreen.appendChild(el("span", null, "Now building…"));
-  soon.appendChild(soonScreen);
-  var soonBody = el("div", "body");
-  soonBody.appendChild(el("h3", null, "Next game"));
-  soonBody.appendChild(el("p", null, "SpiderBen10 is working on the next cabinet. Check back soon."));
-  soon.appendChild(soonBody);
-  soonLi.appendChild(soon);
-  list.appendChild(soonLi);
+      li.appendChild(card);
+      list.appendChild(li);
+      if (live) cabinets.push(card);
+    });
+    select(Math.min(selected, cabinets.length - 1), false);
+  }
 
   // Credits table
   var credits = document.getElementById("credits");
-  games.forEach(function (g, i) {
+  games.filter(function (game) { return !!game.url; }).forEach(function (game, i) {
     var tr = el("tr");
     tr.appendChild(el("td", null, String(i + 1).padStart(2, "0")));
-    tr.appendChild(el("td", null, g.title));
+    tr.appendChild(el("td", null, game.title));
     tr.appendChild(el("td", "creator", "SpiderBen10 (NZDO)"));
-    tr.appendChild(el("td", null, String(g.year)));
+    tr.appendChild(el("td", null, String(game.year)));
     credits.appendChild(tr);
   });
   document.getElementById("year").textContent = String(new Date().getFullYear());
 
-  // Keyboard: arrows move between cabinets, Enter/Space launches.
-  var selected = -1;
+  // Keyboard: arrows move between cabinets, Enter/Space launches, [ and ] change grade.
   function select(i, focus) {
     if (!cabinets.length) return;
     selected = (i + cabinets.length) % cabinets.length;
@@ -86,15 +136,23 @@
     if (focus) cabinets[selected].focus();
   }
   document.addEventListener("keydown", function (ev) {
-    if (!cabinets.length) return;
     var k = ev.key;
+    if (k === "[" || k === "]") {
+      var gi = GRADES.indexOf(grade) + (k === "]" ? 1 : -1);
+      if (gi >= 0 && gi < GRADES.length) { setGrade(GRADES[gi]); blip(); }
+      return;
+    }
+    if (!cabinets.length) return;
     if (k === "ArrowRight" || k === "ArrowDown") { ev.preventDefault(); select(selected + 1, true); blip(); }
     else if (k === "ArrowLeft" || k === "ArrowUp") { ev.preventDefault(); select(selected - 1, true); blip(); }
-    else if ((k === "Enter" || k === " ") && selected >= 0 && document.activeElement !== cabinets[selected]) {
+    else if ((k === "Enter" || k === " ") && document.activeElement && document.activeElement.classList.contains("grade-btn")) {
+      return; // let the grade button handle it
+    } else if ((k === "Enter" || k === " ") && document.activeElement !== cabinets[selected]) {
       ev.preventDefault(); coin(); window.location.href = cabinets[selected].href;
     }
   });
-  if (cabinets.length) select(0, false);
+
+  setGrade(grade);
 
   /* ------------------------------------------------------------------ */
   /* Sounds (only after the player interacts)                            */

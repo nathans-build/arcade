@@ -114,11 +114,31 @@ kbd {
   border: 1px solid var(--muted); padding: 3px 5px; margin-right: 4px; background: var(--panel-2);
 }
 
+/* ---------- Grade picker ---------- */
+.grade-panel { margin-bottom: 28px; }
+.hint strong { color: var(--yellow); font-weight: normal; }
+.grades {
+  display: grid;
+  grid-template-columns: repeat(13, minmax(0, 1fr));
+  gap: 6px;
+}
+@media (max-width: 720px) { .grades { grid-template-columns: repeat(7, minmax(0, 1fr)); } }
+.grade-btn {
+  font-family: var(--pixel); font-size: clamp(10px, 1.6vw, 14px);
+  min-height: 44px; padding: 6px 0;
+  color: var(--text); background: var(--panel);
+  border: 2px solid var(--blue); box-shadow: 3px 3px 0 #000;
+  cursor: pointer;
+}
+.grade-btn:hover, .grade-btn:focus-visible { outline: none; border-color: var(--yellow); }
+.grade-btn.on { background: var(--red); border-color: var(--yellow); color: #fff; box-shadow: 3px 3px 0 #000, 0 0 14px rgba(227, 38, 47, 0.5); }
+.grade-btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #000; }
+
 /* ---------- Cabinets ---------- */
 .cabinets {
   list-style: none; margin: 0; padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
   gap: 22px;
 }
 .cabinet {
@@ -155,6 +175,7 @@ kbd {
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 4px; }
 .chip { font-family: var(--pixel); font-size: 8px; padding: 4px 6px; border: 1px solid var(--blue-light); color: var(--blue-light); }
 .chip.grade { border-color: var(--red); color: #ff8a90; }
+.chip.grade.off { border-color: var(--muted); color: var(--muted); }
 .start {
   font-family: var(--pixel); font-size: 10px; text-align: center;
   padding: 10px; background: var(--blue); color: #fff; border-top: 3px solid #13307f;

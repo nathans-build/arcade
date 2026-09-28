@@ -23,9 +23,17 @@
       </header>
 
       <main>
+        <section class="grade-panel" aria-labelledby="grade-title">
+          <div class="section-head">
+            <h2 id="grade-title">Select grade</h2>
+            <p class="hint">Now playing: <strong id="grade-now">Grade 6</strong> · questions follow NC standards</p>
+          </div>
+          <div class="grades" id="grades" role="group" aria-label="Grade level"></div>
+        </section>
+
         <div class="section-head">
           <h2>Select game</h2>
-          <p class="hint"><kbd>◀</kbd><kbd>▶</kbd> choose · <kbd>ENTER</kbd> play · or tap a cabinet</p>
+          <p class="hint"><kbd>◀</kbd><kbd>▶</kbd> choose · <kbd>ENTER</kbd> play · <kbd>[</kbd><kbd>]</kbd> grade · or tap</p>
         </div>
         <ul class="cabinets" id="cabinets" role="list"></ul>
 
