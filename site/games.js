@@ -93,4 +93,13 @@ window.GAMES = [
     image: "img/maze-muncher.png",
     year: 2026,
   },
+  {
+    id: "jungle-run",
+    title: "Jungle Run",
+    tagline: "Swing through the jungle, find treasures, and read the map to choose the right path.",
+    subjects: ["Social Studies", "Science", "ELA", "Math"],
+    url: "/jungle-run/",
+    image: "img/jungle-run.png",
+    year: 2026,
+  },
 ];

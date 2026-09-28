@@ -111,9 +111,9 @@ Playtest (Playwright, optional): run `npm run build && npx vite preview --port 4
 
 ## Deploying
 
-Jungle Run lives in SpiderBen10's Arcade repository (`games/jungle-run/`). The arcade's deploy
-workflow builds and tests it and publishes it at `/jungle-run/` on the arcade's Azure app, so it
-needs no Azure app or token of its own. See the arcade README.
+Jungle Run lives in SpiderBen10's Arcade repository (`games/jungle-run/`). The arcade's deploy workflow
+builds and tests it and publishes it at `/jungle-run/` on the arcade's Azure app, so it needs no Azure
+app or token of its own. See the arcade README.
 
 ## Credits
 
