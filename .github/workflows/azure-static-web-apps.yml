@@ -1,6 +1,7 @@
 name: Deploy arcade to Azure Static Web Apps
 
-# Publishes site/ (plain HTML/CSS/JS, no build step) to Azure Static Web Apps.
+# Builds the arcade (site/ menu + every game in games/, see scripts/build-site.sh) and
+# publishes it to Azure Static Web Apps. Games in games/<name>/ are served at /<name>/.
 # Pull requests get their own temporary preview URL; pushes to main update the live arcade.
 # Requires repo secret AZURE_STATIC_WEB_APPS_API_TOKEN (see README.md).
 
@@ -23,10 +24,11 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v5
-      - name: Check scripts parse
-        run: |
-          node --check site/app.js
-          node --check site/games.js
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Build menu and games
+        run: scripts/build-site.sh
       - name: Deploy
         # Skipped until the Azure token secret is configured.
         if: env.SWA_TOKEN != ''
@@ -35,7 +37,7 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: upload
-          app_location: site
+          app_location: _deploy
           skip_app_build: true
 
   close_pull_request:

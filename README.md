@@ -27,6 +27,18 @@ browser to try it locally.
 
 4. Push to `main`. The arcade redeploys automatically and the new cabinet and credits line appear.
 
+## Games hosted inside the arcade
+
+Azure's Free tier on this subscription allows only a few Static Web Apps, so newer games live in
+this repository instead of getting their own app. Each one is a complete Vite project in
+`games/<name>/` (its own `package.json`, tests and `src/kit` copy). `scripts/build-site.sh` builds and
+tests every game and publishes it at `/<name>/` next to the menu, e.g.
+`https://icy-smoke-05363610f.3.azurestaticapps.net/word-worm/`. To add one, drop its folder into
+`games/` and add a cabinet in `site/games.js` with `url: "/<name>/"`.
+
+The first four games (Lunar Patrol, Web Invaders, Factor Blaster, Sum Stack) still have their own
+repositories and Azure apps.
+
 ## Deploying to Azure
 
 `.github/workflows/azure-static-web-apps.yml` publishes `site/` on every push to `main`; pull
