@@ -43,6 +43,14 @@ az staticwebapp secrets list -n spiderben10-arcade -g rg-lunar-patrol --query pr
 Save the printed token in this repository under **Settings → Secrets and variables → Actions** as
 `AZURE_STATIC_WEB_APPS_API_TOKEN`. If you add a custom domain later, put it on this arcade app.
 
+## Shared kit
+
+`kit/` is the canonical copy of the code every game shares: K–12 questions tagged with NC standards
+(generated math; written science and ELA banks in `kit/banks/`), grade handling (`?grade=` from this
+menu), read-aloud for K–2, saved progress and chip sounds. Each game keeps an identical copy in
+`src/kit/`. After changing it here, copy the folder into each game repository. The `NOTES.md` files
+in `kit/banks/` list standard codes to double-check against WCPSS pacing guides.
+
 ## Artwork
 
 The marquee hero is an original pixel-art character drawn in code (`site/app.js`), not affiliated

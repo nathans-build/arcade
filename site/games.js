@@ -8,7 +8,6 @@ window.GAMES = [
     title: "Lunar Patrol Academy",
     tagline: "Jump craters, blast UFOs, and answer questions to refuel your moon rover.",
     subjects: ["Math", "Science", "ELA"],
-    grades: ["6"], // which grades have questions; omit for K-12
     url: "https://purple-meadow-0f28d7a0f.5.azurestaticapps.net/",
     image: "img/lunar-patrol.png",
     year: 2026,
@@ -18,8 +17,8 @@ window.GAMES = [
     title: "Web Invaders",
     tagline: "Invaders carry the answers. Web the right one before the formation lands.",
     subjects: ["Math", "Science", "ELA"],
-    url: null,
-    image: null,
+    url: "https://polite-grass-0e34fa60f.5.azurestaticapps.net/",
+    image: "img/web-invaders.png",
     year: 2026,
   },
   {
@@ -27,8 +26,8 @@ window.GAMES = [
     title: "Factor Blaster",
     tagline: "Blast number rocks and watch them split into their factors.",
     subjects: ["Math"],
-    url: null,
-    image: null,
+    url: "https://victorious-mushroom-00cefef0f.2.azurestaticapps.net/",
+    image: "img/factor-blaster.png",
     year: 2026,
   },
   {
@@ -36,8 +35,8 @@ window.GAMES = [
     title: "Sum Stack",
     tagline: "Stack falling number blocks so every row hits the target.",
     subjects: ["Math"],
-    url: null,
-    image: null,
+    url: "https://nice-cliff-076d7030f.5.azurestaticapps.net/",
+    image: "img/sum-stack.png",
     year: 2026,
   },
 ];
