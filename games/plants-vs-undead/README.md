@@ -213,7 +213,7 @@ saves a 640×400 canvas shot. Add `?debug` to the URL to expose the engine as `w
 
 ## Deploying
 
-The game lives in the arcade repository (`nathans-build/arcade`) at `games/plants-vs-undead/`, and
-the arcade's deploy publishes it at `/plants-vs-undead/`. Vite's `base: "./"` keeps every asset path
-relative, so `dist/` works from that subfolder. In the arcade menu it lists the subject Science and
-grades K–12.
+Plants vs Undead lives in SpiderBen10's Arcade repository (`games/plants-vs-undead/`). The arcade's deploy workflow
+builds and tests it and publishes it at `/plants-vs-undead/` on the arcade's Azure app, so it needs no Azure
+app or token of its own. See the arcade README.
+

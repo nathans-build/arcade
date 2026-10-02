@@ -130,4 +130,13 @@ window.GAMES = [
     image: "img/page-quest.png",
     year: 2026,
   },
+  {
+    id: "plants-vs-undead",
+    title: "Plants vs Undead",
+    tagline: "Grow roots, leaves and flowers, make sugar by photosynthesis, and hold the lawn against the silly undead.",
+    subjects: ["Science"],
+    url: "/plants-vs-undead/",
+    image: "img/plants-vs-undead.png",
+    year: 2026,
+  },
 ];
