@@ -1,3 +1,4 @@
+import { noteAnswer } from "./adaptive";
 import type { Question } from "./types";
 
 /* Per-browser progress, stored separately for each game. */
@@ -37,6 +38,7 @@ export function saveProgress(gameId: string, p: Progress) {
 
 /** Record one answer against its standard and persist. Returns the updated progress. */
 export function recordAnswer(gameId: string, q: Question, correct: boolean): Progress {
+  noteAnswer(q, correct);
   const p = loadProgress(gameId);
   const s = p.standards[q.standard] ?? { seen: 0, correct: 0 };
   p.standards[q.standard] = { seen: s.seen + 1, correct: s.correct + (correct ? 1 : 0) };

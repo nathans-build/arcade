@@ -54,8 +54,51 @@
       b.setAttribute("aria-pressed", on ? "true" : "false");
     });
     gradeNow.textContent = gradeName(g);
+    renderAdapt();
     renderCabinets();
   }
+
+  /* Adaptive math (kit/adaptive.ts reads the same keys): the math level rises after right
+     answers and falls after wrong ones, up to 2 grades either side of the chosen grade. */
+  var ADAPT_KEY = "arcade.adaptiveMath";
+  var adaptBtn = document.getElementById("adapt-btn");
+  var adaptNote = document.getElementById("adapt-note");
+  var adaptReset = document.getElementById("adapt-reset");
+  function adaptOn() { try { return localStorage.getItem(ADAPT_KEY) !== "0"; } catch (e) { return true; } }
+  function mathLevel() {
+    try {
+      var raw = localStorage.getItem("arcade.mathLevel." + grade);
+      var v = raw === null ? NaN : Number(raw);
+      if (isFinite(v)) return v;
+    } catch (e) { /* ignore */ }
+    return GRADES.indexOf(grade);
+  }
+  function levelName(v) {
+    var lo = Math.floor(v + 0.001), name = lo === 0 ? "K" : String(lo);
+    var part = v - lo;
+    return part < 0.1 ? "Now at grade " + name : "Now between grade " + name + " and " + GRADES[Math.min(12, lo + 1)];
+  }
+  function renderAdapt() {
+    var on = adaptOn();
+    adaptBtn.innerHTML = "Adaptive math: <strong>" + (on ? "ON" : "OFF") + "</strong>";
+    adaptBtn.setAttribute("aria-pressed", on ? "true" : "false");
+    adaptBtn.classList.toggle("on", on);
+    var v = mathLevel(), base = GRADES.indexOf(grade);
+    adaptNote.textContent = on
+      ? "Math gets harder when you're right and easier when you miss. " + levelName(v) + "."
+      : "Math questions stay at " + gradeName(grade).toLowerCase() + ".";
+    adaptReset.hidden = !on || Math.abs(v - base) < 0.05;
+  }
+  adaptBtn.addEventListener("click", function () {
+    try { localStorage.setItem(ADAPT_KEY, adaptOn() ? "0" : "1"); } catch (e) { /* ignore */ }
+    renderAdapt();
+    blip();
+  });
+  adaptReset.addEventListener("click", function () {
+    try { localStorage.removeItem("arcade.mathLevel." + grade); } catch (e) { /* ignore */ }
+    renderAdapt();
+    blip();
+  });
 
   /* ------------------------------------------------------------------ */
   /* Cabinets                                                            */

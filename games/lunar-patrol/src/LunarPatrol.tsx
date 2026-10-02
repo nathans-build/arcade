@@ -5,6 +5,7 @@ import {
   QuestionDeck,
   SUBJECT_LABELS,
   loadProgress,
+  noteAnswer,
   saveProgress,
   type DealtQuestion,
   type Grade,
@@ -98,6 +99,7 @@ export default function LunarPatrol({ standalone = false }: { standalone?: boole
     const s = p.standards[q.standard] ?? { seen: 0, correct: 0 };
     p.standards[q.standard] = { seen: s.seen + 1, correct: s.correct + (correct ? 1 : 0) };
     saveProgress(p);
+    noteAnswer(q, correct);
     setLog((l) => [...l, { q, correct, kind }]);
   }, []);
 

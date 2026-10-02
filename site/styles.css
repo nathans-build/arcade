@@ -217,3 +217,16 @@ footer .fine { font-size: 17px; opacity: 0.8; }
 @media (max-width: 560px) {
   .marquee-text { position: static; background: #050818; }
 }
+
+/* Adaptive math switch under the grade picker */
+.adapt { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 12px; }
+.adapt .hint { margin: 0; }
+.adapt-btn, .adapt-reset {
+  font: inherit; font-size: 0.95em; cursor: pointer; color: #fff; background: var(--navy, #0a0f2e);
+  border: 2px solid var(--blue, #2456e8); padding: 6px 12px; box-shadow: 3px 3px 0 #000;
+}
+.adapt-btn.on { border-color: var(--yellow, #ffd23f); }
+.adapt-btn strong { color: var(--yellow, #ffd23f); }
+.adapt-btn:not(.on) strong { color: #9aa3c7; }
+.adapt-btn:hover, .adapt-btn:focus-visible, .adapt-reset:hover, .adapt-reset:focus-visible { outline: none; border-color: var(--yellow, #ffd23f); }
+.adapt-reset { border-color: #3a4170; color: #c9cff0; font-size: 0.85em; }

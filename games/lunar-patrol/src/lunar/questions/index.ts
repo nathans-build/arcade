@@ -3,6 +3,7 @@
 import {
   QuestionDeck as KitDeck,
   loadProgress as kitLoadProgress,
+  noteAnswer,
   saveProgress as kitSaveProgress,
   type DealtQuestion,
   type Grade,
@@ -12,6 +13,8 @@ import {
 } from "@/kit";
 
 export type { DealtQuestion, Grade, Progress, Subject, SubjectMode };
+/** Lets adaptive math (kit) see each answer, since Lunar Patrol saves progress itself. */
+export { noteAnswer };
 
 export const GAME_ID = "lunar-patrol";
 

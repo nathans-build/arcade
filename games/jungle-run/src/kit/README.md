@@ -11,6 +11,7 @@ identical copy in `src/kit/` (imported as `@/kit`). The canonical copy lives in
 | `deck.ts` | `QuestionDeck(grade, subjects, { quickOnly, gameId })` → `.draw()` a shuffled question; favours standards the player has missed |
 | `math.ts` | `mathQuestion(grade)`: fresh generated K–12 math questions tagged with NC math standards |
 | `banks/science/g*.ts`, `banks/ela/g*.ts`, `banks/social/g*.ts` | Written science, ELA and social studies questions per grade, tagged with NC standards (loaded automatically) |
+| `adaptive.ts` | Adaptive math: the deck's generated math moves up after right answers and down after wrong ones (±2 grades around the chosen grade, mixing neighbouring grades in between). On by default; switched on/off on the arcade menu. `recordAnswer` feeds it automatically; games that save progress themselves call `noteAnswer(q, correct)` |
 | `progress.ts` | Per-game high score and per-standard accuracy in the browser |
 | `speak.ts` | Read-aloud (on by default for K–2) |
 | `audio.ts` | `ChipAudio`: chiptune sound effects and a looping bassline |

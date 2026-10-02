@@ -1,5 +1,6 @@
 import { bankFor } from "./banks";
 import { GRADES } from "./grades";
+import { markAdaptive, mathGradeFor } from "./adaptive";
 import { mathQuestion } from "./math";
 import { loadProgress, type Progress } from "./progress";
 import type { DealtQuestion, Grade, Question, Subject } from "./types";
@@ -42,7 +43,8 @@ function writtenPool(subject: Exclude<Subject, "math">, grade: Grade, quickOnly:
 }
 
 /**
- * Draws questions for a grade and subject mix. Math is generated fresh each time;
+ * Draws questions for a grade and subject mix. Math is generated fresh each time (at the
+ * player's adaptive math level when that is on, see adaptive.ts);
  * science and ELA come from the written banks, avoiding repeats until the pool is used
  * up, and favouring standards the player has missed before.
  */
@@ -62,12 +64,19 @@ export class QuestionDeck {
     this.progress = loadProgress(opts.gameId ?? "arcade");
   }
 
+  /** A generated math question; with adaptive math on, its grade follows the player's math level. */
+  private math(): DealtQuestion {
+    const q = mathQuestion(mathGradeFor(this.grade), { quick: this.opts.quickOnly });
+    markAdaptive(q, this.grade);
+    return deal(q);
+  }
+
   draw(): DealtQuestion {
     const subject = this.subjects[this.turn++ % this.subjects.length];
-    if (subject === "math") return deal(mathQuestion(this.grade, { quick: this.opts.quickOnly }));
+    if (subject === "math") return this.math();
 
     let pool = writtenPool(subject, this.grade, !!this.opts.quickOnly);
-    if (pool.length === 0) return deal(mathQuestion(this.grade, { quick: this.opts.quickOnly }));
+    if (pool.length === 0) return this.math();
     let fresh = pool.filter((q) => !this.used.has(q.id));
     if (fresh.length === 0) {
       pool.forEach((q) => this.used.delete(q.id));

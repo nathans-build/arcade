@@ -4,6 +4,7 @@ export * from "./types";
 export * from "./grades";
 export * from "./deck";
 export * from "./progress";
+export * from "./adaptive";
 export * from "./speak";
 export { mathQuestion, randInt, pick } from "./math";
 export { bankFor } from "./banks";
