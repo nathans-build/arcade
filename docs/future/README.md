@@ -18,7 +18,7 @@ Business notes (also for later):
 - [brand-and-domains.md](brand-and-domains.md): name and `.com` research for a brand that doesn't
   lean on other companies' trademarks.
 
-Open decisions for these are GitHub issues (label `decision`).
+Open decisions for these are GitHub issues #16 (freemium), #17 (brand and domain) and #18 (grid battle game).
 
 ## Open decisions
 
