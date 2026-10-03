@@ -6,6 +6,8 @@ Games designed but not built yet. Each has a full design plan in this folder:
 |---|---|---|
 | **Family Road Trip** | [family-road-trip-plan.md](family-road-trip-plan.md) | Original cartoon family road-trips across North Carolina; 1–2 player co-op side-scroller; each stop ends with a team quiz "boss". Inspired by 1990s family arcade brawlers, but no fighting people and no resemblance to any TV show. |
 | **Sonar Squad** (working title) | [grid-battle-plan.md](grid-battle-plan.md) | Battleship-style grid game where calling a shot is reading a coordinate; vs the computer first, then pass-and-play and online two-player by room code. |
+| **Trail Ledger** (grades 5–12) | [trail-ledger-plan.md](trail-ledger-plan.md) | Journey game through turning points in US history (Wagon Road 1753, Westward Trail 1846, Great Migration 1917…); rationing and budgets are the math; archive missions for the Underground Railroad and Cherokee removal. |
+| **Thread Chasers** (grades 5–12) | [thread-chasers-plan.md](thread-chasers-plan.md) | World history detective chase: follow how paper, gold, zero, silk, rights… moved across places and centuries; geography, chronology, cause and effect, sourcing. |
 | **Critter Quest** | [critter-quest-plan.md](critter-quest-plan.md) | Explore four subject zones and "sync" original critters by answering questions; critters evolve only when NC standards are mastered. Creature-collecting fun, entirely original (nothing Pokémon-like). |
 
 Status (September 2026): planned, not started. Both were meant to follow the social studies
