@@ -145,7 +145,7 @@ export class SceneView {
       // shadow
       g.dither(xs[i] - 12, floor - 2, 24, 3, "#000000", "rgba(0,0,0,0)");
 
-      const altRate = c.id === "cat" ? 1.2 : c.id === "zombie" ? 1.6 : c.id === "ghost" ? 3 : 6;
+      const altRate = c.id === "cat" ? 1.2 : c.id === "zombie" ? 1.6 : c.id === "sphinx" ? 0.7 : c.id === "griffin" ? 2.2 : c.id === "ghost" ? 3 : 6;
       const altFrame = def.alt ? Math.floor(t * altRate) % 2 === 1 : false;
       const blink = (t + i * 1.7) % 4 < 0.14;
       const rows = faceRows(def, altFrame, mood, blink, talking && Math.floor(t * 7) % 2 === 0);

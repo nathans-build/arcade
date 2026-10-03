@@ -8,15 +8,17 @@ story below it (or beside it on wide screens) in big VT323 text, with read-aloud
 ![Page Quest](docs/screenshot.png)
 
 - **The Arcade Library** is the hub: a pixel library with **Quill**, the owl librarian (she gives
-  the hints), the arcade's hero, and a bookshelf with **MYSTERY / ADVENTURE / SPACE** sections plus
-  **MY BOOKS** (books written in the Writer's Desk). Each genre has a book for grades 4–5, 6–8 and
-  9–12. Spines are tagged **YOUR LEVEL**, **EASY READ** (lower band) or **CHALLENGE** (higher band,
+  the hints), the arcade's hero, and a bookshelf with **MYSTERY / ADVENTURE / SPACE / FANTASY** sections
+  plus **MY BOOKS** (books written in the Writer's Desk). Mystery, adventure and space have books for
+  grades 4–5, 6–8 and 9–12; fantasy has 4–5 and 6–8 so far (a genre with no book yet shows an empty
+  shelf message). Spines are tagged **YOUR LEVEL**, **EASY READ** (lower band) or **CHALLENGE** (higher band,
   still playable); your level's book is selected. The detail card shows the cover scene, blurb,
   reading level, and **endings found (x / y)**, with READ, or CONTINUE / START OVER for a book in
   progress (the current page is saved per book).
-- **Reading:** each page draws its scene (21 procedurally drawn EGA-style backgrounds, animated:
-  waves, torches, stars, lasers, rain, scrolling train windows, cryo-bay mist...) with up to three
-  characters (19 original sprites with idle bobbing, blinking, moods on the face and in emote bubbles
+- **Reading:** each page draws its scene (25 procedurally drawn EGA-style backgrounds, animated:
+  waves, torches, stars, lasers, rain, scrolling train windows, cryo-bay mist, drifting magic letters,
+  a radar sweep...) with up to three
+  characters (24 original sprites with idle bobbing, blinking, moods on the face and in emote bubbles
   ♥ … ! ? ❄ and friends; the `frozen` mood turns any character to ice and holds them still). The text types out (tap, Space or Enter skips); dialogue lines show the speaker's
   portrait while their sprite bobs and talks. Then pick a choice **A–D** (keys 1–4 / A–D or tap).
 - **Gates** are Quill's skill questions inside the story: multiple choice (answers shuffled) or
@@ -80,7 +82,7 @@ Books can also be written by hand in any text editor, in the format below.
 
 ## The `.story` format
 
-Plain UTF-8 text: a header (`title`, `author`, `genre` mystery|adventure|space, `band`
+Plain UTF-8 text: a header (`title`, `author`, `genre` mystery|adventure|space|fantasy, `band`
 4-5|6-8|9-12, `cover` scene id, `blurb` ≤ 120 characters, `start` page id), then pages starting with
 `=== page-id`. Each page has `scene:`, optional `cast:` (0–3 characters, `id[:mood]`),
 `checkpoint`, `clue:` lines, body text and ends with ONE of: 1–4 choices (`> text -> page-id`, text ≤
@@ -121,11 +123,15 @@ design brief (`PAGE_QUEST.md`); scenes and characters are listed in `src/story/r
 The Writer's Desk dropdowns and the validator read these from `src/story/roster.ts`, so a new entry
 there (plus its art in `src/engine/scenes.ts` / `sprites.ts`) shows up everywhere.
 
-**Scenes (21):** `library` (the Arcade Library hub), `beach`, `ship-deck`, `island-jungle`, `cave`,
+**Scenes (25):** `library` (the Arcade Library hub), `beach`, `ship-deck`, `island-jungle`, `cave`,
 `castle-hall`, `forest`, `village`, `mountain-pass`, `space-bridge`, `space-corridor`,
 `planet-surface`, `museum-hall`, `museum-vault`, `city-street`, `lab`, `lighthouse`, `stormy-sea`,
 `school`, `train`, `cryo-bay` (a frosty space-station cryo bay: frozen sleep pods, icicles, an icy
-floor, drifting cold mist).
+floor, drifting cold mist), `academy-hall` (the great hall of a hidden school of magic: bookshelves,
+a rose window with an open book, ? and ! study-group banners, glowing letters drifting upward),
+`secret-hq` (a spy headquarters under a school: wall map with blinking dots, radar sweep, monitors,
+lockers, briefing table), `temple-ruins` (a ruined Greek temple on a sunny hill above the sea, olive
+trees, a gull), `labyrinth` (stone maze corridors with torches and a red thread along the floor).
 
 | id | dialogue name | who |
 |---|---|---|
@@ -148,6 +154,11 @@ floor, drifting cold mist).
 | alien | Alien | a friendly alien |
 | zombie | Zombie | a goofy green-tinged space zombie in a mossy suit with a glowing spore mushroom (cartoon, never gory; curable) |
 | astronaut | Astronaut | an astronaut in a white spacesuit with orange stripes and a clear faceplate |
+| mentor | Mentor | a kind but strict teacher of magic in an ink-blue robe, with a lantern staff |
+| agent | Agent | a spy instructor in a dark suit and red tie, sunglasses up, earpiece wire |
+| sphinx | Sphinx | a riddle-loving sphinx: lion body, feathered wings that lift, a woman's head |
+| griffin | Griffin | a griffin: white eagle head, golden beak, flapping brown wings, lion body |
+| minotaur | Minotaur | a gentle young minotaur: calf's head, small horns, blue tunic, a red flower |
 
 **Moods:** `normal happy sad angry scared surprised thinking frozen`. `frozen` works on any
 character: the sprite is recoloured in ice blues with crystal glints, eyes shut, inside a
@@ -175,8 +186,10 @@ RI.1–RI.9 the informational-text versions (main idea, text structure, author's
 evidence...), L.1 grammar, L.2 capitals/punctuation/spelling, L.4 word meaning from clues, L.5
 figurative language, W.1–W.3 opinion/informative/narrative writing.
 
-The 14 books on the shelf now (`npm test` output): 4–5 books read at Flesch–Kincaid grade 3.7–4.2,
-6–8 books at 6.4–7.1, 9–12 books at 8.4–9.2; 31–41 pages each, 11–14 gates, 3–6 endings.
+The 17 books on the shelf now (`npm test` output): 4–5 books read at Flesch–Kincaid grade 3.7–4.2,
+6–8 books at 6.4–7.1, 9–12 books at 8.4–9.2; 31–42 pages each, 11–14 gates, 3–6 endings. Fantasy:
+*The Jar of Lost Stories* (4–5, Greek myths and the English words they gave us) and *The Fading Word
+of Briarwick* (6–8, a hidden school where spells need correct grammar).
 
 ### Codes to verify
 

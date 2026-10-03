@@ -1073,4 +1073,328 @@ export const SCENE_PAINTERS: Record<SceneId, ScenePainter> = {
       g.ctx.globalAlpha = 1;
     },
   },
+
+  // The great hall of a hidden school of magic: tall bookshelves, a round rose window with an
+  // open book in the glass, two study-group banners (? and !), a long study table, lanterns,
+  // and glowing letters that drift up through the air.
+  "academy-hall": {
+    floor: 190,
+    bg(g) {
+      bricks(g, 0, 0, W, 150, "#3a3060", "#2a2248", 20, 10);
+      g.dither(0, 0, W, 24, "#3a3060", "#1c1638");
+      // vaulted ceiling ribs
+      for (const x of [0, 106, 214, 320]) g.rect(x - 3, 0, 6, 150, "#4c4078");
+      g.poly([[0, 0], [106, 0], [53, 20]], "#1c1638");
+      g.poly([[214, 0], [320, 0], [267, 20]], "#1c1638");
+      // bookshelves on both sides
+      bookshelf(g, 6, 36, 92, 114, 21);
+      bookshelf(g, 222, 36, 92, 114, 27);
+      // rose window with an open book in the glass
+      g.circle(160, 50, 36, "#c8a060");
+      g.circle(160, 50, 33, "#1a2a8a");
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2;
+        g.line(160, 50, 160 + Math.cos(a) * 33, 50 + Math.sin(a) * 33, "#c8a060");
+      }
+      g.circle(160, 50, 20, "#6ea0ff");
+      g.circle(160, 50, 18, "#2456e8");
+      g.poly([[144, 44], [159, 40], [159, 60], [144, 62]], C.cream);
+      g.poly([[161, 40], [176, 44], [176, 62], [161, 60]], C.white);
+      for (let y = 46; y < 58; y += 3) { g.rect(147, y, 9, 1, C.lgray); g.rect(164, y, 9, 1, C.lgray); }
+      g.circle(160, 50, 4, C.sbYellow);
+      g.rect(159, 38, 2, 24, "#c8a060");
+      // study-group banners
+      for (const [x, c, mark] of [[118, "#1f7a3a", "?"], [202, "#aa0000", "!"]] as [number, string, string][]) {
+        g.rect(x - 11, 92, 22, 2, C.dbrown);
+        g.poly([[x - 9, 94], [x + 9, 94], [x + 9, 132], [x, 126], [x - 9, 132]], c);
+        g.rect(x - 9, 94, 18, 2, C.sbYellow);
+        g.text(mark, x - 3, 104, C.sbYellow, 2);
+      }
+      // marble floor + long study table
+      for (let r = 0; r < 5; r++) {
+        const y0 = 150 + r * 10;
+        for (let c = -10; c < 20; c++) {
+          const x0 = 160 + (c - 5) * (16 + r * 4);
+          g.rect(x0, y0, 16 + r * 4, 10, (r + c) % 2 ? "#d8d0f0" : "#5a4e88");
+        }
+      }
+      g.rect(0, 148, W, 3, "#2a2248");
+      g.rect(100, 140, 120, 6, C.brown);
+      g.rect(100, 140, 120, 1, C.tan);
+      g.rect(106, 146, 4, 14, C.dbrown);
+      g.rect(210, 146, 4, 14, C.dbrown);
+      // books and an ink pot on the table
+      g.rect(116, 134, 12, 6, C.sbRed);
+      g.rect(118, 130, 10, 4, C.sbBlue);
+      g.rect(190, 135, 7, 5, C.black);
+      g.rect(192, 133, 3, 2, C.dgray);
+      g.line(196, 134, 202, 124, C.white);
+      // lantern brackets
+      for (const x of [104, 216]) {
+        g.rect(x - 1, 70, 3, 12, C.dbrown);
+        g.rect(x - 4, 82, 9, 10, "#c8a060");
+        g.rect(x - 3, 83, 7, 8, "#ffe9a0");
+      }
+    },
+    anim(g, t) {
+      for (const [i, x] of [104, 216].entries()) {
+        const f = Math.floor(t * 6 + i) % 3;
+        g.rect(x - 2, 84 + (f === 1 ? 1 : 0), 5, 5, f === 2 ? C.orange : C.sbYellow);
+        g.px(x, 85, C.white);
+      }
+      // glowing letters drifting upward
+      const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      for (let i = 0; i < 9; i++) {
+        const cycle = 9 + rnd(i + 3) * 6;
+        const k = ((t + rnd(i + 11) * cycle) % cycle) / cycle;
+        const x = 30 + rnd(i + 7) * 260 + Math.sin(t * 1.3 + i) * 5;
+        const y = 140 - k * 130;
+        const ch = letters[Math.floor(rnd(i + 19) * 26 + Math.floor((t + rnd(i + 11) * cycle) / cycle) * 7) % 26];
+        g.text(ch, x, y, k > 0.8 ? "#8a7ab8" : i % 3 ? C.sbYellow : C.lcyan, 1, "left", "#1c1638");
+      }
+      // the rose window's centre glows
+      if (Math.sin(t * 2) > 0.3) g.circle(160, 50, 2, C.white);
+    },
+  },
+
+  // A secret spy headquarters hidden under a school: a wall-sized map screen with blinking
+  // dots, a radar sweep, rows of monitors, lockers, a round briefing table and a red light.
+  "secret-hq": {
+    floor: 190,
+    bg(g) {
+      g.rect(0, 0, W, 150, "#141a2e");
+      for (let x = 0; x < W; x += 40) g.rect(x, 0, 1, 150, "#20294a");
+      g.rect(0, 0, W, 8, "#0a0e1c");
+      for (let x = 20; x < W; x += 60) g.rect(x, 8, 20, 3, "#cfe3ff");
+      // big map screen
+      g.rect(78, 18, 164, 84, C.dgray);
+      g.rect(81, 21, 158, 78, "#062a2a");
+      for (let x = 81; x < 239; x += 12) g.rect(x, 21, 1, 78, "#0a3d3d");
+      for (let y = 21; y < 99; y += 12) g.rect(81, y, 158, 1, "#0a3d3d");
+      // continents in green
+      g.poly([[92, 34], [128, 30], [138, 44], [122, 58], [104, 70], [96, 52]], "#1f7a3a");
+      g.poly([[118, 70], [132, 66], [136, 86], [126, 94]], "#1f7a3a");
+      g.poly([[150, 30], [190, 28], [214, 40], [200, 54], [170, 50], [156, 44]], "#1f7a3a");
+      g.poly([[160, 56], [180, 58], [184, 80], [168, 88]], "#1f7a3a");
+      g.poly([[206, 72], [226, 70], [230, 84], [212, 86]], "#1f7a3a");
+      g.rect(78, 102, 164, 4, C.lgray);
+      g.text("TOP SECRET", 160, 108, C.sbRed, 1, "center");
+      // radar
+      g.circle(40, 52, 26, C.dgray);
+      g.circle(40, 52, 24, "#062a14");
+      g.circle(40, 52, 16, "#0a3d1c");
+      g.circle(40, 52, 15, "#062a14");
+      g.circle(40, 52, 8, "#0a3d1c");
+      g.circle(40, 52, 7, "#062a14");
+      g.rect(16, 52, 48, 1, "#0a3d1c");
+      g.rect(40, 28, 1, 48, "#0a3d1c");
+      // lockers
+      for (let i = 0; i < 4; i++) {
+        const x = 254 + i * 16;
+        g.rect(x, 30, 15, 118, "#3a4a6a");
+        g.rect(x, 30, 1, 118, "#5a6a8a");
+        for (let y = 36; y < 48; y += 3) g.rect(x + 4, y, 8, 1, "#20294a");
+        g.rect(x + 11, 84, 2, 8, C.lgray);
+      }
+      // monitors on a desk
+      g.rect(0, 112, 76, 6, "#3a4a6a");
+      for (const x of [6, 40]) {
+        g.rect(x, 86, 30, 24, C.dgray);
+        g.rect(x + 2, 88, 26, 20, "#0a1440");
+        g.rect(x + 13, 110, 4, 2, C.dgray);
+      }
+      // floor + round briefing table
+      g.rect(0, 150, W, 50, "#26304e");
+      for (let y = 150; y < 200; y += 10) g.rect(0, y, W, 1, "#1c243c");
+      for (let x = 0; x < W; x += 32) g.rect(x, 150, 1, 50, "#1c243c");
+      g.rect(0, 148, W, 2, "#3a4a6a");
+      g.ellipse(160, 158, 54, 8, "#3a4a6a");
+      g.ellipse(160, 156, 54, 8, "#5a6a8a");
+      g.ellipse(160, 156, 46, 5, "#20294a");
+      g.rect(156, 162, 8, 12, "#3a4a6a");
+    },
+    anim(g, t) {
+      // radar sweep
+      const a = t * 2;
+      g.line(40, 52, 40 + Math.cos(a) * 23, 52 + Math.sin(a) * 23, C.lgreen);
+      g.line(40, 52, 40 + Math.cos(a - 0.15) * 23, 52 + Math.sin(a - 0.15) * 23, C.green);
+      if (Math.cos(a - 0.9) > 0.92) g.rect(50, 44, 2, 2, C.lgreen);
+      // blinking map dots
+      [[110, 46], [176, 40], [126, 80], [216, 78], [196, 48]].forEach(([x, y], i) => {
+        if (Math.floor(t * 2 + i * 0.6) % 2) {
+          g.rect(x - 1, y - 1, 3, 3, i === 0 ? C.sbRed : C.sbYellow);
+        } else g.px(x, y, i === 0 ? C.lred : C.yellow);
+      });
+      // scrolling code on the monitors
+      for (const [m, x] of [6, 40].entries()) {
+        for (let r = 0; r < 5; r++) {
+          const w = 4 + Math.floor(rnd(r + m * 9 + Math.floor(t * 3)) * 18);
+          g.rect(x + 4, 90 + r * 4, w, 1, m ? C.lcyan : C.lgreen);
+        }
+      }
+      // red alert light
+      g.rect(158, 2, 4, 4, Math.floor(t * 1.5) % 2 ? C.sbRed : "#5a0000");
+    },
+  },
+
+  // Ruins of an ancient Greek temple on a sunny hill above the sea: broken white columns,
+  // a pediment, olive trees, rocks and wild grass.
+  "temple-ruins": {
+    floor: 190,
+    bg(g) {
+      g.bands(0, 0, W, 100, ["#2a6ad8", "#4a8ae8", "#6ea0ff", "#a8c8ff"]);
+      g.circle(276, 26, 12, C.yellow);
+      g.circle(276, 26, 10, "#fff6a8");
+      // distant sea and island
+      g.rect(0, 96, W, 22, "#1a4ab8");
+      g.dither(0, 96, W, 3, "#a8c8ff", "#1a4ab8");
+      g.ellipse(40, 98, 34, 6, "#5a7a9a");
+      // hill
+      g.poly([[0, 118], [60, 104], [150, 100], [240, 104], [320, 114], [320, 150], [0, 150]], "#8a9a4a");
+      g.dither(0, 110, W, 40, "#8a9a4a", "#7a8a3a");
+      // temple platform
+      g.rect(82, 120, 156, 8, C.cream);
+      g.rect(76, 128, 168, 8, "#e0d0b0");
+      g.rect(76, 135, 168, 2, C.tan);
+      // pediment and roof beam (right half fallen)
+      g.poly([[90, 52], [160, 30], [200, 42], [200, 52]], C.cream);
+      g.poly([[100, 50], [160, 34], [196, 45], [196, 50]], "#e0d0b0");
+      g.rect(90, 52, 110, 7, C.cream);
+      g.rect(90, 58, 110, 1, C.tan);
+      g.rect(206, 116, 26, 6, C.cream);
+      g.rect(210, 110, 18, 6, "#e0d0b0");
+      // columns (fluted), two broken
+      const cols: [number, number][] = [[96, 59], [124, 59], [152, 59], [180, 59], [208, 92], [228, 102]];
+      for (const [x, top] of cols) {
+        g.rect(x - 7, 116, 16, 4, C.cream);
+        g.rect(x - 5, top, 12, 120 - top, C.white);
+        g.rect(x - 2, top, 1, 120 - top, C.lgray);
+        g.rect(x + 2, top, 1, 120 - top, C.lgray);
+        if (top < 70) g.rect(x - 7, top, 16, 3, C.cream);
+        else g.poly([[x - 5, top], [x - 1, top - 3], [x + 3, top + 1], [x + 7, top - 2], [x + 7, top + 2], [x - 5, top + 2]], C.white);
+      }
+      // olive trees
+      for (const [x, s] of [[30, 1], [292, 1.1]] as [number, number][]) {
+        g.rect(x - 2, 112, 4, 30, "#6a5a4a");
+        g.line(x, 120, x - 8, 108, "#6a5a4a");
+        g.ellipse(x - 6, 98, 16 * s, 9 * s, "#6a8a5a");
+        g.ellipse(x + 8, 102, 13 * s, 8 * s, "#5a7a4a");
+        g.dither(x - 16, 92, 34, 16, "#6a8a5a", "#9ab08a");
+        for (let i = 0; i < 6; i++) g.px(x - 12 + i * 5, 96 + (i % 2) * 6, "#2a3a1a");
+      }
+      // ground: dry earth, stones and grass
+      g.rect(0, 150, W, 50, "#c8a870");
+      g.dither(0, 150, W, 8, "#8a9a4a", "#c8a870");
+      for (let i = 0; i < 14; i++) {
+        const x = rnd(i + 200) * W;
+        const y = 160 + rnd(i + 210) * 36;
+        g.ellipse(x, y, 4 + rnd(i + 220) * 5, 2, i % 3 ? "#a88850" : C.lgray);
+      }
+      for (let i = 0; i < 30; i++) {
+        const x = rnd(i + 300) * W;
+        const y = 152 + rnd(i + 310) * 46;
+        g.line(x, y, x + 1, y - 4, "#6a7a2a");
+      }
+      g.rect(10, 168, 26, 8, C.white);
+      g.rect(12, 168, 2, 8, C.lgray);
+    },
+    anim(g, t) {
+      // drifting clouds
+      for (let i = 0; i < 3; i++) {
+        const x = ((t * (4 + i * 2) + i * 120) % (W + 80)) - 40;
+        g.ellipse(x, 18 + i * 12, 16, 3, C.white);
+        g.ellipse(x + 8, 16 + i * 12, 10, 3, C.white);
+      }
+      // sun glints on the sea
+      for (let i = 0; i < 10; i++) {
+        if (Math.sin(t * 3 + i * 2.1) > 0.4) g.rect(70 + rnd(i + 50) * 240, 100 + rnd(i + 60) * 16, 3, 1, C.white);
+      }
+      // a gull
+      const bx = ((t * 18) % (W + 40)) - 20;
+      const by = 60 + Math.sin(t) * 6;
+      const up = Math.floor(t * 4) % 2;
+      g.line(bx - 4, by + (up ? -2 : 1), bx, by, C.white);
+      g.line(bx, by, bx + 4, by + (up ? -2 : 1), C.white);
+    },
+  },
+
+  // Inside an ancient stone labyrinth: corridors that turn away in every direction, torches,
+  // and a red thread running along the floor into the dark.
+  labyrinth: {
+    floor: 190,
+    bg(g) {
+      g.rect(0, 0, W, 200, "#1a1410");
+      // far end of the corridor: a dark T-junction
+      g.rect(130, 60, 60, 70, "#2a2218");
+      g.rect(130, 60, 60, 4, "#3a3024");
+      g.rect(142, 74, 36, 56, "#0a0806");
+      // side walls in perspective
+      g.poly([[0, 0], [130, 60], [130, 130], [0, 200]], "#6a5a44");
+      g.poly([[320, 0], [190, 60], [190, 130], [320, 200]], "#5a4a38");
+      // stone courses on the walls
+      for (let i = 1; i < 9; i++) {
+        const k = i / 9;
+        g.line(0, k * 200, 130, 60 + k * 70, "#4a3e2e");
+        g.line(320, k * 200, 190, 60 + k * 70, "#3e3426");
+      }
+      for (const x of [26, 58, 90, 116]) {
+        const k = x / 130;
+        g.line(x, k * 60, x, 200 - k * 70, "#4a3e2e");
+        g.line(320 - x, k * 60, 320 - x, 200 - k * 70, "#3e3426");
+      }
+      // side openings (turns)
+      g.poly([[58, 27], [92, 42], [92, 160], [58, 174]], "#0a0806");
+      g.poly([[262, 27], [228, 42], [228, 160], [262, 174]], "#0a0806");
+      g.poly([[58, 27], [62, 29], [62, 172], [58, 174]], "#8a7a5a");
+      g.poly([[262, 27], [258, 29], [258, 172], [262, 174]], "#7a6a4a");
+      // ceiling strip
+      g.poly([[0, 0], [320, 0], [190, 60], [130, 60]], "#120e0a");
+      // a carved key pattern over the far doorway
+      for (let x = 132; x < 188; x += 8) {
+        g.rect(x, 66, 6, 1, C.tan);
+        g.rect(x + 5, 66, 1, 4, C.tan);
+        g.rect(x + 2, 69, 4, 1, C.tan);
+      }
+      // floor
+      g.poly([[0, 200], [130, 130], [190, 130], [320, 200]], "#4a3e2e");
+      for (let i = 1; i < 6; i++) {
+        const y = 130 + i * i * 2.8;
+        const k = (y - 130) / 70;
+        g.line(130 - k * 130, y, 190 + k * 130, y, "#3a3024");
+      }
+      // the thread
+      g.line(160, 131, 150, 150, "#e3262f");
+      g.line(150, 150, 168, 172, "#e3262f");
+      g.line(168, 172, 140, 199, "#e3262f");
+      g.line(161, 131, 151, 150, "#aa0000");
+      // a ball of thread at the front
+      g.circle(132, 194, 5, "#e3262f");
+      g.line(128, 192, 136, 196, "#aa0000");
+      g.line(129, 196, 135, 190, "#aa0000");
+      // torch brackets
+      for (const [x, y] of [[40, 70], [280, 70]] as [number, number][]) {
+        g.rect(x - 1, y, 3, 12, C.dbrown);
+        g.rect(x - 3, y - 1, 7, 2, C.dgray);
+      }
+    },
+    anim(g, t) {
+      flame(g, 40, 66, t, 1.4);
+      flame(g, 280, 66, t + 0.5, 1.4);
+      // torchlight flicker on the walls
+      g.ctx.globalAlpha = 0.12 + 0.05 * Math.sin(t * 9);
+      g.ellipse(40, 80, 30, 34, C.orange);
+      g.ellipse(280, 80, 30, 34, C.orange);
+      g.ctx.globalAlpha = 1;
+      // a shimmer running along the thread
+      const k = (t * 0.6) % 1;
+      const pts: [number, number][] = [[160, 131], [150, 150], [168, 172], [140, 199]];
+      const seg = Math.min(2, Math.floor(k * 3));
+      const f = k * 3 - seg;
+      const [ax, ay] = pts[seg];
+      const [bx, by] = pts[seg + 1];
+      g.rect(ax + (bx - ax) * f - 1, ay + (by - ay) * f - 1, 2, 2, C.sbYellow);
+      // dust in the dark doorway
+      for (let i = 0; i < 4; i++) g.px(146 + ((i * 9 + t * 3) % 30), 80 + ((i * 13 + t * 5) % 44), "#3a3024");
+    },
+  },
 };

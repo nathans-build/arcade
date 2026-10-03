@@ -55,6 +55,6 @@ for (const file of files) {
 }
 
 const missing = GENRES.flatMap((g) => BANDS.map((b) => `${g}/${b}`)).filter((k) => !shelf.has(k));
-console.log(`\n${files.length} book file(s). Shelf: ${shelf.size}/9 genre+band slots filled.${missing.length ? ` Not yet written: ${missing.join(", ")}.` : ""}`);
+console.log(`\n${files.length} book file(s). Shelf: ${shelf.size}/${GENRES.length * BANDS.length} genre+band slots filled.${missing.length ? ` Not yet written: ${missing.join(", ")}.` : ""}`);
 console.log(`${errors} error(s), ${warnings} warning(s).`);
 process.exit(errors ? 1 : 0);

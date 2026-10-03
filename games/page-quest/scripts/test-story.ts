@@ -9,9 +9,10 @@ import { serializeStory } from "../src/story/serialize";
 import { countSyllables, readability } from "../src/story/readability";
 import { standardFor } from "../src/story/standards";
 import type { Story } from "../src/story/types";
-import { draftFromStory, draftToText, newDraft } from "../src/writer/draft";
+import { draftFromStory, draftFromText, draftToText, newDraft } from "../src/writer/draft";
 import { advance, answerMc, newRun, tapOrder, type RunState } from "../src/play/session";
-import { CHARACTERS, MOODS, SCENES, charByName } from "../src/story/roster";
+import { CHARACTERS, GENRES, MOODS, SCENES, charByName } from "../src/story/roster";
+import { SCENE_PAINTERS } from "../src/engine/scenes";
 import { KEYS, SPRITES } from "../src/engine/sprites";
 import { EMOTES, faceRows } from "../src/engine/face";
 
@@ -356,6 +357,55 @@ test("sprites: every character's grid is 16 wide, uses known colours, and freeze
     if (f) for (const ex of f.ex) assert.notEqual(frozen[f.ey][ex], f.eye ?? "K", `${c.id} frozen eyes should be closed`);
   }
   assert.ok(EMOTES.frozen.rows.length === 5);
+});
+
+test("fantasy genre: mentor, agent, sphinx, griffin, minotaur and the new scenes", () => {
+  assert.ok((GENRES as readonly string[]).includes("fantasy"));
+  for (const [name, id] of [["Mentor", "mentor"], ["Agent", "agent"], ["Sphinx", "sphinx"], ["Griffin", "griffin"], ["Minotaur", "minotaur"]]) {
+    assert.equal(charByName(name), id);
+    assert.ok(SPRITES[id as keyof typeof SPRITES], `${id} has a sprite`);
+  }
+  for (const sc of ["academy-hall", "secret-hq", "temple-ruins", "labyrinth"]) {
+    assert.ok((SCENES as readonly string[]).includes(sc), sc);
+    assert.ok(SCENE_PAINTERS[sc as keyof typeof SCENE_PAINTERS], `${sc} has a painter`);
+  }
+  const text = `${HEAD("6-8")}
+=== a
+scene: academy-hall
+cast: hero, mentor:happy, griffin:surprised
+checkpoint
+Mentor: Welcome.
+Griffin: Skree!
+> Go to the ruins -> b
+
+=== b
+scene: temple-ruins
+cast: sphinx:thinking, minotaur:scared, agent:frozen
+Sphinx: A riddle!
+Minotaur: Oh no.
+> Into the maze -> c
+> To headquarters -> d
+
+=== c
+scene: labyrinth
+cast: hero, minotaur:happy
+Minotaur: Out at last!
+end: win W
+
+=== d
+scene: secret-hq
+cast: hero, agent:angry
+Agent: Cover blown.
+end: lose L
+`.replace("genre: mystery", "genre: fantasy");
+  const r = checkStory(text);
+  assert.deepEqual(r.errors, []);
+  assert.deepEqual(r.warnings, []);
+  assert.equal(r.story.genre, "fantasy");
+  // the Writer's Desk keeps the genre through a draft round-trip
+  const d = draftFromText(text);
+  assert.equal(d.header.genre, "fantasy");
+  assert.ok(/genre: fantasy/.test(draftToText(d)));
 });
 
 console.log(`test-story: ${passed} tests passed`);
