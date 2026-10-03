@@ -14,6 +14,7 @@
   <body>
     <div class="page">
       <header class="marquee">
+        <a class="credits-badge" href="credits.html" data-keep-grade>Credits</a>
         <canvas id="scene" width="320" height="120" aria-hidden="true"></canvas>
         <div class="marquee-text">
           <p class="eyebrow">Insert coin · Player 1</p>
@@ -36,27 +37,23 @@
           </div>
         </section>
 
-        <div class="section-head">
-          <h2>Select game</h2>
-          <p class="hint"><kbd>◀</kbd><kbd>▶</kbd> choose · <kbd>ENTER</kbd> play · <kbd>[</kbd><kbd>]</kbd> grade · or tap</p>
-        </div>
-        <ul class="cabinets" id="cabinets" role="list"></ul>
-
-        <section class="scores" aria-labelledby="scores-title">
-          <h2 id="scores-title">Credits</h2>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr><th>No.</th><th>Game</th><th>Creator</th><th>Year</th></tr>
-              </thead>
-              <tbody id="credits"></tbody>
-            </table>
+        <section class="games" aria-labelledby="games-title">
+          <div class="section-head">
+            <h2 id="games-title">Select game</h2>
+            <p class="hint" id="keys-hint"><kbd>◀</kbd><kbd>▶</kbd> choose · <kbd>ENTER</kbd> play · <kbd>[</kbd><kbd>]</kbd> grade · <kbd>,</kbd><kbd>.</kbd> subject · <kbd>F</kbd> favorite · or tap</p>
           </div>
+          <div class="tabs" id="tabs" role="group" aria-label="Subject"></div>
+          <div class="filter-bar">
+            <button type="button" class="fit-btn" id="fit-btn" aria-pressed="true">Fits my grade: <strong>ON</strong></button>
+            <span class="hint" id="fit-note"></span>
+          </div>
+          <div id="shelves"></div>
+          <p class="empty" id="empty" hidden>No games here for this grade yet. Try another subject, or turn off <strong>Fits my grade</strong>.</p>
         </section>
       </main>
 
       <footer>
-        <p>© <span id="year"></span> SpiderBen10 (NZDO). Every game in this arcade was designed and built by SpiderBen10.</p>
+        <p>© <span id="year"></span> SpiderBen10 (NZDO). Every game in this arcade was designed and built by SpiderBen10. <a class="credits-link" href="credits.html" data-keep-grade>Credits ▶</a></p>
         <p class="fine">Hero artwork is an original character. Not affiliated with Marvel or any game studio.</p>
       </footer>
     </div>

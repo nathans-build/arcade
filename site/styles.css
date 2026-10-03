@@ -230,3 +230,109 @@ footer .fine { font-size: 17px; opacity: 0.8; }
 .adapt-btn:not(.on) strong { color: #9aa3c7; }
 .adapt-btn:hover, .adapt-btn:focus-visible, .adapt-reset:hover, .adapt-reset:focus-visible { outline: none; border-color: var(--yellow, #ffd23f); }
 .adapt-reset { border-color: #3a4170; color: #c9cff0; font-size: 0.85em; }
+
+/* ---------- Credits link on the marquee ---------- */
+.credits-badge {
+  position: absolute; top: 10px; right: 10px; z-index: 2;
+  font-family: var(--pixel); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--yellow); text-decoration: none;
+  background: rgba(5, 8, 24, 0.85); border: 2px solid var(--blue-light); padding: 6px 8px; box-shadow: 3px 3px 0 #000;
+}
+.credits-badge:hover, .credits-badge:focus-visible { outline: none; border-color: var(--yellow); }
+.credits-link { color: var(--yellow); }
+
+/* ---------- Subject tabs + "fits my grade" ---------- */
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.tab {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 6px 12px;
+  font-family: var(--pixel); font-size: clamp(9px, 1.2vw, 11px); text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--text); background: var(--panel);
+  border: 2px solid var(--blue); box-shadow: 3px 3px 0 #000; cursor: pointer;
+}
+.tab-count { font-size: 8px; color: var(--blue-light); border: 1px solid currentColor; padding: 3px 4px; }
+.tab:hover, .tab:focus-visible { outline: none; border-color: var(--yellow); }
+.tab.on { background: var(--red); border-color: var(--yellow); color: #fff; box-shadow: 3px 3px 0 #000, 0 0 14px rgba(227, 38, 47, 0.5); }
+.tab.on .tab-count { color: var(--yellow); }
+.tab:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #000; }
+
+.filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 18px; }
+.fit-btn {
+  font: inherit; font-size: 0.95em; cursor: pointer; color: #fff; background: var(--night);
+  border: 2px solid var(--blue); padding: 6px 12px; box-shadow: 3px 3px 0 #000; min-height: 40px;
+}
+.fit-btn.on { border-color: var(--yellow); }
+.fit-btn strong { color: var(--yellow); font-weight: normal; }
+.fit-btn:not(.on) strong { color: #9aa3c7; }
+.fit-btn:hover, .fit-btn:focus-visible { outline: none; border-color: var(--yellow); }
+
+/* ---------- Shelves (Favorites / Recently played / New / All) ---------- */
+#shelves { display: flex; flex-direction: column; gap: 26px; }
+.shelf-title {
+  margin: 0 0 12px; font-family: var(--pixel); font-weight: normal; font-size: 11px;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--blue-light); text-shadow: 2px 2px 0 #000;
+}
+.shelf-favorites .shelf-title { color: var(--yellow); }
+.shelf-new .shelf-title { color: #ff8a90; }
+.shelf-count { color: var(--muted); font-size: 9px; }
+.empty { margin: 0; padding: 16px; border: 2px dashed var(--muted); color: var(--muted); }
+.empty strong { color: var(--yellow); font-weight: normal; }
+
+.cabinets > li { position: relative; min-width: 0; }
+.cabinets.mini { grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr)); gap: 18px; }
+.cabinets.mini .cabinet h3 { font-size: 11px; }
+.cabinets.mini .start { padding: 7px; font-size: 9px; }
+
+/* Favorite star sits on the cabinet's top strip */
+.fav {
+  position: absolute; top: 0; right: 0; z-index: 1;
+  width: 34px; height: 34px; padding: 0;
+  font-size: 20px; line-height: 1; cursor: pointer;
+  color: #fff; background: transparent; border: 0;
+}
+.fav.on { color: var(--yellow); text-shadow: 0 0 8px rgba(255, 210, 63, 0.7), 2px 2px 0 #000; }
+.fav:hover, .fav:focus-visible { outline: 2px solid var(--yellow); outline-offset: -2px; color: var(--yellow); }
+.cabinet .cab-top { padding-inline: 36px; }
+
+.chip.new { border-color: var(--yellow); color: var(--yellow); }
+
+/* Games for other grades (shown when "Fits my grade" is off) */
+.cabinet.off-grade { border-color: #3a4170; }
+.cabinet.off-grade .screen img { filter: grayscale(1) brightness(0.6); }
+.cabinet.off-grade h3, .cabinet.off-grade p { opacity: 0.6; }
+.cabinet.off-grade .cab-top, .cabinet.off-grade .start { background: #2a3160; border-color: #1d2766; color: var(--muted); }
+
+/* ---------- Phones: compact list (thumbnail + title + chips) ---------- */
+@media (max-width: 599.98px) {
+  .cabinets, .cabinets.mini { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .cabinet { display: grid; grid-template-columns: 104px minmax(0, 1fr); align-items: center; box-shadow: 4px 4px 0 #000; }
+  .cabinet .cab-top, .cabinet .start, .cabinet .tagline { display: none; }
+  .cabinet .screen { margin: 8px; outline-width: 1px; border-width: 2px; }
+  .cabinet .body { padding: 8px 40px 8px 2px; gap: 6px; }
+  .cabinet h3, .cabinets.mini .cabinet h3 { font-size: 10px; }
+  .chips { padding-top: 0; gap: 4px; }
+  .chip { font-size: 7px; padding: 3px 4px; }
+  .cabinet:hover, .cabinet:focus-visible, .cabinet.selected { transform: none; box-shadow: 4px 4px 0 #000, 0 0 16px rgba(255, 210, 63, 0.35); }
+  .fav { top: 50%; transform: translateY(-50%); width: 40px; height: 44px; right: 2px; }
+  .tab { padding: 6px 9px; }
+  .credits-badge { top: 6px; right: 6px; font-size: 8px; padding: 4px 6px; }
+}
+
+/* ---------- Credits page ---------- */
+.back-bar { display: flex; }
+.back-link {
+  font-family: var(--pixel); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--yellow); text-decoration: none; padding: 10px 12px;
+  background: var(--panel); border: 2px solid var(--blue); box-shadow: 3px 3px 0 #000;
+}
+.back-link:hover, .back-link:focus-visible { outline: none; border-color: var(--yellow); }
+.marquee-plain { background: radial-gradient(ellipse at 80% 0, #2a0c2c, #050818 70%); }
+.marquee-plain .marquee-text { position: static; background: none; padding: 22px 18px 20px; }
+.credits-page .scores { margin-top: 0; }
+.credit-notes dl { margin: 12px 0 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 10px 18px; }
+.credit-notes dt { font-family: var(--pixel); font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--blue-light); padding-top: 6px; }
+.credit-notes dd { margin: 0; }
+.credit-notes strong { color: var(--yellow); font-weight: normal; }
+@media (max-width: 560px) { .credit-notes dl { grid-template-columns: minmax(0, 1fr); gap: 4px; } .credit-notes dd { margin-bottom: 10px; } }
+@media (max-width: 599.98px) { #keys-hint { display: none; } }
+.credits-page main { display: flex; flex-direction: column; gap: 32px; }

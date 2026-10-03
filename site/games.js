@@ -2,6 +2,9 @@
 // screenshot in img/. Order here is the order of the cabinets on the menu.
 // `url: null` shows a "coming soon" cabinet. `grades` lists supported grades
 // (omit it for games that cover K-12); the chosen grade is sent as ?grade=.
+// `subjects` drives the menu's subject tabs ("ELA" shows under Reading & Writing).
+// `added: "YYYY-MM-DD"` (or `new: true`) puts a game in the menu's NEW row for
+// 30 days after that date.
 window.GAMES = [
   {
     id: "lunar-patrol",
@@ -129,6 +132,7 @@ window.GAMES = [
     grades: ["4", "5", "6", "7", "8", "9", "10", "11", "12"],
     image: "img/page-quest.png",
     year: 2026,
+    added: "2026-09-28",
   },
   {
     id: "plants-vs-undead",
@@ -138,6 +142,7 @@ window.GAMES = [
     url: "/plants-vs-undead/",
     image: "img/plants-vs-undead.png",
     year: 2026,
+    added: "2026-10-02",
   },
   {
     id: "sonar-squad",
@@ -147,5 +152,6 @@ window.GAMES = [
     url: "/sonar-squad/",
     image: "img/sonar-squad.png",
     year: 2026,
+    added: "2026-10-03",
   },
 ];

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Credits · SpiderBen10's Arcade</title>
+    <meta name="description" content="Credits for SpiderBen10's Arcade: every game created by SpiderBen10 (NZDO)." />
+    <meta name="theme-color" content="#0a0f2e" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="credits-page">
+    <div class="page">
+      <nav class="back-bar"><a class="back-link" id="back" href="./">◀ Arcade</a></nav>
+
+      <header class="marquee marquee-plain">
+        <div class="marquee-text">
+          <p class="eyebrow">Game over · Thanks for playing</p>
+          <h1><span class="h-red">Credits</span></h1>
+          <p class="byline">All games created by <strong>SpiderBen10</strong> <span class="tag">(NZDO)</span></p>
+        </div>
+      </header>
+
+      <main>
+        <section class="scores" aria-labelledby="scores-title">
+          <h2 id="scores-title">Games</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>No.</th><th>Game</th><th>Creator</th><th>Year</th></tr>
+              </thead>
+              <tbody id="credits"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="credit-notes" aria-labelledby="notes-title">
+          <h2 id="notes-title">Also starring</h2>
+          <dl>
+            <dt>Fonts</dt>
+            <dd><strong>Press Start 2P</strong> and <strong>VT323</strong>, via Google Fonts.</dd>
+            <dt>Questions</dt>
+            <dd>Questions follow the North Carolina Standard Course of Study.</dd>
+            <dt>How it was made</dt>
+            <dd>Each game was designed by SpiderBen10 and built as a small web game (TypeScript, React and Vite) sharing one question kit; this menu is plain HTML, CSS and JavaScript.</dd>
+          </dl>
+        </section>
+      </main>
+
+      <footer>
+        <p>© <span id="year"></span> SpiderBen10 (NZDO). Every game in this arcade was designed and built by SpiderBen10.</p>
+        <p class="fine">Hero artwork is an original character. Not affiliated with Marvel or any game studio.</p>
+      </footer>
+    </div>
+    <script src="games.js"></script>
+    <script src="credits.js"></script>
+  </body>
+</html>
