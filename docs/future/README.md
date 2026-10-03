@@ -15,6 +15,8 @@ Business notes (also for later):
 
 - [freemium-plan.md](freemium-plan.md): a free arcade with a paid family plan and later a classroom
   tier; what to charge for, legal must-dos (trademarks, COPPA), and the tech it needs.
+- [80s-90s-game-ideas.md](80s-90s-game-ideas.md): 12 ranked ideas for new games from 80s/90s
+  classics (Clue Compass, Splash Arc, Syllable Jam, Wagon Road South…) and a suggested build order.
 - [brand-and-domains.md](brand-and-domains.md): name and `.com` research for a brand that doesn't
   lean on other companies' trademarks.
 
