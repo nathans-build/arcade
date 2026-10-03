@@ -1,14 +1,24 @@
 # Future games: notes for later development
 
-Two bigger games were designed but not built yet. Each has a full design plan in this folder:
+Games designed but not built yet. Each has a full design plan in this folder:
 
 | Game | Plan | In one line |
 |---|---|---|
 | **Family Road Trip** | [family-road-trip-plan.md](family-road-trip-plan.md) | Original cartoon family road-trips across North Carolina; 1–2 player co-op side-scroller; each stop ends with a team quiz "boss". Inspired by 1990s family arcade brawlers, but no fighting people and no resemblance to any TV show. |
+| **Sonar Squad** (working title) | [grid-battle-plan.md](grid-battle-plan.md) | Battleship-style grid game where calling a shot is reading a coordinate; vs the computer first, then pass-and-play and online two-player by room code. |
 | **Critter Quest** | [critter-quest-plan.md](critter-quest-plan.md) | Explore four subject zones and "sync" original critters by answering questions; critters evolve only when NC standards are mastered. Creature-collecting fun, entirely original (nothing Pokémon-like). |
 
 Status (September 2026): planned, not started. Both were meant to follow the social studies
 question bank (`kit/banks/social/`), which the Outer Banks stop and the Map Mesa zone need.
+
+Business notes (also for later):
+
+- [freemium-plan.md](freemium-plan.md): a free arcade with a paid family plan and later a classroom
+  tier; what to charge for, legal must-dos (trademarks, COPPA), and the tech it needs.
+- [brand-and-domains.md](brand-and-domains.md): name and `.com` research for a brand that doesn't
+  lean on other companies' trademarks.
+
+Open decisions for these are GitHub issues (label `decision`).
 
 ## Open decisions
 
