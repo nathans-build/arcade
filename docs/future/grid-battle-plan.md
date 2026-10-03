@@ -1,6 +1,8 @@
 # Grid battle game (Battleship-style): plan for later
 
-Status (October 2026): planned, not started. Recommended name **Sonar Squad** (checked Oct 3,
+Status (October 2026): **v1 built** (`games/sonar-squad/`): vs the computer and pass-and-play. Online room-code play is v2. See the game's README for the final design.
+
+Original plan notes follow. Recommended name **Sonar Squad** (checked Oct 3,
 2026: no game by that name found, sonarsquad.com had no DNS record). Rejected: Grid Strike (an
 existing Battleship-style game), Sub Hunt (Mattel's 1961 "Sonar Sub Hunt", domain taken),
 Coordinate Clash (too close to "Coordinate Commander", an existing coordinate Battleship game).
@@ -73,5 +75,5 @@ hits, one player could cheat by editing the page.
    (0–9 on each axis, first quadrant). Grade 6+ adds the axes so the board runs −5 to 5 on each axis
    (11×11 crossings, the true four-quadrant plane). K–2 get extra sonar and a "hint" glow so 10×10
    doesn't drag.
-4. Questions as power-ups only (recommended), or a question before every shot (slower, more
-   practice)?
+4. Questions (decided): an easy question (one grade below) before every shot; a wrong answer jams
+   the shot (K–2 get one retry). Harder questions at the player's grade earn power-ups.

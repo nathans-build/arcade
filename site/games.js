@@ -139,4 +139,13 @@ window.GAMES = [
     image: "img/plants-vs-undead.png",
     year: 2026,
   },
+  {
+    id: "sonar-squad",
+    title: "Sonar Squad",
+    tagline: "Hide your fleet, answer to fire, and call your shots by coordinates to sink the enemy squad.",
+    subjects: ["Math", "Science", "ELA", "Social Studies"],
+    url: "/sonar-squad/",
+    image: "img/sonar-squad.png",
+    year: 2026,
+  },
 ];
