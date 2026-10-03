@@ -130,18 +130,23 @@ export class SceneView {
       const talking = st.speaking === c.id;
       const rows0 = def.rows;
       const h = rows0.length * SCALE;
+      const frozen = mood === "frozen";
       let x = xs[i] - 8 * SCALE;
       let y = floor - h - (def.lift ?? 0);
-      if (def.float || def.lift) y += Math.round(Math.sin(t * 2.2 + i) * 3);
-      else if (talking) y -= Math.floor(t * 8) % 2 ? 3 : 0;
-      else y -= Math.floor(t * 1.4 + i * 0.7) % 2 ? 1 : 0;
+      // Frozen characters hold perfectly still (no bob, no float, no talking hop).
+      if (!frozen) {
+        if (def.float || def.lift) y += Math.round(Math.sin(t * 2.2 + i) * 3);
+        else if (talking) y -= Math.floor(t * 8) % 2 ? 3 : 0;
+        else y -= Math.floor(t * 1.4 + i * 0.7) % 2 ? 1 : 0;
+      }
       if (mood === "scared") x += Math.floor(t * 18) % 2;
-      if (talking && (def.float || def.lift)) y -= Math.floor(t * 8) % 2 ? 2 : 0;
+      if (!frozen && talking && (def.float || def.lift)) y -= Math.floor(t * 8) % 2 ? 2 : 0;
 
       // shadow
       g.dither(xs[i] - 12, floor - 2, 24, 3, "#000000", "rgba(0,0,0,0)");
 
-      const altFrame = def.alt ? (c.id === "cat" ? Math.floor(t * 1.2) % 2 === 1 : Math.floor(t * (c.id === "ghost" ? 3 : 6)) % 2 === 1) : false;
+      const altRate = c.id === "cat" ? 1.2 : c.id === "zombie" ? 1.6 : c.id === "ghost" ? 3 : 6;
+      const altFrame = def.alt ? Math.floor(t * altRate) % 2 === 1 : false;
       const blink = (t + i * 1.7) % 4 < 0.14;
       const rows = faceRows(def, altFrame, mood, blink, talking && Math.floor(t * 7) % 2 === 0);
       const flip = cast.length > 1 && i === cast.length - 1 && c.id !== "hero";
@@ -150,6 +155,7 @@ export class SceneView {
       g.ctx.globalAlpha = 1;
       // top of the visible sprite
       const top = rows.findIndex((r) => /[^.]/.test(r));
+      if (frozen) this.iceBlock(x, y + Math.max(0, top) * SCALE - 3, 16 * SCALE, floor - (y + Math.max(0, top) * SCALE) + 1, t, i);
       heads[c.id] = [xs[i], y + Math.max(0, top) * SCALE];
 
       const since = t - this.moodSince;
@@ -169,6 +175,38 @@ export class SceneView {
     const bob = Math.floor(t * 2) % 2;
     g.text("PAGE QUEST", 160, 20 + bob, C.sbYellow, 4, "center", C.sbRed);
     g.text("CO-AUTHORED BY SPIDERBEN10 (NZDO)", 160, 47, C.white, 1, "center", C.black);
+  }
+
+  /** A see-through block of ice around a frozen character, with frosty edges and a glint. */
+  private iceBlock(x: number, y: number, w: number, h: number, t: number, i: number) {
+    const { g } = this;
+    const x0 = x - 4;
+    const w0 = w + 8;
+    g.ctx.globalAlpha = 0.28;
+    g.rect(x0, y, w0, h, "#bfe9ff");
+    g.ctx.globalAlpha = 0.45;
+    g.dither(x0, y, w0, 3, "#ffffff", "rgba(0,0,0,0)");
+    g.dither(x0, y, 2, h, "#dff6ff", "rgba(0,0,0,0)");
+    g.dither(x0 + w0 - 2, y, 2, h, "#8fd3f4", "rgba(0,0,0,0)");
+    g.ctx.globalAlpha = 1;
+    g.rect(x0, y, w0, 1, "#dff6ff");
+    g.rect(x0, y, 1, h, "#dff6ff");
+    g.rect(x0 + w0 - 1, y, 1, h, "#5aa8d8");
+    // frost crack lines
+    g.line(x0 + 3, y + 6, x0 + 9, y + 14, "#ffffff");
+    g.line(x0 + w0 - 4, y + h - 20, x0 + w0 - 10, y + h - 12, "#ffffff");
+    // a slow glint that slides down the ice
+    const k = ((t * 0.35 + i * 0.3) % 1.6) / 1.6;
+    if (k < 1) {
+      const gy = y + Math.round(k * (h - 6));
+      g.rect(x0 + 2, gy, 2, 4, "#ffffff");
+      g.px(x0 + 4, gy + 1, "#ffffff");
+    }
+    // twinkling crystals at the corners
+    if (Math.floor(t * 2 + i) % 2) {
+      g.px(x0 + w0 - 3, y + 2, "#ffffff");
+      g.px(x0 + 2, y + h - 3, "#ffffff");
+    }
   }
 
   private emote(mood: Mood, x: number, y: number) {
