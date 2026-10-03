@@ -87,7 +87,7 @@ export function Portrait({ who, mood }: { who: CharId; mood: string }) {
 }
 
 export function Reader({
-  book, start, playtest, grade, view, audio, readAloud, paused, onExit,
+  book, start, playtest, grade, view, audio, readAloud, onToggleReadAloud, paused, onExit,
 }: {
   book: Book;
   start: ReaderStart;
@@ -96,6 +96,7 @@ export function Reader({
   view: SceneView | null;
   audio: ChipAudio;
   readAloud: boolean;
+  onToggleReadAloud: () => void;
   paused: boolean;
   onExit: () => void;
 }) {
@@ -337,6 +338,15 @@ export function Reader({
     else speak(pageSpeech(page, run));
   }, [overlay, tq, page, run]);
 
+  // Read-aloud switched on: read what's on screen now. Switched off: stop talking right away.
+  const wasReading = useRef(readAloud);
+  useEffect(() => {
+    if (readAloud === wasReading.current) return;
+    wasReading.current = readAloud;
+    if (readAloud) replay();
+    else stopSpeaking();
+  }, [readAloud, replay]);
+
   // ---- keyboard ----
   useEffect(() => {
     const down = (ev: KeyboardEvent) => {
@@ -438,8 +448,14 @@ export function Reader({
         <span className="score pq-pixel">{String(run.score).padStart(5, "0")}</span>
         <button className="pq-small pq-pixel" onClick={() => setOverlay("journal")} title="Clue Journal (J)">JOURNAL{run.clues.length ? ` (${run.clues.length})` : ""}</button>
         {speechSupported() && (
-          <button className={`pq-speak ${readAloud ? "on" : ""}`} onClick={replay} aria-label="Read the page aloud" title="Read aloud (R)">
-            <SpeakerIcon />
+          <button
+            className={`pq-speak ${readAloud ? "on" : ""}`}
+            onClick={onToggleReadAloud}
+            aria-pressed={readAloud}
+            aria-label={readAloud ? "Read aloud is on. Tap to turn it off" : "Read aloud is off. Tap to turn it on"}
+            title={readAloud ? "Read aloud ON (tap to turn off · R replays)" : "Read aloud OFF (tap to turn on · R replays)"}
+          >
+            <SpeakerIcon on={readAloud} />
           </button>
         )}
       </div>
@@ -726,11 +742,15 @@ function EndingReport({
   );
 }
 
-export function SpeakerIcon() {
+export function SpeakerIcon({ on = true }: { on?: boolean }) {
   return (
     <svg viewBox="0 0 16 16" width="1em" height="1em" aria-hidden="true" shapeRendering="crispEdges">
       <path fill="currentColor" d="M1 5h3l4-4v14l-4-4H1z" />
-      <path fill="currentColor" d="M10 5h1v6h-1zM12 3h1v10h-1zM14 1h1v14h-1z" />
+      {on ? (
+        <path fill="currentColor" d="M10 5h1v6h-1zM12 3h1v10h-1zM14 1h1v14h-1z" />
+      ) : (
+        <path fill="currentColor" d="M10 5h1v1h-1zM11 6h1v1h-1zM12 7h1v2h-1zM13 9h1v1h-1zM14 10h1v1h-1zM14 5h1v1h-1zM13 6h1v1h-1zM11 9h1v1h-1zM10 10h1v1h-1z" />
+      )}
     </svg>
   );
 }

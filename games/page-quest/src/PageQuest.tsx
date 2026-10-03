@@ -144,12 +144,12 @@ export default function PageQuest() {
     });
   }, [audio, screen]);
 
+  // The Reader reacts to the change: turning on reads the current page, turning off stops speech.
   const toggleReadAloud = useCallback(() => {
-    setReadAloud((on) => {
-      setReadAloudPref(!on);
-      return !on;
-    });
-  }, []);
+    const next = !readAloud;
+    setReadAloudPref(next);
+    setReadAloud(next);
+  }, [readAloud]);
 
   // Global keys: M mute, P pause (never while typing in a field).
   useEffect(() => {
@@ -227,6 +227,7 @@ export default function PageQuest() {
                 view={viewRef.current}
                 audio={audio}
                 readAloud={readAloud}
+                onToggleReadAloud={toggleReadAloud}
                 paused={paused}
                 onExit={exitReading}
               />
