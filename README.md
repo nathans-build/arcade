@@ -17,15 +17,17 @@ browser to try it locally.
      id: "space-racer",
      title: "Space Racer",
      tagline: "One sentence about the game.",
-     subjects: ["Math"],
-     grade: "Grade 6",
-     url: "https://<game>.azurestaticapps.net/",
+     subjects: ["Math"],            // decides which subject tabs show it ("ELA" = Reading & Writing)
+     grades: ["5", "6", "7", "8"],  // omit for K-12; used by the "Fits my grade" filter
+     url: "/space-racer/",
      image: "img/space-racer.png",
      year: 2026,
+     added: "2026-10-15",           // shows in the NEW row for 30 days
    },
    ```
 
-4. Push to `main`. The arcade redeploys automatically and the new cabinet and credits line appear.
+4. Push to `main` (or merge its PR). The arcade redeploys automatically; the new cabinet appears
+   under its subject tabs and in NEW, and its line appears on the credits page (`site/credits.html`).
 
 ## Games hosted inside the arcade
 

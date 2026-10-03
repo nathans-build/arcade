@@ -55,6 +55,7 @@
     });
     gradeNow.textContent = gradeName(g);
     renderAdapt();
+    updateGradeLinks();
     renderCabinets();
   }
 
@@ -101,12 +102,20 @@
   });
 
   /* ------------------------------------------------------------------ */
-  /* Cabinets                                                            */
+  /* Menu: subject tabs, "fits my grade" filter, favorites / recently    */
+  /* played / new shelves, and the cabinet grid (a compact list on phones)*/
   /* ------------------------------------------------------------------ */
 
-  var list = document.getElementById("cabinets");
-  var cabinets = [];
-  var selected = 0;
+  var TAB_KEY = "arcade.tab", FIT_KEY = "arcade.fitsGrade", RECENT_KEY = "arcade.recent", FAV_KEY = "arcade.favorites";
+  var RECENT_MAX = 4, NEW_DAYS = 30;
+  var TABS = [
+    { id: "all", label: "All", subject: null },
+    { id: "math", label: "Math", subject: "Math" },
+    { id: "science", label: "Science", subject: "Science" },
+    { id: "ela", label: "Reading & Writing", subject: "ELA" },
+    { id: "social", label: "Social Studies", subject: "Social Studies" },
+  ];
+  var SUBJECT_NAMES = { ELA: "Reading & Writing" };
 
   function el(tag, cls, text) {
     var e = document.createElement(tag);
@@ -114,89 +123,271 @@
     if (text != null) e.textContent = text;
     return e;
   }
+  function load(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+  function save(key, v) { try { localStorage.setItem(key, v); } catch (e) { /* ignore */ } }
+  function loadIds(key) {
+    try {
+      var v = JSON.parse(load(key) || "[]");
+      return Array.isArray(v) ? v.filter(function (id) { return typeof id === "string"; }) : [];
+    } catch (e) { return []; }
+  }
+  function byId(id) { for (var i = 0; i < games.length; i++) if (games[i].id === id) return games[i]; return null; }
+
+  var tab = (function () {
+    var t = load(TAB_KEY);
+    for (var i = 0; i < TABS.length; i++) if (TABS[i].id === t) return t;
+    return "all";
+  })();
+  var fitsOnly = load(FIT_KEY) !== "0";
+  var favorites = loadIds(FAV_KEY);
+  var recent = loadIds(RECENT_KEY);
+
+  function tabDef(id) { for (var i = 0; i < TABS.length; i++) if (TABS[i].id === id) return TABS[i]; return TABS[0]; }
+  function inTab(game, t) { return !t.subject || (game.subjects || []).indexOf(t.subject) >= 0; }
+  function shown(game, t) { return inTab(game, t) && (!fitsOnly || supports(game, grade)); }
+  function isNew(game) {
+    if (game.new === true) return true;
+    if (!game.added) return false;
+    var t = Date.parse(game.added + "T00:00:00");
+    var age = (Date.now() - t) / 864e5;
+    return isFinite(age) && age >= -1 && age < NEW_DAYS;
+  }
+
+  // Subject tabs
+  var tabsBox = document.getElementById("tabs");
+  var tabButtons = TABS.map(function (t) {
+    var b = el("button", "tab");
+    b.type = "button";
+    b.appendChild(el("span", "tab-label", t.label));
+    b.appendChild(el("span", "tab-count"));
+    b.addEventListener("click", function () { setTab(t.id); blip(); });
+    tabsBox.appendChild(b);
+    return b;
+  });
+  function setTab(id) {
+    tab = tabDef(id).id;
+    save(TAB_KEY, tab);
+    selectedKey = null;
+    renderCabinets();
+  }
+  function stepTab(d) {
+    var i = TABS.indexOf(tabDef(tab)) + d;
+    setTab(TABS[(i + TABS.length) % TABS.length].id);
+    blip();
+  }
+  function renderTabs() {
+    TABS.forEach(function (t, i) {
+      var n = games.filter(function (g) { return shown(g, t); }).length;
+      var b = tabButtons[i], on = t.id === tab;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+      b.lastChild.textContent = String(n);
+      b.setAttribute("aria-label", t.label + ", " + n + " game" + (n === 1 ? "" : "s"));
+    });
+  }
+
+  // "Fits my grade" filter
+  var fitBtn = document.getElementById("fit-btn");
+  var fitNote = document.getElementById("fit-note");
+  fitBtn.addEventListener("click", function () {
+    fitsOnly = !fitsOnly;
+    save(FIT_KEY, fitsOnly ? "1" : "0");
+    renderCabinets();
+    blip();
+  });
+  function renderFit() {
+    fitBtn.innerHTML = "Fits my grade: <strong>" + (fitsOnly ? "ON" : "OFF") + "</strong>";
+    fitBtn.setAttribute("aria-pressed", fitsOnly ? "true" : "false");
+    fitBtn.classList.toggle("on", fitsOnly);
+    var hidden = games.filter(function (g) { return inTab(g, tabDef(tab)) && !supports(g, grade); }).length;
+    fitNote.textContent = fitsOnly
+      ? (hidden ? hidden + " game" + (hidden === 1 ? "" : "s") + " for other grades hidden." : "Every game here fits " + gradeName(grade).toLowerCase() + ".")
+      : "Showing every game. Ones for other grades are greyed out.";
+  }
+
+  function toggleFavorite(id) {
+    var i = favorites.indexOf(id);
+    if (i >= 0) favorites.splice(i, 1); else favorites.push(id);
+    save(FAV_KEY, JSON.stringify(favorites));
+  }
+  function recordLaunch(id) {
+    recent = [id].concat(recent.filter(function (r) { return r !== id; })).slice(0, RECENT_MAX);
+    save(RECENT_KEY, JSON.stringify(recent));
+  }
+  function launch(card) {
+    recordLaunch(card.getAttribute("data-game"));
+    coin();
+    window.location.href = card.href;
+  }
+
+  var shelvesBox = document.getElementById("shelves");
+  var emptyNote = document.getElementById("empty");
+  var cabinets = [];
+  var selected = 0;
+  var selectedKey = null; // "shelf:gameId", so the highlight survives re-renders
 
   function gameHref(game) {
     return game.url + (game.url.indexOf("?") >= 0 ? "&" : "?") + "grade=" + encodeURIComponent(grade);
   }
+  function updateGradeLinks() {
+    var links = document.querySelectorAll("a[data-keep-grade]");
+    for (var i = 0; i < links.length; i++) links[i].href = "credits.html?grade=" + encodeURIComponent(grade);
+  }
+
+  function cabinetItem(game, shelf, mini) {
+    var li = el("li");
+    var live = !!game.url;
+    var fits = supports(game, grade);
+    var card = el(live ? "a" : "div", "cabinet" + (live ? "" : " soon") + (fits ? "" : " off-grade"));
+    card.setAttribute("data-game", game.id);
+    card.setAttribute("data-shelf", shelf);
+    if (live) {
+      card.href = gameHref(game);
+      card.setAttribute("aria-label", "Play " + game.title + ", " + gradeName(grade) + (fits ? "" : " (" + gradesLabel(game) + ")"));
+      card.addEventListener("click", function (ev) {
+        if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.button) return; // opened elsewhere
+        recordLaunch(game.id);
+        coin();
+      });
+      card.addEventListener("focus", function () { select(cabinets.indexOf(card), false); });
+    }
+
+    var n = games.indexOf(game) + 1;
+    card.appendChild(el("div", "cab-top", "Game " + n + (live ? " · Player 1" : " · Coming soon")));
+    var screen = el("div", "screen");
+    if (game.image) {
+      var img = el("img");
+      img.src = game.image;
+      img.alt = game.title + " gameplay";
+      img.loading = "lazy";
+      screen.appendChild(img);
+    } else {
+      screen.appendChild(el("span", null, "Now building…"));
+    }
+    card.appendChild(screen);
+
+    var body = el("div", "body");
+    body.appendChild(el("h3", null, game.title));
+    if (!mini) body.appendChild(el("p", "tagline", game.tagline));
+    var chips = el("div", "chips");
+    chips.appendChild(el("span", "chip grade" + (fits ? "" : " off"), fits ? gradeName(grade) : gradesLabel(game)));
+    if (isNew(game)) chips.appendChild(el("span", "chip new", "New"));
+    (game.subjects || []).forEach(function (s) { chips.appendChild(el("span", "chip", SUBJECT_NAMES[s] || s)); });
+    body.appendChild(chips);
+    card.appendChild(body);
+    if (live) card.appendChild(el("div", "start", "Press start ▶"));
+    li.appendChild(card);
+
+    var fav = favorites.indexOf(game.id) >= 0;
+    var star = el("button", "fav" + (fav ? " on" : ""), fav ? "★" : "☆");
+    star.type = "button";
+    star.setAttribute("aria-pressed", fav ? "true" : "false");
+    star.setAttribute("aria-label", "Favorite " + game.title);
+    star.title = fav ? "Remove from favorites (F)" : "Add to favorites (F)";
+    star.setAttribute("data-game", game.id);
+    star.setAttribute("data-shelf", shelf);
+    star.addEventListener("click", function () {
+      toggleFavorite(game.id);
+      renderCabinets();
+      var again = shelvesBox.querySelector('.fav[data-shelf="' + shelf + '"][data-game="' + game.id + '"]') ||
+        shelvesBox.querySelector('.fav[data-game="' + game.id + '"]');
+      if (again) again.focus();
+      blip();
+    });
+    li.appendChild(star);
+    return li;
+  }
+
+  function shelf(id, title, list, mini) {
+    if (!list.length) return;
+    var sec = el("section", "shelf shelf-" + id);
+    sec.setAttribute("aria-label", title);
+    var head = el("h3", "shelf-title", title);
+    head.appendChild(el("span", "shelf-count", " " + list.length));
+    sec.appendChild(head);
+    var ul = el("ul", "cabinets" + (mini ? " mini" : ""));
+    ul.setAttribute("role", "list");
+    list.forEach(function (game) { ul.appendChild(cabinetItem(game, id, mini)); });
+    sec.appendChild(ul);
+    shelvesBox.appendChild(sec);
+  }
 
   function renderCabinets() {
-    list.textContent = "";
-    cabinets = [];
-    games.forEach(function (game, i) {
-      var li = el("li");
-      var live = !!game.url;
-      var card = el(live ? "a" : "div", "cabinet" + (live ? "" : " soon"));
-      if (live) {
-        card.href = gameHref(game);
-        card.setAttribute("aria-label", "Play " + game.title + ", " + gradeName(grade));
-        card.addEventListener("click", function () { coin(); });
-        card.addEventListener("focus", function () { select(cabinets.indexOf(card), false); });
-      }
+    var t = tabDef(tab);
+    var keep = selectedKey;
+    renderTabs();
+    renderFit();
+    shelvesBox.textContent = "";
+    function pick(ids) {
+      return ids.map(byId).filter(function (g) { return g && shown(g, t); });
+    }
+    shelf("favorites", "★ Favorites", pick(favorites), true);
+    shelf("recent", "Recently played", pick(recent), true);
+    shelf("new", "New", games.filter(function (g) { return isNew(g) && shown(g, t); }), true);
+    var main = games.filter(function (g) { return shown(g, t); });
+    shelf("all", t.subject ? t.label + " games" : "All games", main, false);
+    emptyNote.hidden = main.length > 0;
 
-      card.appendChild(el("div", "cab-top", "Game " + (i + 1) + (live ? " · Player 1" : " · Coming soon")));
-      var screen = el("div", "screen");
-      if (game.image) {
-        var img = el("img");
-        img.src = game.image;
-        img.alt = game.title + " gameplay";
-        img.loading = "lazy";
-        screen.appendChild(img);
-      } else {
-        screen.appendChild(el("span", null, "Now building…"));
-      }
-      card.appendChild(screen);
-
-      var body = el("div", "body");
-      body.appendChild(el("h3", null, game.title));
-      body.appendChild(el("p", null, game.tagline));
-      var chips = el("div", "chips");
-      var fits = supports(game, grade);
-      chips.appendChild(el("span", "chip grade" + (fits ? "" : " off"), fits ? gradeName(grade) : gradesLabel(game)));
-      game.subjects.forEach(function (s) { chips.appendChild(el("span", "chip", s)); });
-      body.appendChild(chips);
-      card.appendChild(body);
-      if (live) card.appendChild(el("div", "start", "Press start ▶"));
-
-      li.appendChild(card);
-      list.appendChild(li);
-      if (live) cabinets.push(card);
-    });
-    select(Math.min(selected, cabinets.length - 1), false);
+    cabinets = Array.prototype.slice.call(shelvesBox.querySelectorAll("a.cabinet"));
+    var idx = -1;
+    if (keep) cabinets.forEach(function (c, j) { if (idx < 0 && keyOf(c) === keep) idx = j; });
+    if (idx < 0 && keep) { // the same game on another shelf, else the first
+      var gid = keep.split(":")[1];
+      cabinets.forEach(function (c, j) { if (idx < 0 && c.getAttribute("data-game") === gid) idx = j; });
+    }
+    select(idx < 0 ? Math.max(0, Math.min(selected, cabinets.length - 1)) : idx, false);
   }
+  function keyOf(c) { return c.getAttribute("data-shelf") + ":" + c.getAttribute("data-game"); }
 
-  // Credits table
-  var credits = document.getElementById("credits");
-  games.filter(function (game) { return !!game.url; }).forEach(function (game, i) {
-    var tr = el("tr");
-    tr.appendChild(el("td", null, String(i + 1).padStart(2, "0")));
-    tr.appendChild(el("td", null, game.title));
-    tr.appendChild(el("td", "creator", "SpiderBen10 (NZDO)"));
-    tr.appendChild(el("td", null, String(game.year)));
-    credits.appendChild(tr);
-  });
   document.getElementById("year").textContent = String(new Date().getFullYear());
 
-  // Keyboard: arrows move between cabinets, Enter/Space launches, [ and ] change grade.
+  // Keyboard: arrows move between the visible cabinets, Enter/Space launches,
+  // [ and ] change grade, , and . (or < and >) change subject, F stars the
+  // selected game. Tab / Shift+Tab keep their normal focus behavior.
   function select(i, focus) {
-    if (!cabinets.length) return;
-    selected = (i + cabinets.length) % cabinets.length;
+    if (!cabinets.length) { selectedKey = null; return; }
+    selected = ((i % cabinets.length) + cabinets.length) % cabinets.length;
     cabinets.forEach(function (c, j) { c.classList.toggle("selected", j === selected); });
-    if (focus) cabinets[selected].focus();
+    selectedKey = keyOf(cabinets[selected]);
+    if (focus) {
+      cabinets[selected].focus();
+      if (cabinets[selected].scrollIntoView) cabinets[selected].scrollIntoView({ block: "nearest" });
+    }
   }
   document.addEventListener("keydown", function (ev) {
+    if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
     var k = ev.key;
+    var a = document.activeElement;
+    var typing = a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA" || a.isContentEditable);
+    if (typing) return;
     if (k === "[" || k === "]") {
       var gi = GRADES.indexOf(grade) + (k === "]" ? 1 : -1);
       if (gi >= 0 && gi < GRADES.length) { setGrade(GRADES[gi]); blip(); }
       return;
     }
+    if (k === "," || k === "<") { ev.preventDefault(); stepTab(-1); return; }
+    if (k === "." || k === ">") { ev.preventDefault(); stepTab(1); return; }
     if (!cabinets.length) return;
+    if (k === "f" || k === "F") {
+      var cur = cabinets[selected];
+      var refocus = a === cur;
+      toggleFavorite(cur.getAttribute("data-game"));
+      renderCabinets();
+      if (refocus && cabinets[selected]) cabinets[selected].focus();
+      blip();
+      return;
+    }
     if (k === "ArrowRight" || k === "ArrowDown") { ev.preventDefault(); select(selected + 1, true); blip(); }
     else if (k === "ArrowLeft" || k === "ArrowUp") { ev.preventDefault(); select(selected - 1, true); blip(); }
-    else if ((k === "Enter" || k === " ") && document.activeElement && document.activeElement.classList.contains("grade-btn")) {
-      return; // let the grade button handle it
-    } else if ((k === "Enter" || k === " ") && document.activeElement !== cabinets[selected]) {
-      ev.preventDefault(); coin(); window.location.href = cabinets[selected].href;
+    else if (k === "Enter" || k === " ") {
+      // Buttons (grade, tabs, stars, switches) and focused links handle their own Enter/Space.
+      if (a && a.classList && a.classList.contains("cabinet")) {
+        if (k === " ") { ev.preventDefault(); launch(a); }
+        return; // Enter follows the focused link itself
+      }
+      if (a && a !== document.body && (a.tagName === "BUTTON" || a.tagName === "A")) return;
+      ev.preventDefault();
+      launch(cabinets[selected]);
     }
   });
 
