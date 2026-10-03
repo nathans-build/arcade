@@ -1,7 +1,11 @@
 # Grid battle game (Battleship-style): plan for later
 
-Status (October 2026): planned, not started. Working title **Sonar Squad**; other ideas: Grid
-Strike, Coordinate Clash, Sub Hunt. "Battleship" itself is a Hasbro trademark, so the game, ships
+Status (October 2026): planned, not started. Recommended name **Sonar Squad** (checked Oct 3,
+2026: no game by that name found, sonarsquad.com had no DNS record). Rejected: Grid Strike (an
+existing Battleship-style game), Sub Hunt (Mattel's 1961 "Sonar Sub Hunt", domain taken),
+Coordinate Clash (too close to "Coordinate Commander", an existing coordinate Battleship game).
+Backup: Grid Hunters. Note the "Sonar" / "Captain Sonar" submarine board games by Matagot; the name
+is different, but keep the look original. "Battleship" itself is a Hasbro trademark, so the game, ships
 and art must be original (check the final name the same way as
 [brand-and-domains.md](brand-and-domains.md)).
 
@@ -64,6 +68,10 @@ hits, one player could cheat by editing the page.
 
 1. The name.
 2. Which two-player option(s), and when.
-3. Board size per grade: 6×6 for K–2, 8×8 for 3–5, 10×10 for 6–12 (recommended).
+3. Board size: **10×10 for every grade** (chosen by the user). K–4 shoot at squares (K–2 picture
+   rows and numbers 1–10; 3–4 letters A–J and numbers 1–10). Grade 5 shoots at grid-line crossings
+   (0–9 on each axis, first quadrant). Grade 6+ adds the axes so the board runs −5 to 5 on each axis
+   (11×11 crossings, the true four-quadrant plane). K–2 get extra sonar and a "hint" glow so 10×10
+   doesn't drag.
 4. Questions as power-ups only (recommended), or a question before every shot (slower, more
    practice)?
