@@ -988,4 +988,89 @@ export const SCENE_PAINTERS: Record<SceneId, ScenePainter> = {
       g.rect(0, 146 + shake, W, 1, C.dbrown);
     },
   },
+
+  // A frosty cryo bay on a space station: frozen sleep pods, icicles, an icy floor and
+  // drifting cold mist.
+  "cryo-bay": {
+    floor: 190,
+    bg(g) {
+      g.rect(0, 0, W, 150, "#1d2f4a");
+      for (let x = 0; x < W; x += 32) g.rect(x, 16, 1, 134, "#2c4466");
+      g.rect(0, 84, W, 1, "#2c4466");
+      // frost creeping in from the top corners
+      g.poly([[0, 16], [70, 16], [0, 70]], "#3d6488");
+      g.poly([[320, 16], [250, 16], [320, 70]], "#3d6488");
+      g.dither(0, 16, 46, 26, C.lcyan, "#3d6488");
+      g.dither(274, 16, 46, 26, C.lcyan, "#3d6488");
+      // ceiling pipe
+      g.rect(0, 0, W, 10, C.deep);
+      g.rect(0, 10, W, 6, C.lgray);
+      g.rect(0, 10, W, 1, C.white);
+      g.rect(0, 15, W, 1, C.stone);
+      for (let x = 24; x < W; x += 64) g.rect(x, 9, 6, 8, C.stone);
+      // porthole with stars and an icy moon
+      g.circle(160, 40, 21, C.stone);
+      g.circle(160, 40, 18, C.deep);
+      for (let i = 0; i < 16; i++) {
+        const a = rnd(i + 41) * Math.PI * 2;
+        const r = rnd(i + 43) * 16;
+        g.px(160 + Math.cos(a) * r, 40 + Math.sin(a) * r, i % 4 ? C.white : C.sbYellow);
+      }
+      g.circle(168, 46, 7, "#cfe3ff");
+      g.dither(162, 42, 12, 10, "#cfe3ff", C.lcyan);
+      g.text("CRYO BAY", 160, 66, C.lcyan, 1, "center", C.deep);
+      // sleep pods
+      for (const cx of [30, 113, 207, 290]) {
+        g.rect(cx - 19, 142, 38, 8, C.dgray);
+        g.rect(cx - 17, 52, 34, 92, C.stone);
+        g.ellipse(cx, 54, 17, 6, C.stone);
+        g.rect(cx - 13, 58, 26, 72, "#9fd8f0");
+        g.dither(cx - 13, 58, 26, 72, "#9fd8f0", "#dff6ff");
+        g.rect(cx - 10, 62, 4, 40, C.white);
+        g.rect(cx - 13, 130, 26, 2, C.lgray);
+        g.rect(cx - 8, 134, 16, 6, C.deep);
+        // frost on the glass edges
+        g.dither(cx - 13, 58, 26, 6, C.white, "#dff6ff");
+        g.dither(cx - 13, 122, 26, 8, C.white, "#9fd8f0");
+      }
+      // icicles under the pipe
+      for (let i = 0; i < 22; i++) {
+        const x = 6 + i * 14 + Math.floor(rnd(i + 70) * 6);
+        const h = 4 + Math.floor(rnd(i + 90) * 9);
+        g.tri(x, 16, x + 4, 16, x + 2, 16 + h, i % 3 ? C.lcyan : C.white);
+      }
+      // icy floor
+      g.rect(0, 150, W, 50, "#7aa6c4");
+      for (let y = 150, r = 0; y < 200; y += 10, r++) for (let x = 0, c = 0; x < W; x += 32, c++) if ((r + c) % 2) g.rect(x, y, 32, 10, "#8db8d4");
+      g.dither(0, 150, W, 6, C.white, "#7aa6c4");
+      g.rect(0, 148, W, 2, C.lgray);
+      for (let i = 0; i < 9; i++) {
+        const x = 10 + rnd(i + 30) * 290;
+        const y = 158 + rnd(i + 50) * 36;
+        g.line(x, y, x + 14, y - 3, "#dff6ff");
+      }
+    },
+    anim(g, t) {
+      // pod status lights
+      [30, 113, 207, 290].forEach((cx, i) => {
+        const on = Math.floor(t * 2 + i * 0.7) % 3;
+        g.rect(cx - 6, 136, 3, 2, on === 0 ? C.lcyan : C.cyan);
+        g.rect(cx - 1, 136, 3, 2, on === 1 ? C.lgreen : C.green);
+        g.rect(cx + 4, 136, 3, 2, on === 2 ? C.sbYellow : C.brown);
+      });
+      // ice sparkles drifting down from the icicles
+      for (let i = 0; i < 14; i++) {
+        const x = (rnd(i + 5) * W + Math.sin(t + i) * 4 + W) % W;
+        const y = 20 + ((rnd(i + 8) * 130 + t * (8 + rnd(i) * 8)) % 130);
+        g.px(x, y, Math.sin(t * 3 + i) > 0 ? C.white : C.lcyan);
+      }
+      // cold mist rolling along the floor
+      g.ctx.globalAlpha = 0.35;
+      for (let i = 0; i < 6; i++) {
+        const x = ((t * (10 + i * 3) + i * 70) % (W + 80)) - 40;
+        g.ellipse(x, 186 - (i % 3) * 5, 30, 4, C.white);
+      }
+      g.ctx.globalAlpha = 1;
+    },
+  },
 };

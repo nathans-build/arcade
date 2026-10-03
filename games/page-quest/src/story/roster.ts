@@ -7,7 +7,7 @@
 export const SCENES = [
   "library", "beach", "ship-deck", "island-jungle", "cave", "castle-hall", "forest", "village",
   "mountain-pass", "space-bridge", "space-corridor", "planet-surface", "museum-hall", "museum-vault",
-  "city-street", "lab", "lighthouse", "stormy-sea", "school", "train",
+  "city-street", "lab", "lighthouse", "stormy-sea", "school", "train", "cryo-bay",
 ] as const;
 export type SceneId = (typeof SCENES)[number];
 
@@ -32,6 +32,7 @@ export const SCENE_LABEL: Record<SceneId, string> = {
   "stormy-sea": "Stormy sea",
   school: "School",
   train: "Train",
+  "cryo-bay": "Cryo bay",
 };
 
 export const CHARACTERS = [
@@ -52,6 +53,8 @@ export const CHARACTERS = [
   { id: "cat", name: "Cat", who: "a cat" },
   { id: "stranger", name: "Stranger", who: "a hooded mysterious figure" },
   { id: "alien", name: "Alien", who: "a friendly alien" },
+  { id: "zombie", name: "Zombie", who: "a goofy, green-tinged space zombie (kid-friendly, curable)" },
+  { id: "astronaut", name: "Astronaut", who: "an astronaut in a spacesuit and helmet" },
 ] as const;
 export type CharId = (typeof CHARACTERS)[number]["id"];
 export const CHAR_IDS = CHARACTERS.map((c) => c.id) as CharId[];
@@ -66,7 +69,8 @@ export function charByName(name: string): CharId | null {
   return CHARACTERS.find((c) => c.name.toLowerCase() === n)?.id ?? null;
 }
 
-export const MOODS = ["normal", "happy", "sad", "angry", "scared", "surprised", "thinking"] as const;
+/** `frozen` (any character): icy blue tint, ice crystals, eyes closed, no idle bob. */
+export const MOODS = ["normal", "happy", "sad", "angry", "scared", "surprised", "thinking", "frozen"] as const;
 export type Mood = (typeof MOODS)[number];
 
 /**
@@ -93,6 +97,8 @@ export const MOOD_ALIASES: Record<string, Mood> = {
   proud: "happy",
   calm: "normal",
   neutral: "normal",
+  icy: "frozen",
+  iced: "frozen",
 };
 
 export const GENRES = ["mystery", "adventure", "space"] as const;

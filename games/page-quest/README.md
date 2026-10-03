@@ -14,10 +14,10 @@ story below it (or beside it on wide screens) in big VT323 text, with read-aloud
   still playable); your level's book is selected. The detail card shows the cover scene, blurb,
   reading level, and **endings found (x / y)**, with READ, or CONTINUE / START OVER for a book in
   progress (the current page is saved per book).
-- **Reading:** each page draws its scene (20 procedurally drawn EGA-style backgrounds, animated:
-  waves, torches, stars, lasers, rain, scrolling train windows...) with up to three characters (17
-  original sprites with idle bobbing, blinking, moods on the face and in emote bubbles ♥ … ! ? and
-  friends). The text types out (tap, Space or Enter skips); dialogue lines show the speaker's
+- **Reading:** each page draws its scene (21 procedurally drawn EGA-style backgrounds, animated:
+  waves, torches, stars, lasers, rain, scrolling train windows, cryo-bay mist...) with up to three
+  characters (19 original sprites with idle bobbing, blinking, moods on the face and in emote bubbles
+  ♥ … ! ? ❄ and friends; the `frozen` mood turns any character to ice and holds them still). The text types out (tap, Space or Enter skips); dialogue lines show the speaker's
   portrait while their sprite bobs and talks. Then pick a choice **A–D** (keys 1–4 / A–D or tap).
 - **Gates** are Quill's skill questions inside the story: multiple choice (answers shuffled) or
   **put in order** (tap the torn map / diary pieces in the order they happened). Each gate is tagged
@@ -94,7 +94,7 @@ design brief (`PAGE_QUEST.md`); scenes and characters are listed in `src/story/r
 - **Moods not in the list** that writers commonly use are accepted with a warning and shown as the
   nearest mood (the brief's own example uses `captain:worried` → *scared*; also nervous/afraid →
   scared, upset → sad, mad → angry, shocked → surprised, confused/curious → thinking,
-  excited/proud → happy, calm/neutral → normal). Other unknown moods are errors.
+  excited/proud → happy, calm/neutral → normal, icy/iced → frozen). Other unknown moods are errors.
 - **Dialogue:** a line `Name: words` is dialogue only when *Name* is a roster display name; any other
   `Word: text` line is narration. A roster character who speaks without being in `cast` is a warning
   (the line still shows their portrait); `Hero:` lines are a warning (the hero never talks).
@@ -115,6 +115,43 @@ design brief (`PAGE_QUEST.md`); scenes and characters are listed in `src/story/r
   as described above.
 - **RF anchors** (foundational skills) end at grade 5; from grade 6 up, `RF.3` is reported as `L.x.4`
   and `RF.4` as `RL.x.10` (see *Codes to verify*).
+
+### Roster (scenes, characters, moods)
+
+The Writer's Desk dropdowns and the validator read these from `src/story/roster.ts`, so a new entry
+there (plus its art in `src/engine/scenes.ts` / `sprites.ts`) shows up everywhere.
+
+**Scenes (21):** `library` (the Arcade Library hub), `beach`, `ship-deck`, `island-jungle`, `cave`,
+`castle-hall`, `forest`, `village`, `mountain-pass`, `space-bridge`, `space-corridor`,
+`planet-surface`, `museum-hall`, `museum-vault`, `city-street`, `lab`, `lighthouse`, `stormy-sea`,
+`school`, `train`, `cryo-bay` (a frosty space-station cryo bay: frozen sleep pods, icicles, an icy
+floor, drifting cold mist).
+
+| id | dialogue name | who |
+|---|---|---|
+| hero | Hero | the player (never has dialogue lines) |
+| quill | Quill | the owl librarian sidekick (she) |
+| kid | Kid | a kid about the player's age |
+| captain | Captain | a ship captain |
+| parrot | Parrot | a talkative parrot |
+| robot | Robot | a friendly boxy robot |
+| scientist | Scientist | a scientist in a lab coat |
+| detective | Detective | a detective in a trench coat |
+| guard | Guard | a guard / security officer |
+| keeper | Keeper | an old lighthouse/museum keeper |
+| ghost | Ghost | a friendly-ish ghost |
+| dragon | Dragon | a small dragon |
+| knight | Knight | a knight in armor |
+| mayor | Mayor | a town mayor |
+| cat | Cat | a cat (talks in fantasy books, otherwise meows) |
+| stranger | Stranger | a hooded mysterious figure |
+| alien | Alien | a friendly alien |
+| zombie | Zombie | a goofy green-tinged space zombie in a mossy suit with a glowing spore mushroom (cartoon, never gory; curable) |
+| astronaut | Astronaut | an astronaut in a white spacesuit with orange stripes and a clear faceplate |
+
+**Moods:** `normal happy sad angry scared surprised thinking frozen`. `frozen` works on any
+character: the sprite is recoloured in ice blues with crystal glints, eyes shut, inside a
+see-through ice block, with no idle bob (a ❄ emote bubble shows now and then).
 
 ## Grades and standards
 
@@ -138,8 +175,8 @@ RI.1–RI.9 the informational-text versions (main idea, text structure, author's
 evidence...), L.1 grammar, L.2 capitals/punctuation/spelling, L.4 word meaning from clues, L.5
 figurative language, W.1–W.3 opinion/informative/narrative writing.
 
-The 10 books on the shelf now (`npm test` output): 4–5 books read at Flesch–Kincaid grade 3.7–4.2,
-6–8 books at 6.4–7.1, 9–12 books at 8.4–9.2; 31–40 pages each, 11–14 gates, 3–6 endings.
+The 14 books on the shelf now (`npm test` output): 4–5 books read at Flesch–Kincaid grade 3.7–4.2,
+6–8 books at 6.4–7.1, 9–12 books at 8.4–9.2; 31–41 pages each, 11–14 gates, 3–6 endings.
 
 ### Codes to verify
 

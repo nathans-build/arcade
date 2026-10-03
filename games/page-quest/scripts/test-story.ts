@@ -11,6 +11,9 @@ import { standardFor } from "../src/story/standards";
 import type { Story } from "../src/story/types";
 import { draftFromStory, draftToText, newDraft } from "../src/writer/draft";
 import { advance, answerMc, newRun, tapOrder, type RunState } from "../src/play/session";
+import { CHARACTERS, MOODS, SCENES, charByName } from "../src/story/roster";
+import { KEYS, SPRITES } from "../src/engine/sprites";
+import { EMOTES, faceRows } from "../src/engine/face";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -309,6 +312,50 @@ test("order gate taps", () => {
   assert.equal(run.log[1].correct, true);
   run = advance(book, run, 0);
   assert.equal(run.page, "win1");
+});
+
+test("roster: zombie, astronaut, frozen mood and cryo-bay scene", () => {
+  assert.equal(charByName("Zombie"), "zombie");
+  assert.equal(charByName("Astronaut"), "astronaut");
+  assert.ok((MOODS as readonly string[]).includes("frozen"));
+  assert.ok((SCENES as readonly string[]).includes("cryo-bay"));
+  assert.equal(resolveMood("frozen"), "frozen");
+  assert.equal(resolveMood("icy"), "frozen");
+  const r = checkStory(`${HEAD("6-8")}
+=== a
+scene: cryo-bay
+cast: hero, astronaut:frozen, zombie:happy
+checkpoint
+Zombie: Mmm... snacks.
+end: win W
+`);
+  assert.deepEqual(r.errors, []);
+  assert.deepEqual(r.warnings, []);
+});
+
+test("sprites: every character's grid is 16 wide, uses known colours, and freezes", () => {
+  for (const c of CHARACTERS) {
+    const def = SPRITES[c.id];
+    assert.ok(def, c.id);
+    const colors = { ...KEYS, ...(def.colors ?? {}) };
+    for (const frame of [def.rows, def.alt ?? []]) {
+      for (const row of frame) {
+        assert.equal(row.length, 16, `${c.id} row "${row}"`);
+        for (const k of row) assert.ok(k === "." || k in colors, `${c.id}: unknown colour key "${k}"`);
+      }
+    }
+    for (const mood of MOODS) {
+      const rows = faceRows(def, false, mood, false, false);
+      assert.equal(rows.length, def.rows.length, `${c.id} ${mood}`);
+      for (const row of rows) for (const k of row) assert.ok(k === "." || k in colors, `${c.id} ${mood}: key "${k}"`);
+    }
+    // Frozen: only ice blues, black outlines and white glints; eyes shut (no black eye pixel).
+    const frozen = faceRows(def, true, "frozen", false, true);
+    for (const row of frozen) for (const k of row) assert.ok(".KIijW".includes(k), `${c.id} frozen: key "${k}"`);
+    const f = def.face;
+    if (f) for (const ex of f.ex) assert.notEqual(frozen[f.ey][ex], f.eye ?? "K", `${c.id} frozen eyes should be closed`);
+  }
+  assert.ok(EMOTES.frozen.rows.length === 5);
 });
 
 console.log(`test-story: ${passed} tests passed`);

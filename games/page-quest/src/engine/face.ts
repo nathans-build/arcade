@@ -3,9 +3,58 @@
  * talking, plus the little emote icons shown in a bubble over the head (! ? ♥ … and friends).
  */
 import type { Mood } from "@/story/roster";
-import type { SpriteDef } from "./sprites";
+import { KEYS, type SpriteDef } from "./sprites";
+
+function luminance(hex: string): number {
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+  if (!m) return 0.5;
+  const [r, g, b] = [m[1], m[2], m[3]].map((h) => parseInt(h, 16) / 255);
+  return 0.3 * r + 0.59 * g + 0.11 * b;
+}
+
+/**
+ * The `frozen` look: every pixel is re-coloured in ice blues (keys I, i, j) by its brightness (black
+ * outlines stay), the eyes are shut (a lid line), the mouth is a small flat line, and a few
+ * ice crystals sparkle on the edges. Works on any sprite, with or without a face.
+ */
+export function freezeRows(def: SpriteDef, rows: string[]): string[] {
+  const colors: Record<string, string> = { ...KEYS, ...(def.colors ?? {}) };
+  const g = rows.map((r) =>
+    r.split("").map((k): string => {
+      if (k === "." || k === "K") return k;
+      const l = luminance(colors[k] ?? "#888888");
+      return l > 0.62 ? "I" : l > 0.3 ? "i" : "j";
+    }),
+  );
+  const set = (x: number, y: number, k: string) => {
+    if (y >= 0 && y < g.length && x >= 0 && x < g[y].length) g[y][x] = k;
+  };
+  const f = def.face;
+  if (f) {
+    const ew = f.ew ?? 1;
+    const lidY = f.ey + (f.eh ?? 1) - 1;
+    for (const ex of f.ex) {
+      for (let x = 0; x < ew; x++) for (let y = f.ey; y <= lidY; y++) set(ex + x, y, "i");
+      for (let x = -1; x <= ew; x++) set(ex + x, lidY, "j");
+    }
+    if (f.mx !== undefined && f.my !== undefined) {
+      set(f.mx, f.my, "j");
+      set(f.mx + 1, f.my, "j");
+    }
+  }
+  // Ice crystals: a white glint on the outer edge of every fourth filled row.
+  g.forEach((row, y) => {
+    if (y % 4 !== 1) return;
+    const first = row.findIndex((k) => k !== ".");
+    if (first < 0) return;
+    const last = row.length - 1 - [...row].reverse().findIndex((k) => k !== ".");
+    set(y % 8 === 1 ? first : last, y, "W");
+  });
+  return g.map((r) => r.join(""));
+}
 
 export function faceRows(def: SpriteDef, alt: boolean, mood: Mood, blink: boolean, talkOpen: boolean): string[] {
+  if (mood === "frozen") return freezeRows(def, def.rows);
   const base = alt && def.alt ? def.alt : def.rows;
   const f = def.face;
   if (!f) return base;
@@ -80,4 +129,5 @@ export const EMOTES: Record<Exclude<Mood, "normal">, { rows: string[]; color: st
   scared: { rows: ["#.#..", "#.#..", "#.#.#", "....#", "#.#.."], color: "#00aaaa" },
   surprised: { rows: ["..#..", "..#..", "..#..", ".....", "..#.."], color: "#000000" },
   thinking: { rows: [".###.", "#...#", "..##.", ".....", "..#.."], color: "#000000" },
+  frozen: { rows: ["#.#.#", ".###.", "##.##", ".###.", "#.#.#"], color: "#2a8ad8" },
 };
