@@ -212,10 +212,9 @@ exposes the game controller as `window.__ss`; `?debug&fast` speeds up animations
 
 ## Deploying
 
-Sonar Squad lives in the arcade repository at `games/sonar-squad/` and is published at
-`/sonar-squad/` by the arcade's deploy. Vite builds with `base: "./"`, so `dist/` works from that
-subfolder. The shared kit is copied into `src/kit/` (do not edit it here; the canonical copy is the
-arcade's `kit/`).
+Sonar Squad lives in SpiderBen10's Arcade repository (`games/sonar-squad/`). The arcade's deploy workflow
+builds and tests it and publishes it at `/sonar-squad/` on the arcade's Azure app, so it needs no Azure
+app or token of its own. See the arcade README.
 
 ## Credits
 
