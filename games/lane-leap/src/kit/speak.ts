@@ -29,21 +29,60 @@ export function setReadAloudPref(on: boolean) {
   if (!on) stopSpeaking();
 }
 
+function clean(text: string): string {
+  return text
+    .replace(/×/g, " times ")
+    .replace(/÷/g, " divided by ")
+    .replace(/−/g, " minus ")
+    .replace(/_+/g, " blank ");
+}
+
+/**
+ * Splits text into sentence-sized pieces (≤ about 200 characters). Chrome stops a single long
+ * utterance after roughly 15 seconds, so long passages are queued as several short ones.
+ */
+export function speechChunks(text: string, max = 200): string[] {
+  const sentences = text.replace(/\s+/g, " ").trim().match(/[^.!?…]+[.!?…]+["'”’)]*\s*|[^.!?…]+$/g) ?? [];
+  const out: string[] = [];
+  let cur = "";
+  for (const raw of sentences) {
+    const s = raw.trim();
+    if (!s) continue;
+    if (cur && (cur + " " + s).length > max) {
+      out.push(cur);
+      cur = "";
+    }
+    if (s.length > max) {
+      // A very long sentence: break at commas or spaces.
+      let rest = s;
+      while (rest.length > max) {
+        let cut = rest.lastIndexOf(", ", max);
+        if (cut < max / 2) cut = rest.lastIndexOf(" ", max);
+        if (cut < 1) cut = max;
+        out.push(rest.slice(0, cut + 1).trim());
+        rest = rest.slice(cut + 1).trim();
+      }
+      cur = rest;
+    } else {
+      cur = cur ? `${cur} ${s}` : s;
+    }
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
 /** Speak `text`, replacing anything currently being read. */
 export function speak(text: string) {
   if (!speechSupported()) return;
   try {
     window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(
-      text
-        .replace(/×/g, " times ")
-        .replace(/÷/g, " divided by ")
-        .replace(/−/g, " minus ")
-        .replace(/_+/g, " blank "),
-    );
-    u.rate = 0.9;
-    u.pitch = 1.05;
-    window.speechSynthesis.speak(u);
+    // Queued synchronously: iPad Safari only allows speech that starts from a tap.
+    for (const part of speechChunks(clean(text))) {
+      const u = new SpeechSynthesisUtterance(part);
+      u.rate = 0.9;
+      u.pitch = 1.05;
+      window.speechSynthesis.speak(u);
+    }
   } catch {
     // ignore
   }
