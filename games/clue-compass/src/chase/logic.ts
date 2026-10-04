@@ -3,7 +3,7 @@
  * place, writing the friendly "Pocket isn't here" lesson, and validating whole cases. Pure data,
  * no DOM, so the game, the tests and a future chase game can all share it.
  */
-import { DIR_WORD, dirVerdict, mainDir, type Dir } from "./geo";
+import { DIR8_WORD, DIR_WORD, dir8Verdict, dirVerdict, fmtLL, llVerdict, mainDir, mainDir8, type Dir, type Dir8 } from "./geo";
 import type { CaseDef, ClueRef, Fact, Place, Tag, Verdict } from "./types";
 
 export class World {
@@ -46,7 +46,7 @@ const LABEL: Record<string, (v: string) => string> = {
   lake: (v) => v,
   water: (v) => v,
   ocean: (v) => `the ${v}`,
-  capital: (v) => `the capital of ${v}`,
+  capital: (v) => (v.startsWith("capital of") ? `the ${v}` : `the capital of ${v}`),
   border: (v) => (v === "home state" ? "our home state" : `NC's neighbor to the ${v}`),
   helper: (v) => `a ${v}`,
   thing: (v) => (v.endsWith("s") ? v : `a ${v}`),
@@ -55,10 +55,38 @@ const LABEL: Record<string, (v: string) => string> = {
   size: (v) => `the ${v}`,
   animal: (v) => (v.endsWith("s") ? v : `${/^[aeiou]/i.test(v) ? "an" : "a"} ${v}`),
   continent: (v) => v,
+  // grades 6–12
+  country: (v) => `present-day ${v.replace(/^the /, "")}`,
+  feature: (v) => `a ${v}`,
+  mouth: (v) => `a river that empties into the ${v}`,
+  flows: (v) => `a river that flows ${v}`,
+  hemi: (v) => `the ${v} Hemisphere`,
+  trait: (v) => v,
+  civ: (v) => `the home of ${v}`,
+  language: (v) => `a place where people speak ${v}`,
+  currency: (v) => `a place that pays with the ${v}`,
+  flag: (v) => `a flag with ${v}`,
+  export: (v) => v,
+  pop: (v) => v,
+  econ: (v) => (v === "Army base" ? "a city beside a giant Army base" : `a city known for ${v}`),
+  highway: (v) => `a city on ${v}`,
+  port: (v) => v,
+  hub: (v) => v,
+  inlet: (v) => v,
+  industry: (v) => `a city known for ${v}`,
+  crossing: (v) => `the ${v}`,
+  confluence: (v) => `the place ${v}`,
+  utc: (v) => `a place on ${v}`,
+  clim: (v) => `a ${v} climate`,
+  plate: (v) => (v === "far from a boundary" ? "a place far from any plate boundary" : `a ${v} plate boundary`),
+  trade: (v) => v,
+  energy: (v) => v,
 };
 
 export function labelOf(t: Tag): string {
   if (t.k === "dir") return DIR_WORD[t.v as Dir];
+  if (t.k === "dir8") return DIR8_WORD[t.v as Dir8];
+  if (t.k === "ll") return `a place near ${t.v}`;
   return (LABEL[t.k] ?? ((v: string) => v))(t.v);
 }
 
@@ -74,6 +102,11 @@ export function tagOf(dest: Place, ref: ClueRef, from?: Place): Tag {
     if (!from) throw new Error("a direction clue needs a starting place");
     return { k: "dir", v: mainDir(from, dest) };
   }
+  if (ref === "dir8") {
+    if (!from) throw new Error("a direction clue needs a starting place");
+    return { k: "dir8", v: mainDir8(from, dest) };
+  }
+  if (ref === "ll") return { k: "ll", v: fmtLL(dest.at) };
   const f = factOf(dest, ref);
   if (!f) throw new Error(`${dest.id} has no fact for clue "${ref}"`);
   return { k: f.k, v: f.v };
@@ -82,6 +115,8 @@ export function tagOf(dest: Place, ref: ClueRef, from?: Place): Tag {
 /** Does the tag fit `place`? Direction tags are measured from `from` on the map. */
 export function holds(place: Place, tag: Tag, from?: Place): Verdict {
   if (tag.k === "dir") return from ? dirVerdict(from, place, tag.v as Dir) : "unsure";
+  if (tag.k === "dir8") return from ? dir8Verdict(from, place, tag.v as Dir8) : "unsure";
+  if (tag.k === "ll") return place.map === "town" ? "unsure" : llVerdict(place, tag.v);
   return place.facts.some((f) => f.k === tag.k && f.v === tag.v) ? "yes" : "no";
 }
 
@@ -104,24 +139,43 @@ export function deadEnd(place: Place, tags: Tag[], from: Place, short: boolean):
       ? `${name} is ${DIR_WORD[d].toUpperCase()} of ${from.name}. Pocket went ${DIR_WORD[miss.v as Dir].toUpperCase()}!`
       : `${name} is ${DIR_WORD[d]} of ${from.name}, but the clue said Pocket zoomed ${DIR_WORD[miss.v as Dir]}. Check the compass rose!`;
   }
+  if (miss.k === "dir8") {
+    const d = mainDir8(from, place);
+    return `${cap(place.name)} is ${DIR8_WORD[d].toUpperCase()} of ${from.name} on the map, but the witness saw Pocket fly ${DIR8_WORD[miss.v as Dir8].toUpperCase()}. Check the compass rose!`;
+  }
+  if (miss.k === "ll") {
+    return `${cap(place.name)} sits near ${fmtLL(place.at)}, but the clue said near ${miss.v}. Read latitude (N/S) first, then longitude (E/W).`;
+  }
   const f = lessonFact(place, miss.k);
   return short ? `${f.say} Pocket wanted ${labelOf(miss)}!` : `${f.say} But the clue pointed to ${labelOf(miss)}, so Pocket didn't come here.`;
+}
+
+function cap(s: string): string {
+  return s[0].toUpperCase() + s.slice(1);
 }
 
 /** The witness line for a clue (direction clues are written from the map). */
 export function clueText(dest: Place, ref: ClueRef, from: Place): string {
   if (ref === "dir") return `I saw Pocket zoom ${DIR_WORD[mainDir(from, dest)].toUpperCase()} from here!`;
+  if (ref === "dir8") {
+    const d = mainDir8(from, dest);
+    return `I saw Pocket fly off to the ${DIR8_WORD[d].toUpperCase()} across the map${d.length === 2 ? ", an in-between direction" : ""}!`;
+  }
+  if (ref === "ll") return `Pocket dropped a boarding pass. It says the flight lands near ${fmtLL(dest.at)}.`;
   const f = factOf(dest, ref);
   return f?.hint ?? "";
 }
 
 /** The IOU note line for a hideout trait. */
 export function noteText(hideout: Place, ref: ClueRef): string {
+  if (ref === "ll") return `IOU! My hideout sits near ${fmtLL(hideout.at)}.`;
   return factOf(hideout, ref)?.note ?? "";
 }
 
 export function clueIcon(dest: Place, ref: ClueRef, from: Place): string | undefined {
   if (ref === "dir") return `arrow:${mainDir(from, dest)}`;
+  if (ref === "ll") return "globe";
+  if (ref === "dir8") return "compass";
   return factOf(dest, ref)?.icon;
 }
 
@@ -139,6 +193,14 @@ export interface CaseRules {
   maxClue: number;
   /** Picture icon required on every clue and note. */
   icons: boolean;
+  /** Legs may have one unreliable (mixed-up) witness (grades 9–12). */
+  unreliable?: boolean;
+}
+
+/** The mixed-up witness's line: a true fact about a WRONG option (null if the leg has none). */
+export function liarText(world: World, liar: { from: string; ref: ClueRef } | undefined): string | null {
+  if (!liar || !world.places.has(liar.from)) return null;
+  return factOf(world.get(liar.from), liar.ref)?.hint ?? null;
 }
 
 /** Checks one case against the facts table: solvable, no accidental right answers, every dead end explained. */
@@ -166,7 +228,7 @@ export function validateCase(c: CaseDef, world: World, rules: CaseRules): CaseIs
     if (opts.includes(from.id)) bad(`${label}: an option is the stop you are standing at`);
     const tags: Tag[] = [];
     for (const ref of refs) {
-      if (isTrait && ref === "dir") bad(`${label}: a notebook trait can't be a direction`);
+      if (isTrait && (ref === "dir" || ref === "dir8")) bad(`${label}: a notebook trait can't be a direction`);
       let t: Tag;
       try {
         t = tagOf(dest, ref, from);
@@ -206,7 +268,36 @@ export function validateCase(c: CaseDef, world: World, rules: CaseRules): CaseIs
   };
 
   for (let i = 0; i < c.legs.length; i++) {
-    checkLeg(places[i], places[i + 1], c.legs[i].clues, c.legs[i].opts, `leg ${i + 1} (${places[i].id}→${places[i + 1].id})`, false);
+    const label = `leg ${i + 1} (${places[i].id}→${places[i + 1].id})`;
+    checkLeg(places[i], places[i + 1], c.legs[i].clues, c.legs[i].opts, label, false);
+    const liar = c.legs[i].liar;
+    if (!liar) continue;
+    const from = places[i];
+    const dest = places[i + 1];
+    if (!rules.unreliable) bad(`${label}: this band has no unreliable witnesses`);
+    if (!c.legs[i].opts.includes(liar.from)) bad(`${label}: the mixed-up witness must describe one of the wrong options`);
+    if (c.legs[i].clues.length < 2) bad(`${label}: a mixed-up witness needs at least 2 reliable witnesses to out-vote it`);
+    if (liar.slot < 0 || liar.slot > c.legs[i].clues.length) bad(`${label}: mixed-up witness slot ${liar.slot}`);
+    if (["dir", "dir8", "ll"].includes(liar.ref)) bad(`${label}: a mixed-up witness must use a fact clue`);
+    if (!world.places.has(liar.from)) continue;
+    const lp = world.get(liar.from);
+    const lf = factOf(lp, liar.ref);
+    if (!lf?.hint) {
+      bad(`${label}: mixed-up witness fact ${liar.from}.${liar.ref} has no hint`);
+      continue;
+    }
+    if (lf.hint.length > rules.maxClue) bad(`${label}: mixed-up clue is ${lf.hint.length} chars (max ${rules.maxClue})`);
+    const lt: Tag = { k: lf.k, v: lf.v };
+    if (holds(dest, lt, from) !== "no") bad(`${label}: the mixed-up clue also fits the answer ${dest.id}`);
+    // majority vote: the answer fits every reliable clue; every wrong option fits fewer clues in all
+    const tags = c.legs[i].clues.map((r) => tagOf(dest, r, from));
+    for (const id of c.legs[i].opts) {
+      if (!world.places.has(id)) continue;
+      const o = world.get(id);
+      const score = tags.filter((t) => holds(o, t, from) === "yes").length + (holds(o, lt, from) === "yes" ? 1 : 0);
+      if (score >= tags.length) bad(`${label}: with the mixed-up witness, ${id} ties the answer (${score} of ${tags.length + 1} clues)`);
+      if (holds(o, lt, from) === "unsure") bad(`${label}: mixed-up clue is borderline for ${id}`);
+    }
   }
   const hide = places[n - 1];
   checkLeg(places[n - 2], hide, c.traits, c.hideoutOpts, `hideout ${hide.id}`, true);

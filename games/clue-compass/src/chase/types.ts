@@ -39,6 +39,8 @@ export interface Place {
   atSrc: string;
   /** US state (postal code) or "NC" etc.; used by the coordinate sanity tests. */
   state?: string;
+  /** Country (ISO 3166 alpha-2) of a world pin; the tests check the pin is inside that country's box. */
+  country?: string;
   /** Background painter for the place scene. */
   scene: string;
   /** Big landmark icon drawn into the scene (optional). */
@@ -48,7 +50,10 @@ export interface Place {
   facts: Fact[];
 }
 
-/** A clue reference: a fact key of the destination ("river"), "key=value", or "dir" (map direction). */
+/**
+ * A clue reference: a fact key of the destination ("river"), "key=value", "dir" (N/E/S/W on the
+ * map), "dir8" (eight compass points) or "ll" (the destination's latitude/longitude, rounded).
+ */
 export type ClueRef = string;
 
 export interface Leg {
@@ -56,6 +61,12 @@ export interface Leg {
   clues: ClueRef[];
   /** Three wrong destinations. */
   opts: [string, string, string];
+  /**
+   * An unreliable (mixed-up) witness: says a true fact about one of the WRONG options instead of
+   * the destination. `from` is that option, `ref` its fact, `slot` where the witness stands.
+   * validateCase proves the reliable clues still out-vote it.
+   */
+  liar?: { from: string; ref: ClueRef; slot: number };
 }
 
 export interface CaseDef {

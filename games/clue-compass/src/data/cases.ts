@@ -5,8 +5,8 @@ import type { CaseDef } from "@/chase/types";
  * and always gives it back. Clue references point at facts of the next stop (see places-*.ts);
  * scripts/check-game.ts proves every case is solvable and every wrong trip is explained.
  */
-export type Band = "K" | "1-2" | "3" | "4" | "5";
-export const BANDS: Band[] = ["K", "1-2", "3", "4", "5"];
+export type Band = "K" | "1-2" | "3" | "4" | "5" | "6" | "7" | "8" | "9-12";
+export const BANDS: Band[] = ["K", "1-2", "3", "4", "5", "6", "7", "8", "9-12"];
 
 export const CASES: CaseDef[] = [
   // ======================= Kindergarten: Compass Corners (community helpers) =======================
@@ -397,5 +397,322 @@ export const CASES: CaseDef[] = [
     traits: ["landmark", "continent"],
     hideoutOpts: ["london", "cairo", "mexicocity"],
     end: "Beep! I wanted to see the sail-shaped roof in person. It's so pretty! Here's your sail.",
+  },
+  // ======================= Grade 6: world regions and physical geography =======================
+  {
+    id: "g6-gauge", band: "6", map: "world", title: "The River Gauge", item: "a river-level gauge", itemIcon: "river",
+    brief: "A scientist's river-level gauge is missing from Egypt! Pocket is touring the great river valleys of Africa and Asia. Read mouths, countries and directions.",
+    stops: ["nile6", "mesopotamia", "indus", "ganges", "huanghe"],
+    legs: [
+      { clues: ["mouth", "country", "dir8"], opts: ["indus", "danube", "congo"] },
+      { clues: ["mouth", "country"], opts: ["ganges", "nile6", "himalaya"] },
+      { clues: ["mouth", "dir8", "country"], opts: ["huanghe", "himalaya", "mesopotamia"] },
+    ],
+    traits: ["nickname", "mouth", "country"],
+    hideoutOpts: ["indus", "gobi", "himalaya"],
+    end: "Beep! I measured the yellow silt in the river. It's very muddy! Here's your gauge back.",
+  },
+  {
+    id: "g6-sand", band: "6", map: "world", title: "The Sand Timer", item: "a museum's giant hourglass", itemIcon: "desert",
+    brief: "A giant hourglass is missing! Pocket wants to fill it with sand from every kind of desert: hot, cold, dry and red. Follow the clues across four continents.",
+    stops: ["sahara6", "kalahari", "atacama", "gobi", "outback6"],
+    legs: [
+      { clues: ["country", "feature", "hemi"], opts: ["kilimanjaro", "atacama", "congo"] },
+      { clues: ["trait", "continent", "dir8"], opts: ["andes", "sahara6", "amazon6"] },
+      { clues: ["country", "trait"], opts: ["himalaya", "huanghe", "sahara6"] },
+    ],
+    traits: ["continent", "trait", "feature"],
+    hideoutOpts: ["kalahari", "sahara6", "atacama"],
+    end: "Bzzt! The hourglass holds sand from five deserts now. Time to give it back!",
+  },
+  {
+    id: "g6-summit", band: "6", map: "world", title: "The Summit Flag", item: "a climbing club's summit flag", itemIcon: "flag",
+    brief: "A climbing club's summit flag is missing from the Alps! Pocket is planting it on peaks around the world. Use ranges, records and directions.",
+    stops: ["alps", "himalaya", "kilimanjaro", "andes", "rockies"],
+    legs: [
+      { clues: ["trait", "dir8", "country"], opts: ["urals", "kilimanjaro", "gobi"] },
+      { clues: ["feature", "trait", "continent"], opts: ["alps", "andes", "sahara6"] },
+      { clues: ["trait", "dir8"], opts: ["atacama", "rockies", "amazon6"] },
+    ],
+    traits: ["trait", "country", "continent"],
+    hideoutOpts: ["alps", "mississippi6", "urals"],
+    end: "Beep-boop! I planted the flag on the Continental Divide, then brought it back. Here!",
+  },
+  {
+    id: "g6-net", band: "6", map: "world", title: "The Fishing Net", item: "a fisher's woven net", itemIcon: "river",
+    brief: "A fisher's woven net is missing from the Congo River! Pocket is crossing Africa from rain forest to desert. Rivers, records and hemispheres will help.",
+    stops: ["congo", "nile6", "kilimanjaro", "kalahari"],
+    legs: [
+      { clues: ["flows", "mouth"], opts: ["danube", "mesopotamia", "sahara6"] },
+      { clues: ["trait", "country"], opts: ["himalaya", "alps", "congo"] },
+    ],
+    traits: ["country", "hemi", "feature"],
+    hideoutOpts: ["sahara6", "atacama", "congo"],
+    end: "Bzzt! I tried to catch sand fish in the desert. There aren't any. Here's your net!",
+  },
+  {
+    id: "g6-bell", band: "6", map: "world", title: "The Ferry Bell", item: "a riverboat's brass bell", itemIcon: "bell",
+    brief: "A riverboat's brass bell is missing from Budapest! Pocket is heading east across Europe into Asia. Watch the in-between compass directions.",
+    stops: ["danube", "alps", "urals", "gobi", "huanghe"],
+    legs: [
+      { clues: ["dir8", "trait", "feature"], opts: ["urals", "himalaya", "rockies"] },
+      { clues: ["trait", "country", "dir8"], opts: ["danube", "himalaya", "andes"] },
+      { clues: ["feature", "trait", "country"], opts: ["sahara6", "kalahari", "himalaya"] },
+    ],
+    traits: ["nickname", "civ", "mouth"],
+    hideoutOpts: ["ganges", "indus", "danube"],
+    end: "Clang! I rang the bell for the noodle cooks by the Yellow River. Here it is!",
+  },
+  {
+    id: "g6-paddle", band: "6", map: "world", title: "The Canoe Paddle", item: "a carved canoe paddle", itemIcon: "boat",
+    brief: "A carved canoe paddle is missing from a Mississippi River museum! Pocket is paddling through the Americas, north and south.",
+    stops: ["mississippi6", "rockies", "amazon6", "andes", "atacama"],
+    legs: [
+      { clues: ["trait", "dir8"], opts: ["andes", "amazon6", "alps"] },
+      { clues: ["trait", "mouth", "continent"], opts: ["congo", "mississippi6", "andes"] },
+      { clues: ["trait", "dir8", "country"], opts: ["rockies", "mississippi6", "kalahari"] },
+    ],
+    traits: ["trait", "country", "feature", "hemi"],
+    hideoutOpts: ["sahara6", "kalahari", "outback6"],
+    end: "Beep! There was no water to paddle in the driest desert. Silly me. Here's your paddle!",
+  },
+
+  // ======================= Grade 7: modern world regions =======================
+  {
+    id: "g7-coin", band: "7", map: "world", title: "The Euro Coin", item: "a rare souvenir coin", itemIcon: "nugget",
+    brief: "A rare souvenir coin is missing from a museum in Madrid! Pocket is spending a day in each European capital. Languages, flags and money will give it away.",
+    stops: ["madrid", "paris", "berlin", "rome", "dublin"],
+    legs: [
+      { clues: ["language", "flag", "currency"], opts: ["rome", "mexicocity", "ottawa"] },
+      { clues: ["language", "export"], opts: ["dublin", "moscow", "tokyo"] },
+      { clues: ["flag", "language", "currency"], opts: ["mexicocity", "dublin", "madrid"] },
+    ],
+    traits: ["flag", "language", "currency"],
+    hideoutOpts: ["london", "paris", "ottawa"],
+    end: "Beep! I wanted one coin from every euro country. Too many! Here's yours back.",
+  },
+  {
+    id: "g7-cup", band: "7", map: "world", title: "The Coffee Cup", item: "a famous café's coffee cup", itemIcon: "cake",
+    brief: "A famous café's coffee cup is missing from Bogotá! Pocket is zigzagging through South America. Watch for flags, pesos and exports.",
+    stops: ["bogota", "brasilia", "buenosaires", "santiago", "lima"],
+    legs: [
+      { clues: ["language", "export", "flag"], opts: ["lima", "mexicocity", "nairobi"] },
+      { clues: ["flag", "currency", "capital"], opts: ["lima", "mexicocity", "bogota"] },
+      { clues: ["currency", "export"], opts: ["lima", "brasilia", "mexicocity"] },
+    ],
+    traits: ["flag", "currency", "language"],
+    hideoutOpts: ["ottawa", "bogota", "mexicocity"],
+    end: "Bzzt! I filled the cup in every coffee country I could find. Here it is, washed!",
+  },
+  {
+    id: "g7-teapot", band: "7", map: "world", title: "The Teapot", item: "a silver teapot", itemIcon: "lamp",
+    brief: "A silver teapot is missing from a hotel in Cairo! Pocket is touring Africa and Asia. Exports, languages and flags point the way.",
+    stops: ["cairo", "nairobi", "abuja", "riyadh", "newdelhi"],
+    legs: [
+      { clues: ["export", "language", "currency"], opts: ["abuja", "newdelhi", "riyadh"] },
+      { clues: ["flag", "export", "language"], opts: ["riyadh", "cairo", "moscow"] },
+      { clues: ["language", "export", "flag"], opts: ["cairo", "moscow", "jakarta"] },
+    ],
+    traits: ["language", "currency", "flag"],
+    hideoutOpts: ["jakarta", "beijing", "cairo"],
+    end: "Beep-boop! I made tea for everyone in a busy capital. Here's your teapot back!",
+  },
+  {
+    id: "g7-kite", band: "7", map: "world", title: "The Dragon Kite", item: "a kite maker's dragon kite", itemIcon: "kite",
+    brief: "A kite maker's dragon kite is missing from Beijing! Pocket is flying it across East Asia and down to Oceania.",
+    stops: ["beijing", "seoul", "tokyo", "jakarta", "canberra"],
+    legs: [
+      { clues: ["language", "currency"], opts: ["tokyo", "jakarta", "newdelhi"] },
+      { clues: ["flag", "currency", "export"], opts: ["beijing", "jakarta", "canberra"] },
+      { clues: ["flag", "language", "capital"], opts: ["beijing", "seoul", "newdelhi"] },
+    ],
+    traits: ["export", "currency", "capital"],
+    hideoutOpts: ["ottawa", "washington_w", "london"],
+    end: "Whee! The dragon kite flew over a capital built just to be a capital. Here it is!",
+  },
+  {
+    id: "g7-syrup", band: "7", map: "world", title: "The Maple Syrup Jar", item: "a jar of maple syrup", itemIcon: "apple",
+    brief: "A prize jar of maple syrup is missing from Ottawa! Pocket is pouring it on pancakes in North America and Europe.",
+    stops: ["ottawa", "mexicocity", "washington_w", "london", "moscow"],
+    legs: [
+      { clues: ["flag", "currency", "border"], opts: ["lima", "rome", "madrid"] },
+      { clues: ["currency", "language"], opts: ["ottawa", "london", "canberra"] },
+      { clues: ["currency", "flag", "landmark"], opts: ["dublin", "paris", "ottawa"] },
+    ],
+    traits: ["language", "flag", "export"],
+    hideoutOpts: ["berlin", "beijing", "paris"],
+    end: "Beep! Syrup on blini is yummy. I saved you half the jar. Sorry! Here it is.",
+  },
+  {
+    id: "g7-medal", band: "7", map: "world", title: "The Gold Medal", item: "a sports museum's gold medal", itemIcon: "star",
+    brief: "A gold medal is missing from a sports museum in Canberra! Pocket is racing through Asia and Africa to Europe.",
+    stops: ["canberra", "jakarta", "newdelhi", "cairo", "paris"],
+    legs: [
+      { clues: ["currency", "language", "flag"], opts: ["tokyo", "seoul", "beijing"] },
+      { clues: ["flag", "language"], opts: ["riyadh", "beijing", "nairobi"] },
+      { clues: ["language", "currency", "landmark"], opts: ["riyadh", "abuja", "nairobi"] },
+    ],
+    traits: ["flag", "language", "currency"],
+    hideoutOpts: ["ottawa", "rome", "madrid"],
+    end: "Bzzt! I wanted to wear a gold medal up a famous iron tower. Done! Here it is.",
+  },
+
+  // ======================= Grade 8: North Carolina and the United States =======================
+  {
+    id: "g8-tag", band: "8", map: "nc", title: "The Shipping Tag", item: "a cargo container's shipping tag", itemIcon: "letter",
+    brief: "A shipping tag is missing from a container at Morehead City! Pocket is following NC's trade routes: ports, interstates and big cities.",
+    stops: ["moreheadcity", "wilmington", "fayetteville", "charlotte"],
+    legs: [
+      { clues: ["port", "river"], opts: ["charlotte", "newbern", "manteo"] },
+      { clues: ["econ", "highway=I-95", "pop"], opts: ["raleigh", "durham", "greensboro"] },
+    ],
+    traits: ["econ", "pop", "highway=I-85"],
+    hideoutOpts: ["raleigh", "greensboro", "durham"],
+    end: "Beep! I mailed myself to the biggest city. Bad idea. Here's your shipping tag!",
+  },
+  {
+    id: "g8-badge", band: "8", map: "nc", title: "The Lab Badge", item: "a scientist's lab badge", itemIcon: "star",
+    brief: "A scientist's lab badge is missing! Pocket is rolling east on I-40 through the Piedmont's busy cities. Use population, industry and highways.",
+    stops: ["asheville", "oldsalem", "highpoint", "durham", "raleigh"],
+    legs: [
+      { clues: ["highway=I-40", "pop", "region"], opts: ["charlotte", "boone", "greensboro"] },
+      { clues: ["econ", "region"], opts: ["durham", "mtairy", "wilmington"] },
+      { clues: ["econ", "pop", "highway=I-85"], opts: ["chapelhill", "raleigh", "greensboro"] },
+    ],
+    traits: ["capital", "pop", "river"],
+    hideoutOpts: ["charlotte", "greensboro", "newbern"],
+    end: "Bzzt! I used the badge to tour the State Capitol. Here it is, scientist!",
+  },
+  {
+    id: "g8-ferry", band: "8", map: "nc", title: "The Ferry Ticket", item: "a ferry captain's ticket punch", itemIcon: "boat",
+    brief: "A ferry captain's ticket punch is missing! Pocket is crossing NC from the mountains to the sea. Regions, highways and industries lead the way.",
+    stops: ["boone", "asheville", "charlotte", "fayetteville", "moreheadcity"],
+    legs: [
+      { clues: ["highway=I-26", "river", "region"], opts: ["hiddenite", "mitchell", "cherokee"] },
+      { clues: ["hub", "econ", "pop"], opts: ["raleigh", "greensboro", "wilmington"] },
+      { clues: ["econ", "highway=I-95", "region"], opts: ["raleigh", "pembroke", "greensboro"] },
+    ],
+    traits: ["port", "climate", "inlet"],
+    hideoutOpts: ["wilmington", "newbern", "hatteras"],
+    end: "Beep-boop! I punched a ticket for every ship in the port. Here's your punch back!",
+  },
+  {
+    id: "g8-seal", band: "8", map: "us", title: "The Container Seal", item: "a container's security seal", itemIcon: "bolt",
+    brief: "A container's security seal is missing from New York! Pocket is touring America's busiest ports, from the Atlantic to the Gulf and the Pacific.",
+    stops: ["nyc", "savannah", "houston", "losangeles"],
+    legs: [
+      { clues: ["port", "region"], opts: ["boston", "atlanta", "neworleans"] },
+      { clues: ["port", "industry", "pop"], opts: ["neworleans", "austin", "phoenix"] },
+    ],
+    traits: ["port", "pop", "region"],
+    hideoutOpts: ["sanfrancisco", "seattle", "nyc"],
+    end: "Beep! I sealed a container full of movie popcorn. Oops. Here's your seal!",
+  },
+  {
+    id: "g8-whistle", band: "8", map: "us", title: "The Factory Whistle", item: "an old factory whistle", itemIcon: "trumpet",
+    brief: "An old factory whistle is missing from St. Louis! Pocket is touring the rail, car and steel cities of the Midwest and Northeast.",
+    stops: ["stlouis", "chicago", "detroit", "pittsburgh", "nyc"],
+    legs: [
+      { clues: ["hub", "pop", "lake"], opts: ["detroit", "denver", "atlanta"] },
+      { clues: ["industry", "crossing"], opts: ["pittsburgh", "boston", "nashville"] },
+      { clues: ["industry", "confluence"], opts: ["stlouis", "chicago", "nyc"] },
+    ],
+    traits: ["pop", "port", "landmark"],
+    hideoutOpts: ["boston", "dc", "chicago"],
+    end: "Toot! I blew the whistle at the biggest harbor. Everyone looked! Here it is.",
+  },
+  {
+    id: "g8-vane", band: "8", map: "us", title: "The Weather Vane", item: "a rooftop weather vane", itemIcon: "compass",
+    brief: "A rooftop weather vane is missing from Seattle! Pocket is crossing the West and Southwest. Industries, landforms and population will help.",
+    stops: ["seattle", "sanfrancisco", "phoenix", "denver", "houston"],
+    legs: [
+      { clues: ["industry", "landmark", "region"], opts: ["losangeles", "sacramento", "denver"] },
+      { clues: ["pop", "landform"], opts: ["losangeles", "saltlake", "santafe"] },
+      { clues: ["landform", "nickname", "region"], opts: ["saltlake", "santafe", "rushmore"] },
+    ],
+    traits: ["industry", "pop", "port"],
+    hideoutOpts: ["austin", "neworleans", "losangeles"],
+    end: "Bzzt! The vane spun so fast in the Gulf breeze. Here it is, back to Seattle!",
+  },
+
+  // ======================= Grades 9–12: global geography =======================
+  {
+    id: "h-seismo", band: "9-12", map: "world", title: "The Seismograph Pen", item: "a seismograph's ink pen", itemIcon: "volcano",
+    brief: "An earthquake lab's seismograph pen is missing from Iceland! Pocket is touring plate boundaries. One witness per stop may be mixed up: trust clues that agree.",
+    stops: ["reykjavik", "sf_w", "tokyo", "kathmandu", "nairobi"],
+    legs: [
+      { clues: ["plate", "ll"], opts: ["mexicocity", "istanbul", "tokyo"], liar: { from: "mexicocity", ref: "clim", slot: 1 } },
+      { clues: ["utc", "pop", "plate"], opts: ["jakarta", "shanghai", "lima"] },
+      { clues: ["utc", "plate"], opts: ["newdelhi", "dhaka", "ulaanbaatar"], liar: { from: "newdelhi", ref: "utc", slot: 0 } },
+    ],
+    traits: ["plate", "utc", "ll"],
+    hideoutOpts: ["riyadh", "istanbul", "reykjavik"],
+    end: "Beep! I drew wiggly lines at every plate boundary. Here's the pen, still full!",
+  },
+  {
+    id: "h-logger", band: "9-12", map: "world", title: "The Climate Logger", item: "a weather station's data logger", itemIcon: "snow",
+    brief: "A weather station's data logger is missing from Singapore! Pocket left climate graphs on postcards. Read the graphs, time zones and coordinates.",
+    stops: ["singapore", "quito", "lima", "capetown", "perth"],
+    legs: [
+      { clues: ["clim", "ll", "utc"], opts: ["nairobi", "lima", "jakarta"] },
+      { clues: ["clim", "plate", "utc"], opts: ["santiago", "cairo", "mexicocity"], liar: { from: "mexicocity", ref: "utc", slot: 2 } },
+      { clues: ["clim", "utc", "plate"], opts: ["perth", "santiago", "riyadh"] },
+    ],
+    traits: ["clim", "utc", "trade"],
+    hideoutOpts: ["santiago", "shanghai", "ulaanbaatar"],
+    end: "Bzzt! I logged a rainy winter in July. Weird but true! Here's your logger.",
+  },
+  {
+    id: "h-megacity", band: "9-12", map: "world", title: "The Megacity Map", item: "a city planner's giant map", itemIcon: "map",
+    brief: "A city planner's giant map is missing from New Delhi! Pocket is touring Asia's biggest cities. Population data, time zones and trade will help.",
+    stops: ["newdelhi", "dhaka", "jakarta", "singapore", "shanghai"],
+    legs: [
+      { clues: ["pop", "utc", "clim"], opts: ["kathmandu", "jakarta", "lagos"] },
+      { clues: ["pop", "ll"], opts: ["tokyo", "singapore", "lagos"], liar: { from: "tokyo", ref: "pop", slot: 0 } },
+      { clues: ["pop", "trade", "utc"], opts: ["shanghai", "perth", "rotterdam"] },
+    ],
+    traits: ["trade", "utc", "ll"],
+    hideoutOpts: ["rotterdam", "tokyo", "perth"],
+    end: "Beep-boop! The map was too small for these megacities. Here it is, folded!",
+  },
+  {
+    id: "h-scale", band: "9-12", map: "world", title: "The Cargo Scale", item: "a port's cargo scale", itemIcon: "ship",
+    brief: "A port's cargo scale is missing from Rotterdam! Pocket is weighing oil, ore and copper around the world. Follow trade, climate and time zones.",
+    stops: ["rotterdam", "lagos", "riyadh", "perth", "santiago"],
+    legs: [
+      { clues: ["trade", "utc", "pop"], opts: ["riyadh", "cairo", "capetown"], liar: { from: "riyadh", ref: "clim", slot: 0 } },
+      { clues: ["trade", "utc", "clim"], opts: ["moscow", "nairobi", "cairo"] },
+      { clues: ["trade", "clim"], opts: ["capetown", "shanghai", "singapore"], liar: { from: "shanghai", ref: "trade", slot: 1 } },
+    ],
+    traits: ["trade", "clim", "plate"],
+    hideoutOpts: ["lima", "capetown", "mexicocity"],
+    end: "Beep! A truck of copper is heavy: 40 tonnes! Here's your scale back.",
+  },
+  {
+    id: "h-watch", band: "9-12", map: "world", title: "The Time-Zone Watch", item: "a world-time wristwatch", itemIcon: "compass",
+    brief: "A world-time wristwatch is missing from Reykjavík! Pocket is hopping time zones. Check UTC offsets, coordinates and plate boundaries.",
+    stops: ["reykjavik", "lagos", "istanbul", "kathmandu", "ulaanbaatar", "mexicocity"],
+    legs: [
+      { clues: ["utc", "ll"], opts: ["capetown", "cairo", "rotterdam"], liar: { from: "capetown", ref: "utc", slot: 0 } },
+      { clues: ["plate", "utc", "ll"], opts: ["moscow", "riyadh", "sf_w"] },
+      { clues: ["utc", "plate"], opts: ["newdelhi", "dhaka", "tokyo"] },
+      { clues: ["clim", "utc", "ll"], opts: ["moscow", "shanghai", "perth"], liar: { from: "moscow", ref: "clim", slot: 1 } },
+    ],
+    traits: ["utc", "clim", "plate", "ll"],
+    hideoutOpts: ["quito", "lima", "sf_w"],
+    end: "Tick-tock! I set the watch to every zone, even UTC+5:45. Here it is, on time!",
+  },
+  {
+    id: "h-thermo", band: "9-12", map: "world", title: "The Volcano Thermometer", item: "a volcanologist's thermometer", itemIcon: "volcano",
+    brief: "A volcanologist's thermometer is missing from Jakarta! Pocket is visiting the Ring of Fire and beyond. Plates, climates and coordinates will help.",
+    stops: ["jakarta", "tokyo", "sf_w", "quito", "reykjavik"],
+    legs: [
+      { clues: ["plate", "utc", "pop"], opts: ["shanghai", "singapore", "lima"], liar: { from: "shanghai", ref: "utc", slot: 1 } },
+      { clues: ["plate", "ll", "clim"], opts: ["istanbul", "lima", "capetown"] },
+      { clues: ["ll", "utc", "plate"], opts: ["mexicocity", "nairobi", "santiago"], liar: { from: "santiago", ref: "trade", slot: 2 } },
+    ],
+    traits: ["plate", "utc", "clim"],
+    hideoutOpts: ["nairobi", "rotterdam", "moscow"],
+    end: "Bzzt! I measured lava where two plates pull apart. Hot! Here's your thermometer.",
   },
 ];

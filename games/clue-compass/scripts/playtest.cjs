@@ -1,19 +1,26 @@
 /*
  * Automated playtest (dev only). Needs a running preview and a global Playwright:
- *   npm run build && npx vite preview --port 4643 --host 127.0.0.1 &
- *   node scripts/playtest.cjs            # SHOT=1 also saves docs/screenshot.png (640x400 canvas, map view)
+ *   npm run build && npx vite preview --port 4645 --host 127.0.0.1 &
+ *   BASE=http://127.0.0.1:4645/ node scripts/playtest.cjs   # SHOT=1 also saves docs/screenshot.png and docs/world.png
  * Runs keyboard 1280x800, iPad landscape 1080x810 (touch) and iPad portrait 810x1080 (touch) at
- * grades K, 2, 4, 5 and 7 (?grade=, badge not picker; grade 7 shows the Thread Chasers note) and once
- * with no ?grade (picker). Each run plays a whole mission: brief → witnesses → one wrong trip with
- * its explanation → the right trips → hideout → transmission (by key or by tap) → next case → report.
- * Checks: no page errors, no page scroll, the screen fits, standards in the report.
+ * grades K, 2, 4, 5, 6, 7, 8 and 11 (?grade=, badge not picker; grades 5+ show a small "also try
+ * Thread Chasers" note) and once with no ?grade (picker). Each run plays a whole mission: brief →
+ * witnesses → one wrong trip with its explanation → the right trips → hideout → transmission (by
+ * key or by tap) → next case → report. Grade 11 also taps the 4th witness at a stop with a
+ * mixed-up witness and checks the lat/long grid is on. Checks: no page errors, no page scroll, the
+ * screen fits, standards in the report.
  */
 const path = require("path");
 const fs = require("fs");
 const { execSync } = require("child_process");
 const { chromium } = require(path.join(execSync("npm root -g").toString().trim(), "playwright"));
 
-const BASE = process.env.BASE || "http://127.0.0.1:4643/";
+const BASE = process.env.BASE || "http://127.0.0.1:4645/";
+/** The band each grade should get, and the standards prefix its case legs should be reported with. */
+const EXPECT = {
+  K: ["K", /^K\./], 2: ["1-2", /^2\./], 4: ["4", /^4\./], 5: ["5", /^5\./], 6: ["6", /^6\./], 7: ["7", /^7\./], 8: ["8", /^8\./],
+  11: ["9-12", /^(WH|ESS\.EES)\./],
+};
 const SHOT = !!process.env.SHOT;
 const DOCS = path.join(__dirname, "..", "docs");
 
@@ -105,7 +112,7 @@ async function saveCanvas(page, file) {
   fs.writeFileSync(file, Buffer.from(data.split(",")[1], "base64"));
 }
 
-async function playMission(page, dev, log, problems) {
+async function playMission(page, dev, log, problems, grade) {
   const touch = dev !== "keyboard";
   const tag = `${dev}`;
   let didWrong = false;
@@ -214,6 +221,8 @@ async function playMission(page, dev, log, problems) {
     const rows = await page.locator(".cc-report tbody tr").allInnerTexts();
     log.push(`${tag} report: ${rows.map((r) => r.replace(/\s+/g, " ")).join(" | ")}`);
     if (!rows.length) problems.push(`${tag}: report has no standards`);
+    const caseRows = rows.filter((r) => !/transmission|reading/.test(r));
+    if (!caseRows.length || !caseRows.every((r) => EXPECT[grade][1].test(r.trim()))) problems.push(`${tag}: report standards don't fit grade ${grade}: ${caseRows.join(" | ")}`);
     if (!transmissions) problems.push(`${tag}: no transmission between cases`);
     await layout(page, problems, `${tag} report`);
   }
@@ -228,7 +237,10 @@ async function playMission(page, dev, log, problems) {
     ["2", "keyboard"], ["2", "ipad"], ["2", "ipadPortrait"],
     ["4", "keyboard"], ["4", "ipad"], ["4", "ipadPortrait"],
     ["5", "keyboard"], ["5", "ipad"], ["5", "ipadPortrait"],
-    ["7", "keyboard"], ["7", "ipad"],
+    ["6", "keyboard"], ["6", "ipad"], ["6", "ipadPortrait"],
+    ["7", "keyboard"], ["7", "ipad"], ["7", "ipadPortrait"],
+    ["8", "keyboard"], ["8", "ipad"], ["8", "ipadPortrait"],
+    ["11", "keyboard"], ["11", "ipad"], ["11", "ipadPortrait"],
   ];
   for (const [grade, dev] of runs) {
     const { ctx, page, errors } = await newPage(browser, dev);
@@ -238,10 +250,12 @@ async function playMission(page, dev, log, problems) {
       await page.waitForTimeout(500);
       if (!(await page.locator(".cc-badge").count())) problems.push(`${where}: no grade badge`);
       if (await page.locator(".cc-grades").count()) problems.push(`${where}: picker shown with ?grade`);
-      const older = await page.locator(".cc-older").count();
-      if ((grade === "7") !== !!older) problems.push(`${where}: Thread Chasers note ${older ? "shown" : "missing"}`);
+      const also = await page.locator(".cc-also").count();
+      if ((Number(grade) >= 5) !== !!also) problems.push(`${where}: "also try Thread Chasers" note ${also ? "shown" : "missing"}`);
+      if (await page.locator(".cc-older").count()) problems.push(`${where}: the old "go play Thread Chasers" redirect is still there`);
       const st = await S(page);
-      log.push(`${where}: band ${st.band}${older ? " (+ Thread Chasers note)" : ""}`);
+      if (st.band !== EXPECT[grade][0]) problems.push(`${where}: band ${st.band}, want ${EXPECT[grade][0]}`);
+      log.push(`${where}: band ${st.band}${also ? " (+ Thread Chasers mention)" : ""}`);
       await layout(page, problems, `${where} title`);
       if (dev === "keyboard") await page.keyboard.press("Enter");
       else await page.locator(".cc-start").tap();
@@ -249,7 +263,34 @@ async function playMission(page, dev, log, problems) {
       // read-aloud default: on for K–2
       const ra = await page.locator('.cc-tools button[aria-pressed]').getAttribute("aria-pressed").catch(() => null);
       if (ra !== null && (grade === "K" || grade === "2") !== (ra === "true")) problems.push(`${where}: read-aloud default wrong (${ra})`);
-      await playMission(page, dev, log, problems);
+      await playMission(page, dev, log, problems, grade);
+      if (grade === "11" && dev !== "keyboard") {
+        // a stop with a mixed-up witness has 4 witnesses: tap the 4th sprite on the canvas
+        await page.evaluate(() => {
+          const g = window.__cc;
+          g.start("h-logger");
+          g.startChase();
+          g.chooseId(g.ui.run.next.id); // Singapore → Quito (fast travel)
+        });
+        await waitPhase(page, ["stop"]);
+        const n = await page.evaluate(() => window.__cc.ui.run.witnesses.length);
+        if (n !== 4) problems.push(`${where}: expected 4 witnesses at the mixed-up stop, got ${n}`);
+        await tapCanvas(page, 250, 160);
+        await page.waitForTimeout(100);
+        const heard4 = await page.evaluate(() => window.__cc.ui.run.witnesses[3].heard);
+        if (!heard4) problems.push(`${where}: tapping the 4th witness didn't work`);
+        else log.push(`${where}: tapped the 4th witness at a mixed-up stop`);
+        await layout(page, problems, `${where} 4 witnesses`);
+        await page.locator(".cc-small").first().tap();
+        await page.waitForTimeout(150);
+        const grid = await page.evaluate(() => window.__cc.screen.view && window.__cc.screen.view.grid);
+        if (!grid) problems.push(`${where}: no lat/long grid on the 9–12 map`);
+        if (SHOT && dev === "ipad") {
+          await page.waitForTimeout(500);
+          await saveCanvas(page, path.join(DOCS, "world.png"));
+          log.push("saved docs/world.png");
+        }
+      }
       if (SHOT && grade === "4" && dev === "keyboard") {
         // a map mid-chase for the README: start a new mission and open the map
         await page.keyboard.press("Enter");
