@@ -49,6 +49,11 @@ jobs:
   close_pull_request:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
+    # Same group as the PR's preview build: closing cancels a preview still uploading, so it
+    # can't finish after the close and leave a stray environment taking one of the free slots.
+    concurrency:
+      group: deploy-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     env:
       SWA_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
     steps:
