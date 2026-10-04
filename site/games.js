@@ -176,4 +176,15 @@ window.GAMES = [
     year: 2026,
     added: "2026-10-04",
   },
+  {
+    id: "trail-ledger",
+    title: "Trail Ledger",
+    tagline: "Lead a real journey through US history: pack within a budget, ration your food, read the landmarks and keep your Ledger to the end of the road.",
+    subjects: ["Social Studies", "Math", "ELA"],
+    url: "/trail-ledger/",
+    grades: ["5", "6", "7", "8", "9", "10", "11", "12"],
+    image: "img/trail-ledger.png",
+    year: 2026,
+    added: "2026-10-04",
+  },
 ];
