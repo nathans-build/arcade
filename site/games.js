@@ -187,4 +187,14 @@ window.GAMES = [
     year: 2026,
     added: "2026-10-04",
   },
+  {
+    id: "splash-arc",
+    title: "Splash Arc",
+    tagline: "Aim water balloons with geometry: angles, 2D and 3D shapes, coordinates, volume and trig put out fires and water the gardens.",
+    subjects: ["Math", "Science"],
+    url: "/splash-arc/",
+    image: "img/splash-arc.png",
+    year: 2026,
+    added: "2026-10-04",
+  },
 ];
