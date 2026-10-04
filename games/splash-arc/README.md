@@ -120,8 +120,9 @@ npm run build      # tsc strict + vite build → dist/
 
 ## Deploying
 
-Splash Arc lives in the arcade repository at `games/splash-arc/` and the arcade's deploy publishes it at `/splash-arc/`.
-Vite's `base: "./"` keeps every asset path relative. The game has no workflow or hosting config of its own.
+Splash Arc lives in SpiderBen10's Arcade repository (`games/splash-arc/`). The arcade's deploy workflow
+builds and tests it and publishes it at `/splash-arc/` on the arcade's Azure app, so it needs no Azure
+app or token of its own. See the arcade README.
 
 ## Credits
 
