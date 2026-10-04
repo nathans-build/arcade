@@ -126,9 +126,9 @@ npm test             # scripts/check-stand.ts
 
 ## Deploying
 
-The game lives in the arcade repository at `games/sidewalk-stand/` and is published at `/sidewalk-stand/`
-by the arcade's deploy. Vite `base: "./"` makes the build work from that subfolder. There is no separate
-workflow or hosting config in this folder.
+Sidewalk Stand lives in SpiderBen10's Arcade repository (`games/sidewalk-stand/`). The arcade's deploy workflow
+builds and tests it and publishes it at `/sidewalk-stand/` on the arcade's Azure app, so it needs no Azure
+app or token of its own. See the arcade README.
 
 ## Codes to verify
 
