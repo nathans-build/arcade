@@ -210,9 +210,9 @@ gate, the picker without `?grade=`, and grades 5, 7 and 11 on 1280×800 keyboard
 
 ## Deploying
 
-Thread Chasers lives in the arcade repository at `games/thread-chasers/` and is published at
-`/thread-chasers/` by the arcade's deploy. Vite's `base: "./"` keeps asset paths relative, so `dist/`
-works from that subfolder. No separate workflow or hosting config is needed.
+Thread Chasers lives in SpiderBen10's Arcade repository (`games/thread-chasers/`). The arcade's deploy workflow
+builds and tests it and publishes it at `/thread-chasers/` on the arcade's Azure app, so it needs no Azure
+app or token of its own. See the arcade README.
 
 ## Credits
 
