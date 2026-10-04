@@ -127,8 +127,9 @@ travel instant.
 
 ## Deploying
 
-Clue Compass lives in the arcade repository at `games/clue-compass/` and is published at
-`/clue-compass/` by the arcade's deploy. Vite's `base: "./"` keeps asset paths relative.
+Clue Compass lives in SpiderBen10's Arcade repository (`games/clue-compass/`). The arcade's deploy workflow
+builds and tests it and publishes it at `/clue-compass/` on the arcade's Azure app, so it needs no Azure
+app or token of its own. See the arcade README.
 
 ## Kit suggestions
 
