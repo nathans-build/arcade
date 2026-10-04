@@ -155,6 +155,17 @@ window.GAMES = [
     added: "2026-10-03",
   },
   {
+    id: "clue-compass",
+    title: "Clue Compass",
+    tagline: "A runaway robot keeps borrowing landmarks. Read the clues, pick where to go next, and track it from your town to North Carolina to the whole USA.",
+    subjects: ["Social Studies", "ELA"],
+    url: "/clue-compass/",
+    grades: ["K", "1", "2", "3", "4", "5"],
+    image: "img/clue-compass.png",
+    year: 2026,
+    added: "2026-10-04",
+  },
+  {
     id: "thread-chasers",
     title: "Thread Chasers",
     tagline: "Chase how paper, gold, zero and big ideas traveled the world. Pick the right place and era, or hit a dead end and learn why.",
