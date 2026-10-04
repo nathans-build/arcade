@@ -273,10 +273,9 @@ Add `?debug` to expose the game as `window.__tl.game`. Its `step()` advances one
 
 ## Deploying
 
-Trail Ledger lives in SpiderBen10's Arcade repository at `games/trail-ledger/`. The arcade's deploy
-workflow builds and tests it and publishes it at `/trail-ledger/` on the arcade's Azure app, so it
-needs no Azure app or token of its own. Vite `base: "./"` keeps asset paths relative. See the arcade
-README.
+Trail Ledger lives in SpiderBen10's Arcade repository (`games/trail-ledger/`). The arcade's deploy workflow
+builds and tests it and publishes it at `/trail-ledger/` on the arcade's Azure app, so it needs no Azure
+app or token of its own. See the arcade README.
 
 ## Credits
 
