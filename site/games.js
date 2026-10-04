@@ -197,4 +197,14 @@ window.GAMES = [
     year: 2026,
     added: "2026-10-04",
   },
+  {
+    id: "sidewalk-stand",
+    title: "Sidewalk Stand",
+    tagline: "Run a juice cart in the park: plan with the forecast, serve the rush, make change and keep the ledger. Money math from coins to profit functions.",
+    subjects: ["Math", "Social Studies"],
+    url: "/sidewalk-stand/",
+    image: "img/sidewalk-stand.png",
+    year: 2026,
+    added: "2026-10-04",
+  },
 ];
