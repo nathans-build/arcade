@@ -27,6 +27,34 @@ export const PAL: Record<string, string> = {
 };
 
 export const ICONS: Record<string, string[]> = {
+  volcano: [
+    ".....RO.....",
+    "....O.RO....",
+    ".....RR.....",
+    "....NRRN....",
+    "...NNORNN...",
+    "...NNNRNN...",
+    "..NNNNNNNN..",
+    "..NNNNNNNNN.",
+    ".NNNNnNNNNN.",
+    ".NNnNNNNnNNN",
+    "NNNNNNNNNNNN",
+    "gggggggggggg",
+  ],
+  oil: [
+    ".....K......",
+    "....KDK.....",
+    "....K.K.....",
+    "...KD.DK....",
+    "...K...K....",
+    "..KDKKKDK...",
+    "..K.....K...",
+    ".KD.....DK..",
+    ".K.......K..",
+    "KKKKKKKKKKK.",
+    "N..KKKKK...N",
+    "NNNNNNNNNNNN",
+  ],
   // ---- town things ----
   bus: [
     "............",
@@ -1252,8 +1280,54 @@ const PERSON = [
   "...EE..EE...",
 ];
 
+/**
+ * Pixel flags, described by a spec so near-miss flags (Italy / Mexico / Ireland) stay distinct:
+ *  "flag:v:GWR"      vertical stripes        "flag:h:KRY"     horizontal stripes
+ *  "flag:v:GWR:N"    stripes + a centre emblem color
+ *  "flag:disc:WR"    field + centre disc     "flag:diamond:GYB" field + diamond + centre disc
+ *  "flag:star:RY"    field + a star in the top-left corner
+ * Letters are PAL colors. The flag is 10x9 inside a black frame.
+ */
+export function flagGrid(spec: string): string[] | null {
+  const [kind, cols, emblem] = spec.split(":");
+  if (!cols || ![...cols].every((c) => c in PAL) || (emblem && !(emblem in PAL))) return null;
+  if (!["v", "h", "disc", "diamond", "star"].includes(kind)) return null;
+  const rows: string[] = [];
+  for (let y = 0; y < 12; y++) {
+    let row = "";
+    for (let x = 0; x < 12; x++) {
+      if (y < 1 || y > 11 || x > 11) {
+        row += ".";
+        continue;
+      }
+      if (y === 1 || y === 11 || x === 0 || x === 11) {
+        row += "K";
+        continue;
+      }
+      const ix = x - 1; // 0..9
+      const iy = y - 2; // 0..8
+      const dx = ix - 4.5;
+      const dy = iy - 4;
+      let c: string;
+      if (kind === "v") c = cols[Math.floor((ix * cols.length) / 10)];
+      else if (kind === "h") c = cols[Math.floor((iy * cols.length) / 9)];
+      else if (kind === "disc") c = dx * dx + dy * dy <= 6.5 ? cols[1] : cols[0];
+      else if (kind === "diamond") c = dx * dx + dy * dy <= 2.5 && cols[2] ? cols[2] : Math.abs(dx) / 4.6 + Math.abs(dy) / 3.6 <= 1 ? cols[1] : cols[0];
+      else c = (ix === 2 && iy >= 1 && iy <= 3) || (iy === 2 && ix >= 1 && ix <= 3) ? cols[1] : cols[0];
+      if (emblem && Math.abs(dx) <= 1 && Math.abs(dy) <= 1) c = emblem;
+      row += c;
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+
 /** Rows + colors for any icon id (including the special person/say/arrow ids). Null if unknown. */
 export function iconGrid(id: string): { rows: string[]; colors: Record<string, string> } | null {
+  if (id.startsWith("flag:")) {
+    const rows = flagGrid(id.slice(5));
+    return rows ? { rows, colors: PAL } : null;
+  }
   if (id.startsWith("person:")) {
     const job = JOBS[id.slice(7)];
     if (!job) return null;

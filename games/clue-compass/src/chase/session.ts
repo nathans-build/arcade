@@ -3,7 +3,7 @@
  * the compass charges (hours) and every choice made. Pure state; the game wraps it with
  * sound, speech and drawing. A seeded shuffle keeps the four destinations in a stable order.
  */
-import { clueIcon, clueText, deadEnd, factOf, noteText, tagOf, type World } from "./logic";
+import { clueIcon, clueText, deadEnd, factOf, liarText, noteText, tagOf, type World } from "./logic";
 import type { CaseDef, ClueRef, Place, Tag } from "./types";
 
 export interface Witness {
@@ -11,6 +11,8 @@ export interface Witness {
   text: string;
   icon?: string;
   heard: boolean;
+  /** A mixed-up witness (true fact, wrong place). Never shown as such; used by tests and the lesson. */
+  mixedUp?: boolean;
 }
 
 export interface NoteEntry {
@@ -111,6 +113,12 @@ export class CaseRun {
     this.witnesses = this.finalPick
       ? []
       : this.c.legs[this.stop].clues.map((ref) => ({ ref, text: clueText(next, ref, here), icon: clueIcon(next, ref, here), heard: false }));
+    const liar = this.finalPick ? undefined : this.c.legs[this.stop].liar;
+    const lt = liarText(this.world, liar);
+    if (liar && lt) {
+      const icon = factOf(this.world.get(liar.from), liar.ref)?.icon;
+      this.witnesses.splice(liar.slot, 0, { ref: liar.ref, text: lt, icon, heard: false, mixedUp: true });
+    }
     const wrong = this.finalPick ? this.c.hideoutOpts : this.c.legs[this.stop].opts;
     const all = [next.id, ...wrong];
     for (let i = all.length - 1; i > 0; i--) {
@@ -161,6 +169,8 @@ export class CaseRun {
     const place = this.world.get(id);
     this.wrongAt = place;
     this.lesson = deadEnd(place, this.tags, this.here, this.short) ?? "";
+    const liar = this.finalPick ? undefined : this.c.legs[this.stop].liar;
+    if (liar && liar.from === id) this.lesson += " One witness mixed this place up with the real trail: trust the clues that agree!";
     this.spend(this.cost.wrongTrip);
     this.phase = this.charges === 0 ? "escaped" : "deadend";
     return "wrong";

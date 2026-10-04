@@ -17,7 +17,7 @@ import {
   stopSpeaking,
   type Grade,
 } from "@/kit";
-import { BAND_CONFIG, WORLD, casesFor, isOlder } from "@/data/bands";
+import { BAND_CONFIG, WORLD, casesFor, showsThreadChasers } from "@/data/bands";
 import { GAME_ID, Game, loadSolved, type LogEntry } from "@/game";
 import { Gfx } from "@/gfx/gfx";
 import { Screen, paintIcon } from "@/gfx/render";
@@ -348,7 +348,7 @@ function Title({ game, grade, highScore, onGrade, onStart }: { game: Game; grade
   const band = game.ui.band;
   const list = casesFor(band);
   const solved = loadSolved();
-  const older = isOlder(grade);
+  const also = showsThreadChasers(grade);
   return (
     <div className="cc-scroll">
       <div className="cc-head">
@@ -368,10 +368,9 @@ function Title({ game, grade, highScore, onGrade, onStart }: { game: Game; grade
           ))}
         </div>
       )}
-      {older && (
-        <div className="cc-older" role="note">
-          <b className="y">Hey, detective!</b> Clue Compass is made for grades K–5. For a chase through world <b>history</b> at your level, look for{" "}
-          <b className="c">Thread Chasers</b> in the arcade. You can still play the Grade 5 cases here — have fun!
+      {also && (
+        <div className="cc-also" role="note">
+          Like this chase? For world <b>history</b>, also try <b className="c">Thread Chasers</b> in the arcade.
         </div>
       )}
       <p className="cc-lead">
@@ -445,6 +444,9 @@ function Stop({ game, early, onSpeak }: { game: Game; early: boolean; onSpeak: (
           {!final ? (
             <>
               <div className="cc-label cc-pixel">WITNESSES</div>
+              {u.band === "9-12" && (
+                <div className="cc-help small cc-mixed">One witness at a stop may be mixed up. Trust the clues that agree (Pocket's IOU notes are always true).</div>
+              )}
               <div className="cc-witnesses">
                 {run.witnesses.map((w, i) => (
                   <button

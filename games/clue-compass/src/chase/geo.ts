@@ -121,6 +121,57 @@ export function mainDir(a: Place, b: Place): Dir {
   return best;
 }
 
+// ---------------- eight compass points (grades 6+) ----------------
+export const DIRS8 = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"] as const;
+export type Dir8 = (typeof DIRS8)[number];
+export const DIR8_WORD: Record<Dir8, string> = {
+  N: "north", NE: "northeast", E: "east", SE: "southeast", S: "south", SW: "southwest", W: "west", NW: "northwest",
+};
+const DIR8_ANGLE: Record<Dir8, number> = { E: 0, NE: 45, N: 90, NW: 135, W: 180, SW: -135, S: -90, SE: -45 };
+
+/** Eight-point version of dirVerdict: "yes" within 22.5°, "no" beyond 30°, "unsure" between. */
+export function dir8Verdict(a: Place, b: Place, d: Dir8): "yes" | "no" | "unsure" {
+  const gap = angleGap(bearing(a, b), DIR8_ANGLE[d]);
+  if (gap <= 22.5) return "yes";
+  if (gap > 30) return "no";
+  return "unsure";
+}
+
+export function mainDir8(a: Place, b: Place): Dir8 {
+  const ang = bearing(a, b);
+  let best: Dir8 = "N";
+  for (const d of DIRS8) if (angleGap(ang, DIR8_ANGLE[d]) < angleGap(ang, DIR8_ANGLE[best])) best = d;
+  return best;
+}
+
+// ---------------- latitude / longitude (grades 9–12) ----------------
+/** "49°N, 2°E" for a [lat, lon] (whole degrees; 0° has no letter). */
+export function fmtLL([lat, lon]: [number, number]): string {
+  const part = (v: number, pos: string, neg: string) => {
+    const r = Math.round(v);
+    return r === 0 ? "0°" : `${Math.abs(r)}°${r > 0 ? pos : neg}`;
+  };
+  return `${part(lat, "N", "S")}, ${part(lon, "E", "W")}`;
+}
+
+/** Parse fmtLL's text back to [lat, lon]. */
+export function parseLL(s: string): [number, number] {
+  const m = s.match(/^(\d+)°([NS]?), (\d+)°([EW]?)$/);
+  if (!m) throw new Error(`bad coordinates "${s}"`);
+  return [Number(m[1]) * (m[2] === "S" ? -1 : 1), Number(m[3]) * (m[4] === "W" ? -1 : 1)];
+}
+
+/** Is a place "near" the coordinates? yes within 1.5°, no beyond 3° (latitude or longitude), unsure between. */
+export function llVerdict(p: Place, s: string): "yes" | "no" | "unsure" {
+  const [lat, lon] = parseLL(s);
+  let dlon = Math.abs(p.at[1] - lon) % 360;
+  if (dlon > 180) dlon = 360 - dlon;
+  const d = Math.max(Math.abs(p.at[0] - lat), dlon);
+  if (d <= 1.5) return "yes";
+  if (d > 3) return "no";
+  return "unsure";
+}
+
 /** Longitude of a north–south boundary line at a given latitude (clamped at its ends). */
 function lineLon(line: Ring, lat: number): number {
   for (let i = 0; i + 1 < line.length; i++) {

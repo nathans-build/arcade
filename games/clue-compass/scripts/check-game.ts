@@ -12,14 +12,14 @@
 import { CASES, BANDS } from "../src/data/cases";
 import { ALL_PLACES, BAND_CONFIG, COST, WORLD, bandOf, casesFor, elaFor, stdFor } from "../src/data/bands";
 import { SOURCES } from "../src/data/sources";
-import { validateCase, deadEnd, tagOf, factOf } from "../src/chase/logic";
+import { validateCase, deadEnd, tagOf, factOf, holds, liarText } from "../src/chase/logic";
 import { CaseRun } from "../src/chase/session";
-import { MAP_BOX, inRing, ncRegionAt, pinOf } from "../src/chase/geo";
+import { MAP_BOX, fmtLL, inRing, ncRegionAt, parseLL, pinOf } from "../src/chase/geo";
 import { NC_OUTLINE, NC_SOUNDS, US_OUTLINE, US_WATERS, WORLD_LAND } from "../src/chase/outlines";
 import { ICONS, iconExists } from "../src/gfx/icons";
 import { GRADES } from "../src/kit/grades";
 import type { Grade, Question } from "../src/kit/types";
-import type { Place } from "../src/chase/types";
+import type { Place, Tag } from "../src/chase/types";
 import gK from "../src/kit/banks/social/gK";
 import g1 from "../src/kit/banks/social/g1";
 import g2 from "../src/kit/banks/social/g2";
@@ -95,6 +95,46 @@ for (const c of CASES) {
     } else run.travel(run.next.id);
   }
   ok(run.phase === "found", `case ${c.id}: play with mistakes ends "${run.phase}" (budget ${budget})`);
+  // 3) careful player (grades 6–12): asks EVERY witness (mixed-up ones too), decides by majority
+  //    vote of what the witnesses said, and still makes one wrong trip; must finish on the clock.
+  if (!cfg.pictures && ["6", "7", "8", "9-12"].includes(c.band)) {
+    run = new CaseRun(c, WORLD, budget, COST, false, 13);
+    let wrongs = 1;
+    const liarLegs = new Set<number>();
+    for (let guard = 0; guard < 60 && (run.phase === "stop" || run.phase === "deadend"); guard++) {
+      if (run.phase === "deadend") {
+        run.back();
+        continue;
+      }
+      run.witnesses.forEach((_, i) => run.talk(i));
+      if (run.phase !== "stop") break;
+      let pick: string;
+      if (run.finalPick) {
+        pick = run.next.id; // notebook traits are checked by validateCase
+      } else {
+        // what each heard witness claims, as a tag (a mixed-up witness describes a wrong option)
+        const leg = c.legs[run.stop];
+        const claims: Tag[] = run.witnesses.map((w) => {
+          if (!w.mixedUp) return tagOf(run.next, w.ref, run.here);
+          liarLegs.add(run.stop);
+          const lf = factOf(WORLD.get(leg.liar!.from), leg.liar!.ref)!;
+          return { k: lf.k, v: lf.v };
+        });
+        const score = (id: string) => claims.filter((t) => holds(WORLD.get(id), t, run.here) === "yes").length;
+        const ranked = run.options.filter((o) => !run.tried.has(o)).sort((a, b) => score(b) - score(a));
+        ok(ranked[0] === run.next.id && score(ranked[0]) > score(ranked[1]), `case ${c.id}: majority vote of the witnesses at ${run.here.id} doesn't pick ${run.next.id} clearly`);
+        pick = ranked[0];
+      }
+      const wrong = run.options.find((o) => o !== run.next.id && !run.tried.has(o));
+      if (wrong && wrongs > 0) {
+        wrongs--;
+        run.travel(wrong);
+        ok(run.lesson.length > 20, `case ${c.id}: careful play dead end at ${wrong} has no lesson`);
+      } else run.travel(pick);
+    }
+    ok(run.phase === "found", `case ${c.id}: careful play (every witness + 1 wrong trip) ends "${run.phase}" (budget ${budget}, ${run.charges} left)`);
+    ok(liarLegs.size === c.legs.filter((l) => l.liar).length, `case ${c.id}: ${liarLegs.size} mixed-up witnesses heard, expected ${c.legs.filter((l) => l.liar).length}`);
+  }
   // every dead end of every leg is explained, in short (K–2) and long form
   for (let i = 0; i < c.stops.length - 1; i++) {
     const from = WORLD.get(c.stops[i]);
@@ -108,6 +148,27 @@ for (const c of CASES) {
       ok(!!t && t.length <= 240, `case ${c.id}: dead end ${o} explanation missing/too long (${t?.length})`);
     }
   }
+}
+
+// ---------------------------------------------------------------- mixed-up witnesses (grades 9–12)
+for (const c of CASES) {
+  const rules = BAND_CONFIG[c.band as keyof typeof BAND_CONFIG].rules;
+  c.legs.forEach((l, i) => {
+    if (!l.liar) return;
+    ok(!!rules.unreliable, `case ${c.id}: band ${c.band} can't have mixed-up witnesses`);
+    const text = liarText(WORLD, l.liar) ?? "";
+    ok(text.length > 15 && text.length <= rules.maxClue, `case ${c.id} leg ${i + 1}: mixed-up witness text "${text}"`);
+    const run = new CaseRun(c, WORLD, null, COST, false, 3);
+    for (let k = 0; k < i; k++) run.travel(run.next.id);
+    ok(run.witnesses.length === l.clues.length + 1 && run.witnesses[l.liar.slot]?.mixedUp === true, `case ${c.id} leg ${i + 1}: mixed-up witness not standing at slot ${l.liar.slot}`);
+    run.travel(l.liar.from);
+    ok(/mixed this place up/.test(run.lesson), `case ${c.id} leg ${i + 1}: the local at ${l.liar.from} should explain the mixed-up witness`);
+  });
+}
+// one witness per stop at most, and only some stops (so the player can't assume a liar)
+for (const c of CASES.filter((x) => x.band === "9-12")) {
+  const n = c.legs.filter((l) => l.liar).length;
+  ok(n >= 1 && n < c.legs.length, `case ${c.id}: ${n} of ${c.legs.length} legs have a mixed-up witness (want some, not all)`);
 }
 
 // ---------------------------------------------------------------- K–2 picture clues & read-aloud
@@ -179,6 +240,27 @@ const BBOX: Record<string, [number, number, number, number]> = {
   TX: [25.84, 36.5, -106.65, -93.51], AZ: [31.33, 37.0, -114.82, -109.04], NM: [31.33, 37.0, -109.05, -103.0],
   CO: [36.99, 41.0, -109.06, -102.04], UT: [36.99, 42.0, -114.05, -109.04], WY: [40.99, 45.01, -111.06, -104.05],
   SD: [42.48, 45.95, -104.06, -96.44], CA: [32.53, 42.01, -124.41, -114.13], WA: [45.54, 49.0, -124.85, -116.91],
+  MI: [41.7, 48.31, -90.42, -82.41], PA: [39.72, 42.27, -80.52, -74.69],
+};
+/** Country bounding boxes [latMin, latMax, lonMin, lonMax] (rounded outward a little) for world pins. */
+const COUNTRY: Record<string, [number, number, number, number]> = {
+  EG: [22, 31.7, 24.7, 36.9], IQ: [29, 37.4, 38.8, 48.6], PK: [23.6, 37.1, 60.9, 77.8], CN: [18, 53.6, 73.5, 135.1],
+  IN: [6.7, 35.5, 68.1, 97.4], CD: [-13.5, 5.4, 12.2, 31.3], DZ: [18.9, 37.1, -8.7, 12], BW: [-27, -17.8, 19.9, 29.4],
+  TZ: [-11.8, -0.9, 29.3, 40.5], NP: [26.3, 30.5, 80, 88.2], MN: [41.5, 52.2, 87.7, 119.9], CH: [45.8, 47.9, 5.9, 10.5],
+  HU: [45.7, 48.6, 16.1, 22.9], RU: [41.2, 82, 19.6, 180], BR: [-33.8, 5.3, -74, -34.7], PE: [-18.4, -0.03, -81.4, -68.6],
+  CL: [-56, -17.5, -75.7, -66.4], US: [24.5, 49.4, -125, -66.9], AU: [-43.7, -10.6, 113.1, 153.7], FR: [42.3, 51.1, -4.8, 8.3],
+  DE: [47.2, 55.1, 5.8, 15.1], ES: [36, 43.8, -9.4, 3.4], IT: [36.6, 47.1, 6.6, 18.6], IE: [51.4, 55.4, -10.5, -6],
+  KE: [-4.7, 5.0, 33.9, 41.9], NG: [4.2, 13.9, 2.6, 14.7], AR: [-55.1, -21.7, -73.6, -53.6], CO: [-4.3, 12.5, -79, -66.8],
+  MX: [14.5, 32.8, -118.4, -86.7], CA: [41.6, 83.2, -141, -52.6], GB: [49.9, 60.9, -8.2, 1.8], JP: [24, 45.6, 122.9, 145.9],
+  KR: [33.1, 38.7, 124.6, 131.9], ID: [-11, 6, 95, 141], SA: [16.3, 32.2, 34.5, 55.7], IS: [63.3, 66.6, -24.6, -13.4],
+  SG: [1.15, 1.48, 103.6, 104.1], NL: [50.7, 53.6, 3.3, 7.3], ZA: [-34.9, -22.1, 16.4, 32.9], EC: [-5, 1.5, -81.1, -75.2],
+  TR: [35.8, 42.2, 25.6, 44.8], BD: [20.6, 26.7, 88, 92.7],
+};
+/** Fact "country" values must name the same country as the pin's ISO code. */
+const COUNTRY_NAME: Record<string, string> = {
+  EG: "Egypt", IQ: "Iraq", PK: "Pakistan", CN: "China", IN: "India", CD: "the Democratic Republic of the Congo", DZ: "Algeria",
+  BW: "Botswana", TZ: "Tanzania", NP: "Nepal", MN: "Mongolia", CH: "Switzerland", HU: "Hungary", RU: "Russia", BR: "Brazil",
+  PE: "Peru", CL: "Chile", US: "the United States", AU: "Australia",
 };
 for (const p of ALL_PLACES) {
   const [x, y] = pinOf(p);
@@ -203,6 +285,13 @@ for (const p of ALL_PLACES) {
     ok(inRing(lon, lat, US_OUTLINE), `US pin ${p.id} is outside the U.S. outline`);
     ok(!US_WATERS.some((w) => inRing(lon, lat, w.ring)), `US pin ${p.id} lands in a lake or bay`);
   }
+  if (p.map === "world" && p.country) {
+    const bb = COUNTRY[p.country];
+    ok(!!bb, `no bounding box for country ${p.country}`);
+    if (bb) ok(lat >= bb[0] && lat <= bb[1] && lon >= bb[2] && lon <= bb[3], `pin ${p.id} (${lat}, ${lon}) is outside country ${p.country}`);
+    const cf = p.facts.find((f) => f.k === "country")?.v;
+    if (cf) ok(COUNTRY_NAME[p.country] === cf, `pin ${p.id}: country fact "${cf}" but the pin is in ${p.country}`);
+  }
   if (p.map === "world") {
     const land = WORLD_LAND.find((l) => inRing(lon, lat, l.ring));
     const kind = p.facts.find((f) => f.k === "kind")?.v;
@@ -212,6 +301,33 @@ for (const p of ALL_PLACES) {
     else if (cont) ok(land?.continent === cont, `city pin ${p.id} (${cont}) lands on ${land?.continent ?? "water"}`);
   }
 }
+// every world place used from grade 6 up has a country (so its pin is checked against that country)
+const olderWorld = new Set(CASES.filter((c) => ["6", "7", "9-12"].includes(c.band)).flatMap((c) => c.stops.concat(c.legs.flatMap((l) => l.opts), c.hideoutOpts)));
+for (const id of olderWorld) ok(!!WORLD.get(id).country, `world place ${id} (grades 6–12) needs a country code`);
+
+// ---------------------------------------------------------------- grades 9–12 data sanity
+for (const p of ALL_PLACES) {
+  if (p.map === "town") continue;
+  // generated lat/long clue text: correct to ±1° (it is the pin rounded to whole degrees)
+  const [la, lo] = parseLL(fmtLL(p.at));
+  ok(Math.abs(la - p.at[0]) <= 0.5 && Math.abs(lo - p.at[1]) <= 0.5, `place ${p.id}: lat/long text ${fmtLL(p.at)} is off`);
+  for (const f of p.facts) {
+    if (f.k === "utc") {
+      const m = f.v.match(/^UTC(?:([+−])(\d{1,2})(?::(\d\d))?)?$/);
+      ok(!!m && (f.v === "UTC+0" || !!m[1]), `place ${p.id}: UTC text "${f.v}" (use UTC+0 or a typographic minus)`);
+      if (m) {
+        const off = m[1] ? (m[1] === "−" ? -1 : 1) * (Number(m[2]) + Number(m[3] ?? 0) / 60) : 0;
+        // the sun's time zone is longitude / 15; real zones stray, but never by more than ~2 hours here
+        ok(Math.abs(off * 15 - p.at[1]) <= 30, `place ${p.id}: ${f.v} doesn't fit longitude ${p.at[1]}`);
+      }
+    }
+    if (f.k === "clim" && /JUNE to AUGUST/.test(f.hint ?? "")) ok(p.at[0] < 0, `place ${p.id}: winter rain in June–August only happens south of the equator`);
+    if (f.k === "clim" && /NOVEMBER to MARCH/.test(f.hint ?? "")) ok(p.at[0] > 0, `place ${p.id}: winter rain in Nov–Mar means the Northern Hemisphere`);
+    if (f.k === "hemi") ok((f.v === "Northern") === p.at[0] > 0, `place ${p.id}: hemisphere fact ${f.v} doesn't match latitude ${p.at[0]}`);
+    if (f.k === "pop" || f.k === "trade") ok(!/\d/.test(f.hint ?? "") || /\((19|20)\d\d\)|20\d\d|since/.test(f.say + (f.hint ?? "")), `place ${p.id}: figure in ${f.k} needs a date`);
+  }
+}
+
 // sanity: relative positions read right on the maps
 const px = (id: string) => pinOf(WORLD.get(id));
 ok(px("asheville")[0] < px("charlotte")[0] && px("charlotte")[0] < px("raleigh")[0] && px("raleigh")[0] < px("hatteras")[0], "NC pins: west-to-east order wrong");
@@ -232,8 +348,9 @@ for (const c of CASES) {
 }
 
 // ---------------------------------------------------------------- standards codes
-const SOC = /^(K|[1-5])\.(G|E|H|C&G|B)\.\d(\.\d)?$/;
-const ELA = /^(RI|L)\.[1-5]\.[14]$/;
+const SOC = /^(K|[1-8])\.(G|E|H|C&G|B)\.\d(\.\d)?$/;
+const HS = /^((WH|CL|AH|EPF)\.(G|E|H|C&G|B)\.\d(\.\d)?|ESS\.EES\.\d(\.\d)?)$/;
+const ELA = /^(RI|L)\.([1-8]|9-10|11-12)\.[14]$/;
 for (const g of GRADES) {
   const b = bandOf(g);
   for (const c of casesFor(b)) {
@@ -241,14 +358,22 @@ for (const g of GRADES) {
     keys.add("map");
     for (const k of keys) {
       const s = stdFor(g, c.map, k);
-      ok(SOC.test(s.code), `grade ${g}: bad code ${s.code}`);
-      const gp = s.code.split(".")[0];
-      const want = g === "K" ? "K" : String(Math.min(5, Number(g)));
-      ok(gp === want, `grade ${g}: code ${s.code} is not a grade ${want} code`);
+      if (b === "9-12") ok(HS.test(s.code), `grade ${g}: bad high-school code ${s.code}`);
+      else {
+        ok(SOC.test(s.code), `grade ${g}: bad code ${s.code}`);
+        const gp = s.code.split(".")[0];
+        const want = g === "K" ? "K" : g;
+        ok(gp === want, `grade ${g}: code ${s.code} is not a grade ${want} code`);
+      }
       ok(s.skill.length > 3 && s.skill.length <= 40, `grade ${g}: skill name "${s.skill}"`);
     }
   }
-  for (const s of elaFor(g, true)) ok(ELA.test(s.code), `grade ${g}: bad ELA code ${s.code}`);
+  for (const s of elaFor(g, true)) {
+    ok(ELA.test(s.code), `grade ${g}: bad ELA code ${s.code}`);
+    const n = g === "K" ? 0 : Number(g);
+    const want = n >= 11 ? "11-12" : n >= 9 ? "9-10" : String(n);
+    ok(s.code.split(".")[1] === want, `grade ${g}: ELA code ${s.code} is for another grade`);
+  }
 }
 
 // ---------------------------------------------------------------- kit bank for transmissions

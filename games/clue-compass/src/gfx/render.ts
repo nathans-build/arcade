@@ -41,6 +41,8 @@ export type View =
       showNames: boolean;
       /** Every place on this map that should be drawn even when it is not a choice (the town's buildings). */
       backdrop: Place[];
+      /** Latitude/longitude grid lines every 30° (world map, grades 9–12). */
+      grid?: boolean;
     };
 
 export interface Hud {
@@ -53,6 +55,11 @@ export type Hit = { kind: "witness"; i: number } | { kind: "option"; id: string 
 
 const FLOOR = 186;
 export const WITNESS_X = [128, 186, 244];
+/** Four witnesses (a stop with a mixed-up witness, grades 9–12) stand a little closer together. */
+const WITNESS_X4 = [112, 158, 204, 250];
+export function witnessX(i: number, n: number): number {
+  return n > 3 ? WITNESS_X4[i] : WITNESS_X[i];
+}
 
 function upper(s: string) {
   return s.toUpperCase().replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/—/g, "-");
@@ -108,7 +115,7 @@ export class Screen {
     const v = this.view;
     if (v.kind === "scene" && !v.local && v.pocket === "none") {
       for (let i = 0; i < v.witnesses.length; i++) {
-        const wx = WITNESS_X[i];
+        const wx = witnessX(i, v.witnesses.length);
         if (x >= wx - 18 && x <= wx + 18 && y >= FLOOR - 52 && y <= FLOOR + 4) return { kind: "witness", i };
       }
     }
@@ -243,7 +250,7 @@ export class Screen {
       this.bubble(x + 10, FLOOR - 62, "NOT HERE!", C.sbRed);
     } else {
       v.witnesses.forEach((w, i) => {
-        const x = WITNESS_X[i];
+        const x = witnessX(i, v.witnesses.length);
         const talking = v.talking === i;
         g.dither(x - 10, FLOOR - 1, 20, 3, "#000000", "rgba(0,0,0,0)");
         const bob = talking ? (Math.floor(t * 8) % 2) * 2 : Math.floor(t * 1.2 + i) % 2;
@@ -627,6 +634,7 @@ export class Screen {
     const { g, t } = this;
     g.ctx.drawImage(this.baseMap(v.map), 0, 0);
     const pr = projFor(v.map);
+    if (v.grid && v.map === "world") this.graticule();
     // compass rose (bottom-left for world/us, top-right for NC/town)
     const rose = v.map === "nc" ? [30, 170] : v.map === "town" ? [300, 172] : v.map === "us" ? [298, 164] : [20, 156];
     this.compassRose(rose[0], rose[1], 9, 0);
@@ -717,6 +725,34 @@ export class Screen {
     }
     this.youAreHere(hx, hy, blink);
     void pr;
+  }
+
+  /** Dotted latitude/longitude lines every 30°, the equator and prime meridian brighter, with labels. */
+  private graticule() {
+    const g = this.g;
+    const pr = projFor("world");
+    const b = pr.box;
+    for (let lat = -60; lat <= 60; lat += 30) {
+      const [, y] = pr.ll(0, lat);
+      const col = lat === 0 ? C.sbYellow : "#9ab4ff";
+      for (let x = Math.ceil(b.x); x < b.x + b.w; x += lat === 0 ? 2 : 4) g.px(x, Math.round(y), col);
+      const label = lat === 0 ? "0" : `${Math.abs(lat)}${lat > 0 ? "N" : "S"}`;
+      const lw = textWidth(label);
+      const lx = Math.round(b.x + b.w) - lw - 2;
+      g.rect(lx - 1, Math.round(y) - 7, lw + 2, 7, "rgba(5,8,24,0.8)");
+      g.text(label, lx, Math.round(y) - 6, col);
+    }
+    for (let lon = -150; lon <= 150; lon += 30) {
+      const [x] = pr.ll(lon, 0);
+      const col = lon === 0 ? C.sbYellow : "#9ab4ff";
+      for (let y = Math.ceil(b.y); y < b.y + b.h; y += lon === 0 ? 2 : 4) g.px(Math.round(x), y, col);
+      if (lon % 60 === 0) {
+        const label = lon === 0 ? "0" : `${Math.abs(lon)}${lon > 0 ? "E" : "W"}`;
+        const lw = textWidth(label);
+        g.rect(Math.round(x) + 1, Math.round(b.y) + 1, lw + 2, 7, "rgba(5,8,24,0.8)");
+        g.text(label, Math.round(x) + 2, Math.round(b.y) + 2, col);
+      }
+    }
   }
 
   private youAreHere(x: number, y: number, blink: number) {

@@ -157,10 +157,10 @@ window.GAMES = [
   {
     id: "clue-compass",
     title: "Clue Compass",
-    tagline: "A runaway robot keeps borrowing landmarks. Read the clues, pick where to go next, and track it from your town to North Carolina to the whole USA.",
+    tagline: "A runaway robot keeps borrowing landmarks. Read the clues, pick where to go next, and track it from your town to North Carolina, the USA and the whole world.",
     subjects: ["Social Studies", "ELA"],
     url: "/clue-compass/",
-    grades: ["K", "1", "2", "3", "4", "5"],
+    grades: ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"],
     image: "img/clue-compass.png",
     year: 2026,
     added: "2026-10-04",

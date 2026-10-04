@@ -382,6 +382,7 @@ export class Game {
       travel,
       showNames: false,
       backdrop: run.c.map === "town" ? [...WORLD.places.values()].filter((p) => p.map === "town") : [],
+      grid: this.ui.band === "9-12",
     };
   }
 

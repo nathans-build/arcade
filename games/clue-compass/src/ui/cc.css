@@ -71,7 +71,7 @@
 .cc-grades { display: flex; flex-wrap: wrap; gap: 3px; margin: 4px 0; }
 .cc-grade { font-size: 8px; min-width: 28px; padding: 7px 3px; background: #0c1450; color: var(--cc-white); cursor: pointer; border: 2px solid var(--cc-dim); box-shadow: 2px 2px 0 #000; }
 .cc-grade.on { background: var(--cc-red); border-color: var(--cc-yellow); }
-.cc-older { border: 2px dashed var(--cc-yellow); background: #1a1440; padding: 6px 10px; margin: 6px 0; }
+.cc-also { border-left: 3px solid var(--cc-cyan); padding: 2px 8px; margin: 6px 0; font-size: 0.9em; opacity: 0.9; }
 .cc-lead { margin: 6px 0; }
 .cc-label { font-size: 8px; color: var(--cc-cyan); margin: 8px 0 4px; line-height: 1.5; }
 .cc-cases { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
