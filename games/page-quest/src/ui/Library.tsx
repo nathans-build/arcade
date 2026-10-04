@@ -8,11 +8,12 @@ import type { ReaderStart } from "./Reader";
 
 type Tab = Genre | "mine";
 
-const GENRE_LABEL: Record<Genre, string> = { mystery: "MYSTERY", adventure: "ADVENTURE", space: "SPACE" };
+const GENRE_LABEL: Record<Genre, string> = { mystery: "MYSTERY", adventure: "ADVENTURE", space: "SPACE", fantasy: "FANTASY" };
 const QUILL_SAYS: Record<Tab, string> = {
   mystery: "A MYSTERY? BRING YOUR DETECTIVE EYES!",
   adventure: "ADVENTURE! PACK A MAP AND A SNACK.",
   space: "SPACE! MIND THE ASTEROIDS, READER.",
+  fantasy: "FANTASY! MIND THE RIDDLES AND THE DRAGONS.",
   mine: "YOUR OWN BOOKS! HOO, AN AUTHOR!",
 };
 

@@ -8,6 +8,7 @@ export const SCENES = [
   "library", "beach", "ship-deck", "island-jungle", "cave", "castle-hall", "forest", "village",
   "mountain-pass", "space-bridge", "space-corridor", "planet-surface", "museum-hall", "museum-vault",
   "city-street", "lab", "lighthouse", "stormy-sea", "school", "train", "cryo-bay",
+  "academy-hall", "secret-hq", "temple-ruins", "labyrinth",
 ] as const;
 export type SceneId = (typeof SCENES)[number];
 
@@ -33,6 +34,10 @@ export const SCENE_LABEL: Record<SceneId, string> = {
   school: "School",
   train: "Train",
   "cryo-bay": "Cryo bay",
+  "academy-hall": "Academy hall",
+  "secret-hq": "Secret HQ",
+  "temple-ruins": "Temple ruins",
+  labyrinth: "Labyrinth",
 };
 
 export const CHARACTERS = [
@@ -55,6 +60,11 @@ export const CHARACTERS = [
   { id: "alien", name: "Alien", who: "a friendly alien" },
   { id: "zombie", name: "Zombie", who: "a goofy, green-tinged space zombie (kid-friendly, curable)" },
   { id: "astronaut", name: "Astronaut", who: "an astronaut in a spacesuit and helmet" },
+  { id: "mentor", name: "Mentor", who: "a robed teacher of magic with a lantern staff" },
+  { id: "agent", name: "Agent", who: "a spy instructor in a dark suit with an earpiece" },
+  { id: "sphinx", name: "Sphinx", who: "a riddle-loving sphinx (lion body, wings, a woman's head)" },
+  { id: "griffin", name: "Griffin", who: "a griffin (eagle head and wings, lion body)" },
+  { id: "minotaur", name: "Minotaur", who: "a gentle young minotaur (bull head, small horns)" },
 ] as const;
 export type CharId = (typeof CHARACTERS)[number]["id"];
 export const CHAR_IDS = CHARACTERS.map((c) => c.id) as CharId[];
@@ -101,7 +111,7 @@ export const MOOD_ALIASES: Record<string, Mood> = {
   iced: "frozen",
 };
 
-export const GENRES = ["mystery", "adventure", "space"] as const;
+export const GENRES = ["mystery", "adventure", "space", "fantasy"] as const;
 export type Genre = (typeof GENRES)[number];
 
 export const BANDS = ["4-5", "6-8", "9-12"] as const;
