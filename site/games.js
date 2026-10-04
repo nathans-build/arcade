@@ -165,4 +165,15 @@ window.GAMES = [
     year: 2026,
     added: "2026-10-04",
   },
+  {
+    id: "thread-chasers",
+    title: "Thread Chasers",
+    tagline: "Chase how paper, gold, zero and big ideas traveled the world. Pick the right place and era, or hit a dead end and learn why.",
+    subjects: ["Social Studies", "ELA"],
+    url: "/thread-chasers/",
+    grades: ["5", "6", "7", "8", "9", "10", "11", "12"],
+    image: "img/thread-chasers.png",
+    year: 2026,
+    added: "2026-10-04",
+  },
 ];
