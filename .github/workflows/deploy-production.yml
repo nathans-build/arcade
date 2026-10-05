@@ -1,0 +1,41 @@
+name: Deploy arcade (production, nzdogames.com)
+
+# The real arcade. main deploys to the dev/test site (azure-static-web-apps.yml); this workflow
+# deploys the `production` branch to a separate Azure Static Web App that has the custom domain
+# nzdogames.com. To publish: open a PR from main into production and merge it (or push it).
+# Requires repo secret AZURE_STATIC_WEB_APPS_API_TOKEN_PROD (the production app's deployment
+# token). Until that secret exists the build still runs (as a check) but nothing is deployed.
+
+on:
+  push:
+    branches: [production]
+  workflow_dispatch:
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    # One production deploy at a time; never cancel one halfway.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    env:
+      SWA_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PROD }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Build menu and games
+        run: scripts/build-site.sh
+        env:
+          ARCADE_ENV: production
+      - name: Deploy to production
+        if: env.SWA_TOKEN != ''
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PROD }}
+          action: upload
+          app_location: _deploy
+          skip_app_build: true

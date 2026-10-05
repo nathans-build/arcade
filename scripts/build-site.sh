@@ -10,6 +10,19 @@ for js in site/*.js; do node --check "$js"; done
 rm -rf _deploy
 cp -r site _deploy
 
+# Which site this build is for: "dev" (default; the azurestaticapps.net test site, from main)
+# or "production" (nzdogames.com, from the production branch). The dev site shows a DEV ribbon
+# and asks search engines not to index it.
+ARCADE_ENV="${ARCADE_ENV:-dev}"
+case "$ARCADE_ENV" in dev|production) ;; *) echo "ARCADE_ENV must be dev or production" >&2; exit 1 ;; esac
+printf 'window.ARCADE_ENV = "%s";\n' "$ARCADE_ENV" > _deploy/env.js
+if [ "$ARCADE_ENV" = production ]; then
+  printf 'User-agent: *\nAllow: /\n' > _deploy/robots.txt
+else
+  printf 'User-agent: *\nDisallow: /\n' > _deploy/robots.txt
+fi
+echo "Building for: $ARCADE_ENV"
+
 for pkg in games/*/package.json; do
   [ -e "$pkg" ] || continue
   dir=$(dirname "$pkg")
