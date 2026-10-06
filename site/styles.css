@@ -295,6 +295,7 @@ footer .fine { font-size: 17px; opacity: 0.8; }
 .cabinet .cab-top { padding-inline: 36px; }
 
 .chip.new { border-color: var(--yellow); color: var(--yellow); }
+.chip.dev { border-color: var(--muted); color: var(--muted); border-style: dashed; }
 
 /* Games for other grades (shown when "Fits my grade" is off) */
 .cabinet.off-grade { border-color: #3a4170; }
@@ -336,3 +337,10 @@ footer .fine { font-size: 17px; opacity: 0.8; }
 @media (max-width: 560px) { .credit-notes dl { grid-template-columns: minmax(0, 1fr); gap: 4px; } .credit-notes dd { margin-bottom: 10px; } }
 @media (max-width: 599.98px) { #keys-hint { display: none; } }
 .credits-page main { display: flex; flex-direction: column; gap: 32px; }
+
+/* DEV ribbon (dev/test site only, see ribbon.js) */
+.dev-ribbon {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; text-align: center;
+  font: 12px/1.6 "Press Start 2P", monospace; padding: 4px 8px; text-decoration: none;
+  background: #ffd23f; color: #0a0f2e; border-top: 3px solid #e3262f; box-shadow: 0 -2px 0 #000;
+}

@@ -3,7 +3,12 @@ import type { Grade, Subject } from "./types";
 export const GRADES: Grade[] = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 
 /** SpiderBen10's Arcade menu. Games link back here, carrying the grade. */
-export const ARCADE_URL = "https://icy-smoke-05363610f.3.azurestaticapps.net/";
+/**
+ * The arcade menu. Relative, because every game is served from the same site as the menu
+ * (games/<name>/ at /<name>/), so the link stays on whichever site the player is on:
+ * the dev site (the azurestaticapps.net address) or production (nzdogames.com).
+ */
+export const ARCADE_URL = "/";
 
 export function isGrade(v: unknown): v is Grade {
   return typeof v === "string" && (GRADES as string[]).includes(v);

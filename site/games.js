@@ -5,6 +5,8 @@
 // `subjects` drives the menu's subject tabs ("ELA" shows under Reading & Writing).
 // `added: "YYYY-MM-DD"` (or `new: true`) puts a game in the menu's NEW row for
 // 30 days after that date.
+// `prod: true` sends a game to the real arcade (nzdogames.com). Only mark a game once it is
+// fully tested; without it the game is on the dev (test) site only.
 window.GAMES = [
   {
     id: "lunar-patrol",
@@ -125,6 +127,7 @@ window.GAMES = [
   },
   {
     id: "page-quest",
+    prod: true,
     title: "Page Quest",
     tagline: "Choose your own adventure: mystery, adventure and space stories where reading closely is how you win.",
     subjects: ["ELA"],
@@ -146,6 +149,7 @@ window.GAMES = [
   },
   {
     id: "sonar-squad",
+    prod: true,
     title: "Sonar Squad",
     tagline: "Hide your fleet, answer to fire, and call your shots by coordinates to sink the enemy squad.",
     subjects: ["Math", "Science", "ELA", "Social Studies"],
@@ -208,3 +212,8 @@ window.GAMES = [
     added: "2026-10-04",
   },
 ];
+
+// Production shows only the fully tested games; the dev site shows them all.
+if (window.ARCADE_ENV === "production") {
+  window.GAMES = window.GAMES.filter(function (game) { return game.prod === true; });
+}

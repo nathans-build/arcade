@@ -35,7 +35,7 @@ Every game lives in this repository and is served by the arcade's single Azure a
 on this subscription allows only a few apps). Each one is a complete Vite project in
 `games/<name>/` (its own `package.json`, tests and `src/kit` copy). `scripts/build-site.sh` builds and
 tests every game and publishes it at `/<name>/` next to the menu, e.g.
-`https://icy-smoke-05363610f.3.azurestaticapps.net/word-worm/`. To add one, drop its folder into
+`https://nzdogames.com/word-worm/` (and on the dev site). To add one, drop its folder into
 `games/` and add a cabinet in `site/games.js` with `url: "/<name>/"`.
 
 All nine games live here, including the first four (Lunar Patrol, Web Invaders, Factor Blaster,
@@ -69,3 +69,23 @@ in `kit/banks/` list standard codes to double-check against WCPSS pacing guides.
 
 The marquee hero is an original pixel-art character drawn in code (`site/app.js`), not affiliated
 with Marvel or any game studio.
+
+## Dev site and production (nzdogames.com)
+
+| Site | Address | Deployed from | Workflow |
+|---|---|---|---|
+| **Production** (the real arcade) | https://nzdogames.com | the `production` branch | `.github/workflows/deploy-production.yml` (secret `AZURE_STATIC_WEB_APPS_API_TOKEN_PROD`) |
+| **Dev / test** | https://icy-smoke-05363610f.3.azurestaticapps.net | `main` (plus a preview per pull request) | `.github/workflows/azure-static-web-apps.yml` (secret `AZURE_STATIC_WEB_APPS_API_TOKEN`) |
+
+- Work lands on `main` first and shows up on the dev site, which has a striped **DEV** ribbon, a
+  `[DEV]` tab title and a `robots.txt` that keeps search engines out.
+- **Only fully tested games go to production.** A game reaches nzdogames.com only when its entry
+  in `site/games.js` has `prod: true`. Production builds skip every other game and its menu and
+  credits list only the `prod: true` games. The dev site shows them all, with a **Dev only** chip
+  on games that aren't on production yet. To promote a game, add `prod: true` on `main`, then
+  publish.
+- **To publish to production:** open a pull request from `main` into `production` and merge it.
+- `scripts/build-site.sh` reads `ARCADE_ENV` (`dev` by default, or `production`) and writes
+  `env.js` and `robots.txt` for that site.
+- Games link back to the menu with a relative `/` link (`ARCADE_URL` in `kit/grades.ts`), so each
+  site's games stay on that site.
