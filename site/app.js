@@ -272,6 +272,7 @@
     var chips = el("div", "chips");
     chips.appendChild(el("span", "chip grade" + (fits ? "" : " off"), fits ? gradeName(grade) : gradesLabel(game)));
     if (isNew(game)) chips.appendChild(el("span", "chip new", "New"));
+    if (window.ARCADE_ENV === "dev" && live && !game.prod) chips.appendChild(el("span", "chip dev", "Dev only"));
     (game.subjects || []).forEach(function (s) { chips.appendChild(el("span", "chip", SUBJECT_NAMES[s] || s)); });
     body.appendChild(chips);
     card.appendChild(body);

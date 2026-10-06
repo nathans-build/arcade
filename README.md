@@ -79,6 +79,11 @@ with Marvel or any game studio.
 
 - Work lands on `main` first and shows up on the dev site, which has a striped **DEV** ribbon, a
   `[DEV]` tab title and a `robots.txt` that keeps search engines out.
+- **Only fully tested games go to production.** A game reaches nzdogames.com only when its entry
+  in `site/games.js` has `prod: true`. Production builds skip every other game and its menu and
+  credits list only the `prod: true` games. The dev site shows them all, with a **Dev only** chip
+  on games that aren't on production yet. To promote a game, add `prod: true` on `main`, then
+  publish.
 - **To publish to production:** open a pull request from `main` into `production` and merge it.
 - `scripts/build-site.sh` reads `ARCADE_ENV` (`dev` by default, or `production`) and writes
   `env.js` and `robots.txt` for that site.

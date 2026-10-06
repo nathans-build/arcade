@@ -23,10 +23,22 @@ else
 fi
 echo "Building for: $ARCADE_ENV"
 
+# Production gets only the fully tested games: the ones marked `prod: true` in site/games.js.
+PROD_GAMES=$(node -e '
+  global.window = { ARCADE_ENV: "production" };
+  require("./site/games.js");
+  console.log(window.GAMES.filter(g => g.url).map(g => g.url.replace(/^\/|\/$/g, "")).join(" "));
+')
+if [ "$ARCADE_ENV" = production ]; then echo "Production games: ${PROD_GAMES:-none}"; fi
+
 for pkg in games/*/package.json; do
   [ -e "$pkg" ] || continue
   dir=$(dirname "$pkg")
   name=$(basename "$dir")
+  if [ "$ARCADE_ENV" = production ] && [[ " $PROD_GAMES " != *" $name "* ]]; then
+    echo "Skip $name (dev only: not marked prod: true in site/games.js)"
+    continue
+  fi
   echo "::group::Build $name"
   (cd "$dir" && npm ci --no-audit --no-fund && { npm test --if-present; } && npm run build)
   cp -r "$dir/dist" "_deploy/$name"
