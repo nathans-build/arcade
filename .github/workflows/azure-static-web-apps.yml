@@ -19,6 +19,12 @@ jobs:
   check_and_deploy:
     if: github.event_name != 'pull_request' || github.event.action != 'closed'
     runs-on: ubuntu-latest
+    # One deploy at a time per target. Pushes to main queue up (the newest one includes every
+    # earlier change), so Azure never cancels an overlapping upload. A new push to a PR replaces
+    # that PR's in-progress preview build.
+    concurrency:
+      group: deploy-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     env:
       SWA_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
     permissions:
@@ -47,6 +53,11 @@ jobs:
   close_pull_request:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
+    # Same group as the PR's preview build: closing cancels a preview still uploading, so it
+    # can't finish after the close and leave a stray environment taking one of the free slots.
+    concurrency:
+      group: deploy-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     env:
       SWA_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
     steps:
