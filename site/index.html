@@ -10,12 +10,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
+    <script src="theme-boot.js"></script>
   </head>
   <body>
     <div class="page">
       <header class="marquee">
         <div class="marquee-buttons">
-          <button type="button" class="hero-badge" id="hero-btn" aria-expanded="false" aria-controls="hero-panel">✎ My hero</button>
+          <button type="button" class="hero-badge" id="theme-btn" aria-expanded="false" aria-controls="theme-panel">🎨 Theme</button>
           <a class="credits-badge" href="credits.html" data-keep-grade>Credits</a>
         </div>
         <canvas id="scene" width="320" height="120" aria-hidden="true"></canvas>
@@ -26,16 +27,15 @@
         </div>
       </header>
 
-      <section class="hero-panel" id="hero-panel" aria-labelledby="hero-title" hidden>
+      <section class="theme-panel" id="theme-panel" aria-labelledby="theme-title" hidden>
         <div class="section-head">
-          <h2 id="hero-title">Make your hero</h2>
-          <p class="hint">Changes show up in the banner right away and are saved on this device.</p>
+          <h2 id="theme-title">Pick a theme</h2>
+          <p class="hint">Changes the banner and the colors. Saved on this device.</p>
         </div>
-        <div id="hero-options"></div>
+        <div class="theme-list" id="theme-list" role="group" aria-label="Themes"></div>
+        <div class="stick-options" id="stick-options" hidden></div>
         <div class="hero-actions">
-          <button type="button" class="adapt-btn" id="hero-random">🎲 Random</button>
-          <button type="button" class="adapt-reset" id="hero-reset">Reset</button>
-          <button type="button" class="adapt-btn on" id="hero-done">Done ▶</button>
+          <button type="button" class="adapt-btn on" id="theme-done">Done ▶</button>
         </div>
       </section>
 
@@ -60,8 +60,16 @@
             <h2 id="games-title">Select game</h2>
             <p class="hint" id="keys-hint"><kbd>◀</kbd><kbd>▶</kbd> choose · <kbd>ENTER</kbd> play · <kbd>[</kbd><kbd>]</kbd> grade · <kbd>,</kbd><kbd>.</kbd> subject · <kbd>;</kbd><kbd>'</kbd> topic · <kbd>F</kbd> favorite · or tap</p>
           </div>
-          <div class="tabs" id="tabs" role="group" aria-label="Subject"></div>
-          <div class="topics" id="topics" role="group" aria-label="Topic" hidden></div>
+          <div class="filter-selects">
+            <div class="select-field">
+              <label class="select-label" for="subject-select">Subject</label>
+              <select class="pick-select" id="subject-select"></select>
+            </div>
+            <div class="select-field" id="topic-field" hidden>
+              <label class="select-label" for="topic-select">Topic</label>
+              <select class="pick-select" id="topic-select"></select>
+            </div>
+          </div>
           <div class="filter-bar">
             <button type="button" class="fit-btn" id="fit-btn" aria-pressed="true">Fits my grade: <strong>ON</strong></button>
             <span class="hint" id="fit-note"></span>
@@ -73,12 +81,13 @@
 
       <footer>
         <p>© <span id="year"></span> SpiderBen10 (NZDO). Every game in this arcade was designed and built by SpiderBen10. <a class="credits-link" href="credits.html" data-keep-grade>Credits ▶</a></p>
-        <p class="fine">The banner hero is an original stick figure you can design yourself. Not affiliated with Marvel or any game studio.</p>
+        <p class="fine">Banner themes and characters are original artwork. Not affiliated with Marvel, Warner Bros., Netflix or any game studio.</p>
       </footer>
     </div>
     <script src="env.js"></script>
     <script src="ribbon.js"></script>
     <script src="games.js"></script>
     <script src="app.js"></script>
+    <script src="marquee.js"></script>
   </body>
 </html>

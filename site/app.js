@@ -1,4 +1,4 @@
-// SpiderBen10's Arcade — menu + animated marquee. Plain JS, no build step.
+// SpiderBen10's Arcade — the menu. The banner and themes are in marquee.js. Plain JS, no build step.
 (function () {
   "use strict";
 
@@ -158,17 +158,19 @@
     return isFinite(age) && age >= -1 && age < NEW_DAYS;
   }
 
-  // Subject tabs
-  var tabsBox = document.getElementById("tabs");
-  var tabButtons = TABS.map(function (t) {
-    var b = el("button", "tab");
-    b.type = "button";
-    b.appendChild(el("span", "tab-label", t.label));
-    b.appendChild(el("span", "tab-count"));
-    b.addEventListener("click", function () { setTab(t.id); blip(); });
-    tabsBox.appendChild(b);
-    return b;
+  // Subject and topic dropdowns. The topic dropdown only shows once a subject is picked.
+  var subjectSelect = document.getElementById("subject-select");
+  var topicSelect = document.getElementById("topic-select");
+  var topicField = document.getElementById("topic-field");
+  TABS.forEach(function (t) {
+    var o = el("option");
+    o.value = t.id;
+    subjectSelect.appendChild(o);
   });
+  subjectSelect.addEventListener("change", function () { setTab(subjectSelect.value); blip(); });
+  topicSelect.addEventListener("change", function () { setTopic(topicSelect.value || null); blip(); });
+
+  function countLabel(label, n) { return label + " (" + n + ")"; }
   function setTab(id) {
     var changed = tabDef(id).id !== tab;
     tab = tabDef(id).id;
@@ -185,23 +187,18 @@
   function renderTabs() {
     TABS.forEach(function (t, i) {
       var n = games.filter(function (g) { return shown(g, t, null); }).length;
-      var b = tabButtons[i], on = t.id === tab;
-      b.classList.toggle("on", on);
-      b.setAttribute("aria-pressed", on ? "true" : "false");
-      b.lastChild.textContent = String(n);
-      b.setAttribute("aria-label", t.label + ", " + n + " game" + (n === 1 ? "" : "s"));
+      subjectSelect.options[i].textContent = countLabel(t.id === "all" ? "All subjects" : t.label, n);
     });
+    subjectSelect.value = tab;
   }
 
-  // Topic chips under a subject tab (not under "All").
-  var topicsBox = document.getElementById("topics");
-  var topicButtons = [], topicsFor = null;
+  var topicsFor = null;
   function setTopicValue(id) {
     topic = id;
     save(TOPIC_KEY, id || "");
   }
   function setTopic(id) {
-    setTopicValue(topic === id ? null : id);
+    setTopicValue(id);
     selectedKey = null;
     renderCabinets();
   }
@@ -217,31 +214,23 @@
   }
   function renderTopics() {
     var t = tabDef(tab);
-    var list = TOPICS[t.subject] || [];
-    topicsBox.hidden = !list.length;
-    if (topicsFor !== t.id) { // rebuild only when the subject changes, so focus stays put
+    var list = [{ id: "", label: "All " + t.label + " topics" }].concat(TOPICS[t.subject] || []);
+    topicField.hidden = list.length < 2;
+    if (topicsFor !== t.id) { // rebuild only when the subject changes
       topicsFor = t.id;
-      topicsBox.textContent = "";
-      topicButtons = [{ id: null, label: "All " + t.label }].concat(list).map(function (x) {
-        var b = el("button", "topic");
-        b.type = "button";
-        b.appendChild(el("span", "tab-label", x.label));
-        b.appendChild(el("span", "tab-count"));
-        b.addEventListener("click", function () { setTopic(x.id); blip(); });
-        b._topic = x;
-        topicsBox.appendChild(b);
-        return b;
+      topicSelect.textContent = "";
+      list.forEach(function (x) {
+        var o = el("option");
+        o.value = x.id;
+        o._label = x.label;
+        topicSelect.appendChild(o);
       });
     }
-    topicButtons.forEach(function (b) {
-      var x = b._topic, on = x.id === topic;
-      var n = games.filter(function (g) { return shown(g, t, x.id); }).length;
-      b.classList.toggle("on", on);
-      b.classList.toggle("empty", n === 0);
-      b.setAttribute("aria-pressed", on ? "true" : "false");
-      b.lastChild.textContent = String(n);
-      b.setAttribute("aria-label", x.label + ", " + n + " game" + (n === 1 ? "" : "s"));
+    Array.prototype.forEach.call(topicSelect.options, function (o) {
+      var n = games.filter(function (g) { return shown(g, t, o.value || null); }).length;
+      o.textContent = countLabel(o._label, n);
     });
+    topicSelect.value = topic || "";
   }
 
   // "Fits my grade" filter
@@ -421,7 +410,7 @@
     var a = document.activeElement;
     var typing = a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA" || a.tagName === "SELECT" || a.isContentEditable);
     if (typing) return;
-    if (a && a.closest && a.closest("#hero-panel")) return; // the hero maker uses normal keys
+    if (a && a.closest && a.closest("#theme-panel")) return; // the theme picker uses normal keys
     if (k === "[" || k === "]") {
       var gi = GRADES.indexOf(grade) + (k === "]" ? 1 : -1);
       if (gi >= 0 && gi < GRADES.length) { setGrade(GRADES[gi]); blip(); }
@@ -475,348 +464,5 @@
   }
   function blip() { tone(880, 0, 0.05, 0.05); }
   function coin() { tone(988, 0, 0.08, 0.08); tone(1319, 0.08, 0.25, 0.08); }
-
-  /* ------------------------------------------------------------------ */
-  /* Marquee scene: night city, moon, and the player's stick-figure hero */
-  /* ------------------------------------------------------------------ */
-
-  var canvas = document.getElementById("scene");
-  var g = canvas.getContext("2d");
-  var W = canvas.width, H = canvas.height;
-  g.imageSmoothingEnabled = false;
-
-  /* The banner hero: a stick figure with two dot eyes and no mouth. The player designs it in
-     the hero maker (colors, hat, cape and how it moves); the design is saved on this device. */
-  var HERO_KEY = "arcade.hero";
-  var HERO_OPTIONS = {
-    color: { label: "Body", type: "swatch", values: ["#ff3b47", "#4a7bff", "#ffd23f", "#3ddc84", "#b06bff", "#ff6ec7", "#ff8c1a", "#7ff3ff", "#f2f4ff"] },
-    head: { label: "Head", type: "swatch", values: ["#f2f4ff", "#fff1c1", "#ffd23f", "#7ff3ff", "#ff9ecf", "#b8f5a0", "#1b1e33"] },
-    hat: { label: "Hat", type: "pick", values: ["none", "cap", "beanie", "crown", "top hat", "wizard", "headband", "headphones"] },
-    cape: { label: "Cape", type: "swatch", values: ["none", "#e3262f", "#2456e8", "#ffd23f", "#2fbf71", "#8a3ffc", "#ff6ec7", "#1b1e33"] },
-    move: { label: "Move", type: "pick", values: ["swing", "run", "fly"] },
-  };
-  var HERO_SCALE = 1.3; // the pose is drawn in small units, then scaled up
-  var HERO_DEFAULT = { color: "#ff3b47", head: "#f2f4ff", hat: "none", cape: "#2456e8", move: "swing" };
-  var COLOR_NAMES = {
-    "#ff3b47": "red", "#4a7bff": "blue", "#ffd23f": "yellow", "#3ddc84": "green", "#b06bff": "purple",
-    "#ff6ec7": "pink", "#ff8c1a": "orange", "#7ff3ff": "cyan", "#f2f4ff": "white", "#fff1c1": "cream",
-    "#ff9ecf": "pink", "#b8f5a0": "mint", "#1b1e33": "black", "#e3262f": "red", "#2456e8": "blue",
-    "#2fbf71": "green", "#8a3ffc": "purple", none: "none",
-  };
-  var heroLook = (function () {
-    var out = {}, saved = {};
-    try { saved = JSON.parse(localStorage.getItem(HERO_KEY) || "{}") || {}; } catch (e) { /* ignore */ }
-    Object.keys(HERO_OPTIONS).forEach(function (k) {
-      out[k] = HERO_OPTIONS[k].values.indexOf(saved[k]) >= 0 ? saved[k] : HERO_DEFAULT[k];
-    });
-    return out;
-  })();
-  function saveHero() { try { localStorage.setItem(HERO_KEY, JSON.stringify(heroLook)); } catch (e) { /* ignore */ } }
-  function darkColor(hex) {
-    var n = parseInt(hex.slice(1), 16);
-    return ((n >> 16) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000 < 90;
-  }
-
-  // Stick-figure pose in local units: neck at (0, 0), head above, y grows downward.
-  // Returns the joint positions; drawHero() draws them.
-  function heroPose(move, t, sway) {
-    var p = { head: [0, -6], neck: [0, 0], hip: [0, 12] };
-    if (move === "swing") {
-      p.handR = [2, -14]; p.elbowR = [2, -6];               // up on the web line
-      p.elbowL = [-5, 4]; p.handL = [-9, 2 + Math.sin(t * 3) * 2];
-      var k = sway * 4;
-      p.kneeL = [-2 + k, 18]; p.footL = [-3 + k * 1.6, 24];
-      p.kneeR = [3 + k, 18]; p.footR = [4 + k * 1.6, 23];
-    } else if (move === "run") {
-      var c = Math.sin(t * 12), d = Math.cos(t * 12);
-      p.kneeL = [4 * c, 18]; p.footL = [7 * c - 2, 24 - Math.max(0, d) * 3];
-      p.kneeR = [-4 * c, 18]; p.footR = [-7 * c - 2, 24 - Math.max(0, -d) * 3];
-      p.elbowL = [-4 * c, 6]; p.handL = [-4 * c + 3, 9];
-      p.elbowR = [4 * c, 6]; p.handR = [4 * c + 3, 9];
-    } else { // fly: drawn tipped forward, so "up" here points the way it flies
-      p.elbowR = [2, -8]; p.handR = [2, -15];
-      p.elbowL = [-2, -8]; p.handL = [-2, -15];
-      var f = Math.sin(t * 6) * 1.5;
-      p.kneeL = [-1, 18]; p.footL = [-1 + f, 24];
-      p.kneeR = [1, 18]; p.footR = [1 - f, 24];
-    }
-    p.shoulder = [0, 3];
-    return p;
-  }
-
-  function drawHero(x, y, angle, t, sway, flow) {
-    var look = heroLook, p = heroPose(look.move, t, sway);
-    g.save();
-    g.translate(x, y);
-    g.rotate(angle);
-    g.scale(HERO_SCALE, HERO_SCALE);
-    g.lineCap = "round"; g.lineJoin = "round";
-
-    if (look.cape !== "none") { // behind everything, blowing the other way from where the hero goes
-      var w = Math.sin(t * 8) * 1.5;
-      g.fillStyle = look.cape;
-      g.beginPath();
-      g.moveTo(-2, 1); g.lineTo(2, 1);
-      g.lineTo(2 + flow * 0.4, 16 + w);
-      g.lineTo(-3 + flow, 17 - w);
-      g.closePath(); g.fill();
-    }
-
-    g.strokeStyle = look.color; g.lineWidth = 2;
-    g.beginPath();
-    g.moveTo(p.neck[0], p.neck[1]); g.lineTo(p.hip[0], p.hip[1]);                  // body
-    [["kneeL", "footL"], ["kneeR", "footR"]].forEach(function (leg) {
-      g.moveTo(p.hip[0], p.hip[1]); g.lineTo(p[leg[0]][0], p[leg[0]][1]); g.lineTo(p[leg[1]][0], p[leg[1]][1]);
-    });
-    [["elbowL", "handL"], ["elbowR", "handR"]].forEach(function (arm) {
-      g.moveTo(p.shoulder[0], p.shoulder[1]); g.lineTo(p[arm[0]][0], p[arm[0]][1]); g.lineTo(p[arm[1]][0], p[arm[1]][1]);
-    });
-    g.stroke();
-
-    // Head: a ring in the body color, filled with the head color, two dot eyes, no mouth.
-    var hx = p.head[0], hy = p.head[1];
-    g.fillStyle = look.color;
-    g.beginPath(); g.arc(hx, hy, 5.5, 0, Math.PI * 2); g.fill();
-    g.fillStyle = look.head;
-    g.beginPath(); g.arc(hx, hy, 4, 0, Math.PI * 2); g.fill();
-    var blink = (t % 4) > 3.85;
-    g.fillStyle = darkColor(look.head) ? "#ffffff" : "#05060f";
-    g.fillRect(hx - 2.5, hy - 1.5, 1.5, blink ? 0.5 : 2);
-    g.fillRect(hx + 1, hy - 1.5, 1.5, blink ? 0.5 : 2);
-
-    drawHat(look.hat, hx, hy, t, flow);
-    g.restore();
-  }
-
-  function drawHat(hat, hx, hy, t, flow) {
-    var top = hy - 5.5;
-    if (hat === "cap") {
-      g.fillStyle = "#e3262f";
-      g.beginPath(); g.arc(hx, top + 3, 5.5, Math.PI, 0); g.fill();
-      g.fillRect(hx, top + 2, 8, 1.5);                                            // brim
-    } else if (hat === "beanie") {
-      g.fillStyle = "#3ddc84";
-      g.beginPath(); g.arc(hx, top + 3.5, 5.8, Math.PI, 0); g.fill();
-      g.fillStyle = "#f2f4ff"; g.fillRect(hx - 6, top + 2.5, 12, 1.5);
-      g.beginPath(); g.arc(hx, top - 3, 1.8, 0, Math.PI * 2); g.fill();          // pom-pom
-    } else if (hat === "crown") {
-      g.fillStyle = "#ffd23f";
-      g.beginPath();
-      g.moveTo(hx - 5, top + 2); g.lineTo(hx - 5, top - 4); g.lineTo(hx - 2.5, top - 1);
-      g.lineTo(hx, top - 5); g.lineTo(hx + 2.5, top - 1); g.lineTo(hx + 5, top - 4); g.lineTo(hx + 5, top + 2);
-      g.closePath(); g.fill();
-      g.fillStyle = "#ff3b47"; g.fillRect(hx - 0.75, top - 0.5, 1.5, 1.5);
-    } else if (hat === "top hat") {
-      g.fillStyle = "#3a2d5c"; g.fillRect(hx - 4, top - 8, 8, 9);
-      g.fillRect(hx - 6.5, top + 0.5, 13, 1.5);
-      g.fillStyle = "#ff3b47"; g.fillRect(hx - 4, top - 2, 8, 1.5);
-    } else if (hat === "wizard") {
-      g.fillStyle = "#3a5ad8";
-      g.beginPath(); g.moveTo(hx - 6.5, top + 2); g.lineTo(hx + 6.5, top + 2); g.lineTo(hx + 2, top - 12); g.closePath(); g.fill();
-      g.fillStyle = "#ffd23f"; g.fillRect(hx - 1, top - 3, 1.5, 1.5); g.fillRect(hx + 1.5, top - 7, 1, 1);
-    } else if (hat === "headband") {
-      g.fillStyle = "#e3262f"; g.fillRect(hx - 5.5, top + 2, 11, 2);
-      g.strokeStyle = "#e3262f"; g.lineWidth = 1.2;
-      var w = Math.sin(t * 9);
-      g.beginPath();
-      g.moveTo(hx - 5, top + 3); g.lineTo(hx - 9 + flow * 0.3, top + 3 + w * 1.5);
-      g.moveTo(hx - 5, top + 3); g.lineTo(hx - 8 + flow * 0.3, top + 6 - w * 1.5);
-      g.stroke();
-    } else if (hat === "headphones") {
-      g.strokeStyle = "#1b1e33"; g.lineWidth = 1.5;
-      g.beginPath(); g.arc(hx, hy, 6.5, Math.PI * 1.05, Math.PI * 1.95); g.stroke();
-      g.fillStyle = "#ff6ec7"; g.fillRect(hx - 7.5, hy - 1.5, 2.5, 4); g.fillRect(hx + 5, hy - 1.5, 2.5, 4);
-    }
-  }
-
-  function hash(n) { var s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); }
-
-  var stars = [];
-  for (var i = 0; i < 60; i++) stars.push({ x: hash(i) * W, y: hash(i + 99) * 70, p: hash(i + 7) });
-
-  function buildings(seed, count, minH, maxH) {
-    var out = [], x = 0;
-    for (var i = 0; i < count; i++) {
-      var w = 10 + Math.floor(hash(seed + i) * 18);
-      var h = minH + Math.floor(hash(seed + i * 3.3) * (maxH - minH));
-      out.push({ x: x, w: w, h: h, s: seed + i });
-      x += w + (hash(seed + i * 7) > 0.7 ? 3 : 0);
-    }
-    return { list: out, width: x };
-  }
-  var back = buildings(10, 40, 18, 46);
-  var front = buildings(500, 34, 10, 34);
-
-  function drawCity(layer, offset, color, winA, winB, base) {
-    var total = layer.width;
-    for (var k = -1; k <= 1; k++) {
-      layer.list.forEach(function (b) {
-        var x = Math.floor(b.x - (offset % total) + k * total);
-        if (x > W || x + b.w < 0) return;
-        var top = base - b.h;
-        g.fillStyle = color;
-        g.fillRect(x, top, b.w, b.h);
-        for (var wy = top + 3; wy < base - 3; wy += 4) {
-          for (var wx = x + 2; wx < x + b.w - 2; wx += 3) {
-            var r = hash(b.s * 31 + wx * 0.7 + wy * 1.3);
-            if (r > 0.72) { g.fillStyle = r > 0.93 ? winB : winA; g.fillRect(wx, wy, 1, 1); }
-          }
-        }
-        if (hash(b.s + 5) > 0.8) { // rooftop antenna with a red beacon
-          g.fillStyle = color; g.fillRect(x + (b.w >> 1), top - 5, 1, 5);
-          g.fillStyle = frame % 60 < 30 ? "#ff3040" : "#5a0d14"; g.fillRect(x + (b.w >> 1), top - 6, 1, 1);
-        }
-      });
-    }
-  }
-
-  function drawWeb() { // corner web, top-left
-    g.strokeStyle = "rgba(159,176,224,0.45)";
-    g.lineWidth = 1;
-    var spokes = [0.05, 0.3, 0.6, 0.9, 1.25, 1.52];
-    g.beginPath();
-    spokes.forEach(function (a) { g.moveTo(0.5, 0.5); g.lineTo(0.5 + Math.cos(a) * 60, 0.5 + Math.sin(a) * 60); });
-    [14, 28, 42, 56].forEach(function (r) {
-      spokes.forEach(function (a, j) {
-        var p = [Math.cos(a) * r, Math.sin(a) * r];
-        if (j === 0) g.moveTo(p[0], p[1]); else g.lineTo(p[0], p[1]);
-      });
-    });
-    g.stroke();
-  }
-
-  var frame = 0;
-  var t0 = performance.now();
-  function draw(now) {
-    var t = (now - t0) / 1000;
-    frame++;
-    var sky = g.createLinearGradient(0, 0, 0, H);
-    sky.addColorStop(0, "#050818");
-    sky.addColorStop(0.7, "#0d1440");
-    sky.addColorStop(1, "#2a0c2c");
-    g.fillStyle = sky;
-    g.fillRect(0, 0, W, H);
-
-    stars.forEach(function (s) {
-      var tw = (frame + s.p * 200) % 120 < 6;
-      g.fillStyle = s.p > 0.75 && !tw ? "#ffffff" : "#5a6ad0";
-      g.fillRect(Math.floor(s.x), Math.floor(s.y), 1, 1);
-    });
-
-    // Moon (a nod to Lunar Patrol)
-    g.fillStyle = "#fff4c8";
-    for (var y = -11; y <= 11; y++) {
-      var half = Math.floor(Math.sqrt(121 - y * y));
-      g.fillRect(268 - half, 26 + y, half * 2, 1);
-    }
-    g.fillStyle = "#e8d8a0";
-    g.fillRect(262, 20, 3, 3); g.fillRect(271, 29, 4, 3); g.fillRect(266, 33, 2, 2);
-
-    drawWeb();
-    drawCity(back, t * 6, "#131d5c", "#3a5ad8", "#7ff3ff", H);
-    drawCity(front, t * 14, "#070b24", "#ffd23f", "#ff5a64", H);
-
-    var move = heroLook.move;
-    if (move === "swing") { // swinging on a web line; the anchor drifts across the sky
-      var span = W + 120;
-      var ax = ((t * 22 + 150) % span) - 60; // starts mid-sky so the hero is visible right away
-      var ay = -12;
-      var ang = Math.sin(t * 1.8) * 0.65;
-      var len = 36;
-      var hx = ax + Math.sin(ang) * len;
-      var hy = ay + Math.cos(ang) * len;
-      g.strokeStyle = "#f2f4ff"; g.lineWidth = 1;
-      g.beginPath(); g.moveTo(ax, ay); g.lineTo(hx, hy); g.stroke();
-      // Hang from the raised hand (local 2, -14), tilted with the swing.
-      var tilt = -ang * 0.6, c = Math.cos(tilt), s = Math.sin(tilt);
-      var S = HERO_SCALE, ox = hx - S * (2 * c + 14 * s), oy = hy - S * (2 * s - 14 * c);
-      drawHero(ox, oy, tilt, t, Math.cos(t * 1.8), -Math.cos(t * 1.8) * 6);
-    } else if (move === "run") { // running along a web strand stretched across the sky
-      var rx = ((t * 34 + 120) % (W + 60)) - 30;
-      var strand = function (x) { var d = (x - rx) / 40; return 50 + 4 * Math.sin(Math.PI * x / W) + 8 * Math.exp(-d * d); };
-      g.strokeStyle = "rgba(242,244,255,0.75)"; g.lineWidth = 1;
-      g.beginPath(); g.moveTo(0, strand(0));
-      for (var sx = 4; sx <= W; sx += 4) g.lineTo(sx, strand(sx));
-      g.stroke();
-      drawHero(rx, strand(rx) - 24 * HERO_SCALE - Math.abs(Math.sin(t * 12)) * 1.5, 0.12, t, 0, -8);
-    } else { // flying across the sky, tipped forward like a superhero
-      var fx = ((t * 40 + 120) % (W + 80)) - 40;
-      var fy = 44 + Math.sin(t * 1.6) * 14;
-      drawHero(fx, fy, Math.PI / 2 - 0.15 + Math.cos(t * 1.6) * 0.1, t, 0, -3);
-    }
-
-    if (!reduceMotion) requestAnimationFrame(draw);
-  }
-  requestAnimationFrame(draw);
-
-  /* ------------------------------------------------------------------ */
-  /* Hero maker: pick the banner hero's colors, hat, cape and move.     */
-  /* ------------------------------------------------------------------ */
-
-  var heroBtn = document.getElementById("hero-btn");
-  var heroPanel = document.getElementById("hero-panel");
-  var heroBox = document.getElementById("hero-options");
-  var heroChoices = [];
-
-  Object.keys(HERO_OPTIONS).forEach(function (key) {
-    var opt = HERO_OPTIONS[key];
-    var row = el("div", "hero-group");
-    row.setAttribute("role", "group");
-    row.setAttribute("aria-label", opt.label);
-    row.appendChild(el("span", "hero-group-label", opt.label));
-    opt.values.forEach(function (v) {
-      var b;
-      if (opt.type === "swatch") {
-        b = el("button", "swatch" + (v === "none" ? " none" : ""));
-        if (v !== "none") b.style.background = v;
-        b.setAttribute("aria-label", opt.label + ": " + (COLOR_NAMES[v] || v));
-        b.title = COLOR_NAMES[v] || v;
-      } else {
-        b = el("button", "pick", v);
-        b.setAttribute("aria-label", opt.label + ": " + v);
-      }
-      b.type = "button";
-      b.addEventListener("click", function () { heroLook[key] = v; heroChanged(); blip(); });
-      heroChoices.push({ key: key, value: v, button: b });
-      row.appendChild(b);
-    });
-    heroBox.appendChild(row);
-  });
-
-  function renderHeroChoices() {
-    heroChoices.forEach(function (c) { c.button.setAttribute("aria-pressed", heroLook[c.key] === c.value ? "true" : "false"); });
-  }
-  function heroChanged() {
-    saveHero();
-    renderHeroChoices();
-    if (reduceMotion) requestAnimationFrame(draw); // no animation loop, so draw the new look once
-  }
-  function openHeroPanel(open) {
-    heroPanel.hidden = !open;
-    heroBtn.setAttribute("aria-expanded", open ? "true" : "false");
-    if (open) {
-      var first = heroPanel.querySelector('[aria-pressed="true"]');
-      if (first) first.focus();
-    } else {
-      heroBtn.focus();
-    }
-  }
-  heroBtn.addEventListener("click", function () { openHeroPanel(heroPanel.hidden); blip(); });
-  document.getElementById("hero-done").addEventListener("click", function () { openHeroPanel(false); coin(); });
-  document.getElementById("hero-reset").addEventListener("click", function () {
-    Object.keys(HERO_DEFAULT).forEach(function (k) { heroLook[k] = HERO_DEFAULT[k]; });
-    heroChanged(); blip();
-  });
-  document.getElementById("hero-random").addEventListener("click", function () {
-    Object.keys(HERO_OPTIONS).forEach(function (k) {
-      var vs = HERO_OPTIONS[k].values;
-      heroLook[k] = vs[Math.floor(Math.random() * vs.length)];
-    });
-    if (heroLook.head === heroLook.color) heroLook.head = HERO_DEFAULT.head; // keep the eyes and ring visible
-    heroChanged(); blip();
-  });
-  heroPanel.addEventListener("keydown", function (ev) {
-    if (ev.key === "Escape") { ev.preventDefault(); openHeroPanel(false); }
-  });
-  renderHeroChoices();
+  window.ArcadeSound = { blip: blip, coin: coin }; // marquee.js uses these too
 })();
