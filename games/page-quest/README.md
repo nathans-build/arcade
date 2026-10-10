@@ -8,9 +8,9 @@ story below it (or beside it on wide screens) in big VT323 text, with read-aloud
 ![Page Quest](docs/screenshot.png)
 
 - **The Arcade Library** is the hub: a pixel library with **Quill**, the owl librarian (she gives
-  the hints), the arcade's hero, and a bookshelf with **MYSTERY / ADVENTURE / SPACE / FANTASY** sections
+  the hints), the arcade's hero, and a bookshelf with **MYSTERY / ADVENTURE / SPACE / FANTASY / SPOOKY** sections
   plus **MY BOOKS** (books written in the Writer's Desk). Mystery, adventure and space have books for
-  grades 4–5, 6–8 and 9–12; fantasy has 4–5 and 6–8 so far (a genre with no book yet shows an empty
+  grades 4–5, 6–8 and 9–12; every genre now has a book for each band (a genre with no book yet shows an empty
   shelf message). Spines are tagged **YOUR LEVEL**, **EASY READ** (lower band) or **CHALLENGE** (higher band,
   still playable); your level's book is selected. The detail card shows the cover scene, blurb,
   reading level, and **endings found (x / y)**, with READ, or CONTINUE / START OVER for a book in
@@ -82,7 +82,7 @@ Books can also be written by hand in any text editor, in the format below.
 
 ## The `.story` format
 
-Plain UTF-8 text: a header (`title`, `author`, `genre` mystery|adventure|space|fantasy, `band`
+Plain UTF-8 text: a header (`title`, `author`, `genre` mystery|adventure|space|fantasy|spooky, `band`
 4-5|6-8|9-12, `cover` scene id, `blurb` ≤ 120 characters, `start` page id), then pages starting with
 `=== page-id`. Each page has `scene:`, optional `cast:` (0–3 characters, `id[:mood]`),
 `checkpoint`, `clue:` lines, body text and ends with ONE of: 1–4 choices (`> text -> page-id`, text ≤
@@ -131,7 +131,10 @@ floor, drifting cold mist), `academy-hall` (the great hall of a hidden school of
 a rose window with an open book, ? and ! study-group banners, glowing letters drifting upward),
 `secret-hq` (a spy headquarters under a school: wall map with blinking dots, radar sweep, monitors,
 lockers, briefing table), `temple-ruins` (a ruined Greek temple on a sunny hill above the sea, olive
-trees, a gull), `labyrinth` (stone maze corridors with torches and a red thread along the floor).
+trees, a gull), `labyrinth` (stone maze corridors with torches and a red thread along the floor),
+`castle-night` (a cozy candlelit castle hall at night: candelabras, portraits, cobwebs, bats at the moonlit window),
+`pumpkin-patch` (a moonlit pumpkin patch with glowing jack-o'-lanterns, a friendly scarecrow and fireflies),
+`attic` (a dusty attic: a round moon window, trunks, boxes, a dress form, a rocking horse).
 
 | id | dialogue name | who |
 |---|---|---|
@@ -159,6 +162,9 @@ trees, a gull), `labyrinth` (stone maze corridors with torches and a red thread 
 | sphinx | Sphinx | a riddle-loving sphinx: lion body, feathered wings that lift, a woman's head |
 | griffin | Griffin | a griffin: white eagle head, golden beak, flapping brown wings, lion body |
 | minotaur | Minotaur | a gentle young minotaur: calf's head, small horns, blue tunic, a red flower |
+| vampire | Vampire | a friendly cartoon vampire: slicked hair, lilac skin, one tiny fang, black cape with red lining (never bites) |
+| bat | Bat | a small, chatty purple bat with yellow eyes (floats, flaps) |
+| werewolf | Werewolf | a fluffy, goofy werewolf with a red bandana (more puppy than scary) |
 
 **Moods:** `normal happy sad angry scared surprised thinking frozen`. `frozen` works on any
 character: the sprite is recoloured in ice blues with crystal glints, eyes shut, inside a
