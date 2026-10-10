@@ -11,6 +11,7 @@
     { id: "lab", name: "Lab Mice", note: "Two clever lab mice with a big plan", dots: ["#3fbf6f", "#b04cff", "#ffe14a"], bar: "#0e1a14" },
     { id: "unicorn", name: "Unicorn Sky", note: "Rainbows, clouds and a galloping unicorn", dots: ["#ff7ac8", "#b07cff", "#7fd4ff"], bar: "#fff4fb" },
     { id: "idol", name: "Idol Hunters", note: "A pop group that sings away goofy demons", dots: ["#ff2e93", "#3ff4ff", "#6a2cff"], bar: "#0d0420" },
+    { id: "speed", name: "Speed Streak", note: "A lightning-fast runner; pick the suit", dots: ["#c8141c", "#ffcf33", "#ffffff"], bar: "#0b0710" },
   ];
   var THEME_KEY = "arcade.theme";
   function themeDef(id) { for (var i = 0; i < THEMES.length; i++) if (THEMES[i].id === id) return THEMES[i]; return THEMES[0]; }
@@ -722,16 +723,128 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* Speed Streak: a lightning-fast runner; the player picks the suit    */
+  /* ------------------------------------------------------------------ */
+
+  // An original speedster: a full cowl with white lenses, and a small lightning mark on the chest
+  // (no circle). Suits are original color schemes.
+  var SPEED_KEY = "arcade.speedster";
+  var SPEED_SUITS = {
+    scarlet: { S: "#c8141c", T: "#ffcf33", K: "#5a060c", V: "#ffffff", trail: ["#ffe26b", "#ffb31c", "#ffffff"] },
+    rival: { S: "#ffd21f", T: "#c8141c", K: "#7a5a00", V: "#ff3b3b", trail: ["#ff3b3b", "#ff8a1c", "#ffe0e0"] },
+    junior: { S: "#ffd21f", T: "#c8141c", K: "#c8141c", V: "#ffffff", trail: ["#ffe26b", "#ffffff", "#ffcf33"] },
+    shadow: { S: "#1d1d26", T: "#9aa3b5", K: "#000000", V: "#4ab8ff", trail: ["#4ab8ff", "#bfe6ff", "#ffffff"] },
+    frost: { S: "#8fd8ff", T: "#ffffff", K: "#2a6a94", V: "#ffffff", trail: ["#bff0ff", "#ffffff", "#7fd4ff"] },
+  };
+  var SPEED_OPTIONS = { suit: { label: "Suit", values: ["scarlet", "rival", "junior", "shadow", "frost"] } };
+  var speed = (function () {
+    var saved = {};
+    try { saved = JSON.parse(localStorage.getItem(SPEED_KEY) || "{}") || {}; } catch (e) { /* ignore */ }
+    return { suit: SPEED_OPTIONS.suit.values.indexOf(saved.suit) >= 0 ? saved.suit : "scarlet" };
+  })();
+  var RUNNER_TOP = [
+    ".....SSSS.....",
+    "....SSSSSS....",
+    "....SSSSVV....",
+    "....SSSSSS....",
+    ".....TSSS.....",
+    "....SSSSSSS...",
+  ];
+  var RUNNER_FRAMES = [
+    RUNNER_TOP.concat([
+      "...SSSTTSSSS..",
+      "..SS.STTSS.SS.",
+      ".SS..SSSSS....",
+      "S....STTTS....",
+      ".....SSSSS....",
+      "....SSS.SSS...",
+      "...SSS...SSS..",
+      "..SSS.....SS..",
+      ".SSS.......SS.",
+      ".TT........TT.",
+    ]),
+    RUNNER_TOP.concat([
+      "...SSSTTSSS...",
+      "..SSSSTTSSS...",
+      "....SSSSSS.S..",
+      ".....STTTS....",
+      ".....SSSSS....",
+      ".....SSSS.....",
+      ".....SSSS.....",
+      "....SSSSS.....",
+      "....SS.SS.....",
+      "....TT.TT.....",
+    ]),
+  ];
+  var runnerSprites = {};
+  function runnerFrames(suit) {
+    if (!runnerSprites[suit]) {
+      var c = SPEED_SUITS[suit];
+      runnerSprites[suit] = RUNNER_FRAMES.map(function (rows) { return sprite(rows, { S: c.S, T: c.T, K: c.K, V: c.V }); });
+    }
+    return runnerSprites[suit];
+  }
+  var streaks = [];
+  for (var sk = 0; sk < 14; sk++) streaks.push({ y: 6 + hash(sk + 50) * 52, s: 0.6 + hash(sk + 70), len: 10 + hash(sk + 90) * 30 });
+
+  function sceneSpeed(t) {
+    var suit = SPEED_SUITS[speed.suit];
+    sky([[0, "#0b0710"], [0.6, "#1c0d22"], [1, "#2c0f18"]]);
+    drawStars("#ffffff", "#4a3a5a");
+    g.fillStyle = "rgba(255,255,255,0.18)"; // wind streaks racing past
+    streaks.forEach(function (st) {
+      var x = W - ((t * 220 * st.s + st.len * 7) % (W + st.len * 2));
+      g.fillRect(Math.round(x), Math.round(st.y), Math.round(st.len), 1);
+    });
+    drawCity(back, t * 30, "#22122c", "#ffcf33", "#ff5a64");
+    // the elevated road the runner races along
+    g.fillStyle = "#3a2238"; g.fillRect(0, 62, W, 3);
+    g.fillStyle = "#24142a";
+    for (var px = -((t * 260) % 40); px < W; px += 40) g.fillRect(Math.round(px), 65, 4, 20);
+    g.fillStyle = "#ffcf33";
+    for (var lx = -((t * 260) % 16); lx < W; lx += 16) g.fillRect(Math.round(lx), 63, 6, 1);
+    drawCity(front, t * 60, "#0e0712", "#ffcf33", "#ff3b3b");
+
+    // Zoom across, pause off screen, zoom again.
+    var cycle = 3.2, ph = t % cycle, x = -40 + ph * 170;
+    var frames = runnerFrames(speed.suit), fr = frames[Math.floor(t * 18) % 2];
+    var y = 62 - fr.height * 2;
+    if (x < W + 40) {
+      // lightning trail: a jagged bolt behind the runner, flickering through the suit's colors
+      var tail = Math.max(0, x - 150);
+      for (var b = 0; b < 2; b++) {
+        g.strokeStyle = suit.trail[(Math.floor(t * 20) + b) % suit.trail.length];
+        g.lineWidth = b ? 1 : 2;
+        g.beginPath();
+        var yy = y + 14;
+        g.moveTo(x, yy);
+        for (var tx = x - 6; tx > tail; tx -= 6) g.lineTo(tx, yy + (hash(Math.floor(t * 30) + tx * 0.37 + b * 9) - 0.5) * 12);
+        g.stroke();
+      }
+      for (var a = 3; a >= 1; a--) { // after-images
+        g.globalAlpha = 0.12 * (4 - a);
+        blit(fr, x - a * 12, y, 2);
+      }
+      g.globalAlpha = 1;
+      blit(fr, x, y, 2);
+      if (frame % 3 === 0) { // sparks off the heels
+        g.fillStyle = suit.trail[0];
+        g.fillRect(Math.round(x - 2 + hash(frame) * 6), Math.round(y + 30 + hash(frame + 1) * 3), 2, 1);
+      }
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
   /* Animation loop                                                      */
   /* ------------------------------------------------------------------ */
 
-  var SCENES = { web: sceneWeb, stick: sceneStick, armor: sceneArmor, lab: sceneLab, unicorn: sceneUnicorn, idol: sceneIdol };
+  var SCENES = { web: sceneWeb, stick: sceneStick, armor: sceneArmor, lab: sceneLab, unicorn: sceneUnicorn, idol: sceneIdol, speed: sceneSpeed };
   var frame = 0;
   var t0 = performance.now();
   function draw(now) {
     frame++;
     g.save();
-    SCENES[theme]((now - t0) / 1000);
+    SCENES[theme](Math.max(0, (now - t0) / 1000)); // the first frame's timestamp can be a hair before t0
     g.restore();
     if (!reduceMotion) requestAnimationFrame(draw);
   }
@@ -742,9 +855,9 @@
   /* Theme picker                                                        */
   /* ------------------------------------------------------------------ */
 
-  var themeBtn = document.getElementById("theme-btn");
-  var panel = document.getElementById("theme-panel");
+  // The theme cards live in the player menu (profile.js opens and closes it).
   var list = document.getElementById("theme-list");
+  if (!list) return;
   var stickBox = document.getElementById("stick-options");
   var themeButtons = [], stickButtons = [];
 
@@ -771,31 +884,40 @@
     list.appendChild(b);
   });
 
-  Object.keys(STICK_OPTIONS).forEach(function (key) {
-    var opt = STICK_OPTIONS[key];
-    var row = document.createElement("div");
-    row.className = "hero-group";
-    row.setAttribute("role", "group");
-    row.setAttribute("aria-label", "Stick figure " + opt.label.toLowerCase());
-    var label = document.createElement("span");
-    label.className = "hero-group-label";
-    label.textContent = opt.label;
-    row.appendChild(label);
-    opt.values.forEach(function (v) {
-      var b = document.createElement("button");
-      b.type = "button";
-      b.className = "pick";
-      b.textContent = v;
-      b.setAttribute("aria-label", opt.label + ": " + v);
-      b.addEventListener("click", function () {
-        stick[key] = v;
-        try { localStorage.setItem(STICK_KEY, JSON.stringify(stick)); } catch (e) { /* ignore */ }
-        renderPicker(); redraw(); sound.blip();
+  // Extra choices for some themes (the stick figure's hat and move, the speedster's suit).
+  var THEME_OPTIONS = {
+    stick: { name: "Stick figure", key: STICK_KEY, state: stick, groups: STICK_OPTIONS },
+    speed: { name: "Speedster", key: SPEED_KEY, state: speed, groups: SPEED_OPTIONS },
+  };
+  Object.keys(THEME_OPTIONS).forEach(function (themeId) {
+    var set = THEME_OPTIONS[themeId];
+    Object.keys(set.groups).forEach(function (key) {
+      var opt = set.groups[key];
+      var row = document.createElement("div");
+      row.className = "hero-group";
+      row.setAttribute("role", "group");
+      row.setAttribute("aria-label", set.name + " " + opt.label.toLowerCase());
+      var label = document.createElement("span");
+      label.className = "hero-group-label";
+      label.textContent = opt.label;
+      row.appendChild(label);
+      opt.values.forEach(function (v) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "pick";
+        b.textContent = v;
+        b.setAttribute("aria-label", opt.label + ": " + v);
+        b.addEventListener("click", function () {
+          set.state[key] = v;
+          try { localStorage.setItem(set.key, JSON.stringify(set.state)); } catch (e) { /* ignore */ }
+          renderPicker(); redraw(); sound.blip();
+        });
+        stickButtons.push({ theme: themeId, state: set.state, key: key, value: v, button: b, row: row });
+        row.appendChild(b);
       });
-      stickButtons.push({ key: key, value: v, button: b });
-      row.appendChild(b);
+      row.setAttribute("data-theme-option", themeId);
+      stickBox.appendChild(row);
     });
-    stickBox.appendChild(row);
   });
 
   function setTheme(id) {
@@ -809,23 +931,9 @@
   }
   function renderPicker() {
     themeButtons.forEach(function (x) { x.button.setAttribute("aria-pressed", x.id === theme ? "true" : "false"); });
-    stickButtons.forEach(function (x) { x.button.setAttribute("aria-pressed", stick[x.key] === x.value ? "true" : "false"); });
-    stickBox.hidden = theme !== "stick";
+    stickButtons.forEach(function (x) { x.button.setAttribute("aria-pressed", x.state[x.key] === x.value ? "true" : "false"); });
+    Array.prototype.forEach.call(stickBox.children, function (row) { row.hidden = row.getAttribute("data-theme-option") !== theme; });
+    stickBox.hidden = !THEME_OPTIONS[theme];
   }
-  function openPanel(open) {
-    panel.hidden = !open;
-    themeBtn.setAttribute("aria-expanded", open ? "true" : "false");
-    if (open) {
-      var cur = list.querySelector('[aria-pressed="true"]');
-      if (cur) cur.focus();
-    } else {
-      themeBtn.focus();
-    }
-  }
-  themeBtn.addEventListener("click", function () { openPanel(panel.hidden); sound.blip(); });
-  document.getElementById("theme-done").addEventListener("click", function () { openPanel(false); sound.coin(); });
-  panel.addEventListener("keydown", function (ev) {
-    if (ev.key === "Escape") { ev.preventDefault(); openPanel(false); }
-  });
   setTheme(theme);
 })();

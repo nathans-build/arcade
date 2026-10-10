@@ -72,16 +72,31 @@ in `kit/banks/` list standard codes to double-check against WCPSS pacing guides.
 
 ## The menu
 
-- **Grade:** a dropdown (K–12). `[` and `]` also change it. The grade rides along to every game as
-  `?grade=`.
+- **Players (👤 on the banner):** each device can have up to 6 players, for example siblings sharing
+  an iPad. The **player menu** holds everything that belongs to one player:
+  - name, and the **arcade name** shown in the banner and tab ("Nathan's Arcade"; it follows the
+    name until it's changed by hand)
+  - grade (a dropdown, K–12; `[` and `]` also change it, and it rides along to every game as
+    `?grade=`), adaptive math, "Fits my grade", read aloud (Auto / On / Off)
+  - the theme
+  - favorites and recently played, and **every game's progress, scores and saves**, including
+    Page Quest bookmarks and Writer's Desk books
+
+  How it works (`site/profile.js`): the menu and the games keep using their usual localStorage
+  keys (`arcade.*`, `pageQuest.*`, `lunarPatrol.*`), which always hold the *active* player's values.
+  Switching players files those keys away under the old player in `arcade.profiles`, restores the
+  new player's, and reloads the menu, so no game needed changes. `arcade.muted` stays shared by
+  the device. A brand-new device opens the player menu with a welcome. A device that already had
+  saved progress becomes "Player 1" with everything kept. Nothing leaves the device. Credits always
+  say the games were created by SpiderBen10 (NZDO).
 - **Subject and topic:** two dropdowns. Subject is All, Math, Science, Reading & Writing or Social
   Studies. Once a subject is picked, Topic narrows it (for example Math → Geometry & angles). Each
   option shows how many games it has. Topics are listed in `window.TOPICS` at the top of
   `site/games.js`, and each game lists its topic ids in `topics`. `scripts/check-games.js` (run by
   the build) fails if a game has a subject without a topic, or an unknown topic id. Keys: `,` `.`
   subject, `;` `'` topic.
-- **Themes:** **🎨 Theme** on the banner picks the banner scene and the page colors, saved on the
-  device (`arcade.theme`). `site/theme-boot.js` applies it before the page draws. The scenes are in
+- **Themes:** picked in the player menu; each sets the banner scene and the page colors
+  (`arcade.theme`, saved per player). `site/theme-boot.js` applies it before the page draws. The scenes are in
   `site/marquee.js`, and the colors are `[data-theme=...]` blocks at the top of `site/styles.css`.
 
   | Theme | Banner |
@@ -92,10 +107,11 @@ in `kit/banks/` list standard codes to double-check against WCPSS pacing guides.
   | Lab Mice | Two lab mice crossing the bench, one dreaming of the whole world |
   | Unicorn Sky | A unicorn galloping past a rainbow, on a pastel page |
   | Idol Hunters | A pop trio on stage singing away goofy little demons |
+  | Speed Streak | A lightning-fast runner racing along a city overpass with a lightning trail; pick the suit (scarlet, rival, junior, shadow or frost) |
 
   Every character is original pixel art drawn in code. The themes are *inspired by* kinds of
-  heroes kids like, but use no characters, names or logos from Marvel, Warner Bros., Netflix or
-  anyone else.
+  heroes kids like, but use no characters, names or logos from Marvel, DC, Warner Bros., Netflix
+  or anyone else.
 
 ## Dev site and production (nzdogames.com)
 

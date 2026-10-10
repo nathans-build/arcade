@@ -16,44 +16,75 @@
     <div class="page">
       <header class="marquee">
         <div class="marquee-buttons">
-          <button type="button" class="hero-badge" id="theme-btn" aria-expanded="false" aria-controls="theme-panel">🎨 Theme</button>
+          <button type="button" class="hero-badge" id="profile-btn" aria-expanded="false" aria-controls="profile-panel">👤 <span id="profile-name">Player 1</span></button>
           <a class="credits-badge" href="credits.html" data-keep-grade>Credits</a>
         </div>
         <canvas id="scene" width="320" height="120" aria-hidden="true"></canvas>
         <div class="marquee-text">
           <p class="eyebrow">Insert coin · Player 1</p>
-          <h1><span class="h-red">SpiderBen10's</span> <span class="h-blue">Arcade</span></h1>
+          <h1 id="arcade-title"><span class="h-red">SpiderBen10's</span> <span class="h-blue">Arcade</span></h1>
           <p class="byline">All games created by <strong>SpiderBen10</strong> <span class="tag">(NZDO)</span></p>
         </div>
       </header>
 
-      <section class="theme-panel" id="theme-panel" aria-labelledby="theme-title" hidden>
+      <section class="profile-panel" id="profile-panel" aria-labelledby="profile-title" hidden>
         <div class="section-head">
-          <h2 id="theme-title">Pick a theme</h2>
-          <p class="hint">Changes the banner and the colors. Saved on this device.</p>
+          <h2 id="profile-title">Player menu</h2>
+          <p class="hint">Everything here is saved on this device for this player only.</p>
         </div>
-        <div class="theme-list" id="theme-list" role="group" aria-label="Themes"></div>
-        <div class="stick-options" id="stick-options" hidden></div>
+        <p class="profile-welcome" id="profile-welcome" hidden>👋 Welcome! Type your name, pick your grade and a theme, then press <strong>Done</strong>.</p>
+
+        <div class="profile-row">
+          <span class="profile-label">Who's playing</span>
+          <div class="players" id="players" role="group" aria-label="Players on this device"></div>
+        </div>
+        <div class="profile-row">
+          <label class="profile-label" for="player-name-input">Name</label>
+          <input class="text-input" id="player-name-input" type="text" maxlength="20" autocomplete="off" spellcheck="false" />
+        </div>
+        <div class="profile-row">
+          <label class="profile-label" for="arcade-name-input">Arcade name</label>
+          <input class="text-input wide" id="arcade-name-input" type="text" maxlength="30" autocomplete="off" spellcheck="false" />
+        </div>
+        <div class="profile-row">
+          <label class="profile-label" for="grade-select" id="grade-title">Grade</label>
+          <select class="grade-select" id="grade-select"></select>
+        </div>
+        <div class="profile-row">
+          <span class="profile-label">Settings</span>
+          <div class="profile-toggles">
+            <div class="adapt">
+              <button type="button" class="adapt-btn" id="adapt-btn" aria-pressed="true">Adaptive math: <strong>ON</strong></button>
+              <span class="hint" id="adapt-note"></span>
+              <button type="button" class="adapt-reset" id="adapt-reset">Reset math level</button>
+            </div>
+            <div class="adapt">
+              <button type="button" class="fit-btn" id="fit-btn" aria-pressed="true">Fits my grade: <strong>ON</strong></button>
+              <span class="hint">Hide games made for other grades.</span>
+            </div>
+            <div class="adapt">
+              <button type="button" class="adapt-btn" id="read-btn">Read aloud: <strong>AUTO</strong></button>
+              <span class="hint" id="read-note"></span>
+            </div>
+          </div>
+        </div>
+        <div class="profile-row column">
+          <span class="profile-label">Theme</span>
+          <div class="theme-list" id="theme-list" role="group" aria-label="Themes"></div>
+          <div class="stick-options" id="stick-options" hidden></div>
+        </div>
         <div class="hero-actions">
-          <button type="button" class="adapt-btn on" id="theme-done">Done ▶</button>
+          <button type="button" class="adapt-btn on" id="profile-done">Done ▶</button>
+          <button type="button" class="adapt-reset" id="player-delete" hidden>Delete player</button>
         </div>
       </section>
 
       <main>
-        <section class="grade-panel" aria-labelledby="grade-title">
-          <div class="section-head">
-            <h2 id="grade-title">Select grade</h2>
-            <p class="hint">Now playing: <strong id="grade-now">Grade 6</strong> · questions follow NC standards</p>
-          </div>
-          <div class="grade-row">
-            <select class="grade-select" id="grade-select" aria-labelledby="grade-title"></select>
-          </div>
-          <div class="adapt">
-            <button type="button" class="adapt-btn" id="adapt-btn" aria-pressed="true">Adaptive math: <strong>ON</strong></button>
-            <span class="hint" id="adapt-note"></span>
-            <button type="button" class="adapt-reset" id="adapt-reset">Reset math level</button>
-          </div>
+        <section class="player-bar" aria-label="Who's playing">
+          <p class="hint">Playing: <strong id="player-name">Player 1</strong> · <strong id="grade-now">Grade 6</strong> · questions follow NC standards</p>
+          <button type="button" class="adapt-reset" id="player-change">Change player or settings ▸</button>
         </section>
+
 
         <section class="games" aria-labelledby="games-title">
           <div class="section-head">
@@ -71,7 +102,6 @@
             </div>
           </div>
           <div class="filter-bar">
-            <button type="button" class="fit-btn" id="fit-btn" aria-pressed="true">Fits my grade: <strong>ON</strong></button>
             <span class="hint" id="fit-note"></span>
           </div>
           <div id="shelves"></div>
@@ -81,12 +111,13 @@
 
       <footer>
         <p>© <span id="year"></span> SpiderBen10 (NZDO). Every game in this arcade was designed and built by SpiderBen10. <a class="credits-link" href="credits.html" data-keep-grade>Credits ▶</a></p>
-        <p class="fine">Banner themes and characters are original artwork. Not affiliated with Marvel, Warner Bros., Netflix or any game studio.</p>
+        <p class="fine">Banner themes and characters are original artwork. Not affiliated with Marvel, DC, Warner Bros., Netflix or any game studio.</p>
       </footer>
     </div>
     <script src="env.js"></script>
     <script src="ribbon.js"></script>
     <script src="games.js"></script>
+    <script src="profile.js"></script>
     <script src="app.js"></script>
     <script src="marquee.js"></script>
   </body>
