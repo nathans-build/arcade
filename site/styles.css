@@ -90,6 +90,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; } /* some components set display, which would beat the hidden attribute */
 html { background: var(--night); }
 body {
   margin: 0;
@@ -184,7 +185,6 @@ kbd {
 }
 
 /* ---------- Grade picker ---------- */
-.grade-panel { margin-bottom: 28px; }
 .hint strong { color: var(--yellow); font-weight: normal; }
 .grade-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
 .grade-select {
@@ -309,10 +309,28 @@ footer .fine { font-size: 17px; opacity: 0.8; }
 .credits-badge:hover, .credits-badge:focus-visible, .hero-badge:hover, .hero-badge:focus-visible { outline: none; border-color: var(--yellow); }
 
 /* ---------- Theme picker ---------- */
-.theme-panel {
+.profile-panel {
   margin: 22px 0 6px; padding: 16px; background: var(--panel-2);
   border: 3px solid var(--yellow); box-shadow: 6px 6px 0 var(--shadow);
 }
+.profile-welcome { margin: 0 0 14px; padding: 8px 12px; border: 2px dashed var(--yellow); color: var(--text); }
+.profile-welcome strong { color: var(--yellow); font-weight: normal; }
+.profile-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 0; border-top: 1px solid var(--line); }
+.profile-row.column { flex-direction: column; align-items: stretch; }
+.profile-label { flex: 0 0 150px; font-family: var(--pixel); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.profile-toggles { display: flex; flex-direction: column; gap: 4px; flex: 1 1 300px; min-width: 0; }
+.profile-toggles .adapt { margin-top: 0; }
+.players { display: flex; flex-wrap: wrap; gap: 8px; }
+.player-chip { font-size: 10px; min-width: 64px; }
+.player-add { border-style: dashed; }
+.text-input {
+  font-family: var(--term); font-size: 24px; min-height: 44px; padding: 4px 10px; width: 240px; max-width: 100%;
+  color: var(--text); background: var(--panel); border: 2px solid var(--blue); border-radius: 0; box-shadow: 3px 3px 0 var(--shadow);
+}
+.text-input.wide { width: 360px; }
+.text-input:focus-visible { outline: none; border-color: var(--yellow); }
+.player-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 18px; }
+.player-bar strong { color: var(--yellow); font-weight: normal; }
 .theme-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-bottom: 14px; }
 .theme-card {
   display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; gap: 2px 10px; align-items: center;
@@ -418,6 +436,8 @@ footer .fine { font-size: 17px; opacity: 0.8; }
   .credits-badge, .hero-badge { font-size: 8px; padding: 4px 6px; }
   .grade-select { min-width: 0; flex: 1 1 200px; }
   .hero-group-label { flex-basis: 100%; }
+  .profile-label { flex-basis: 100%; }
+  .text-input, .text-input.wide { width: 100%; }
   .select-field { flex: 1 1 100%; }
   .pick-select { min-width: 0; width: 100%; }
 }

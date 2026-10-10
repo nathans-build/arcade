@@ -731,7 +731,7 @@
   function draw(now) {
     frame++;
     g.save();
-    SCENES[theme]((now - t0) / 1000);
+    SCENES[theme](Math.max(0, (now - t0) / 1000)); // the first frame's timestamp can be a hair before t0
     g.restore();
     if (!reduceMotion) requestAnimationFrame(draw);
   }
@@ -742,9 +742,9 @@
   /* Theme picker                                                        */
   /* ------------------------------------------------------------------ */
 
-  var themeBtn = document.getElementById("theme-btn");
-  var panel = document.getElementById("theme-panel");
+  // The theme cards live in the player menu (profile.js opens and closes it).
   var list = document.getElementById("theme-list");
+  if (!list) return;
   var stickBox = document.getElementById("stick-options");
   var themeButtons = [], stickButtons = [];
 
@@ -812,20 +812,5 @@
     stickButtons.forEach(function (x) { x.button.setAttribute("aria-pressed", stick[x.key] === x.value ? "true" : "false"); });
     stickBox.hidden = theme !== "stick";
   }
-  function openPanel(open) {
-    panel.hidden = !open;
-    themeBtn.setAttribute("aria-expanded", open ? "true" : "false");
-    if (open) {
-      var cur = list.querySelector('[aria-pressed="true"]');
-      if (cur) cur.focus();
-    } else {
-      themeBtn.focus();
-    }
-  }
-  themeBtn.addEventListener("click", function () { openPanel(panel.hidden); sound.blip(); });
-  document.getElementById("theme-done").addEventListener("click", function () { openPanel(false); sound.coin(); });
-  panel.addEventListener("keydown", function (ev) {
-    if (ev.key === "Escape") { ev.preventDefault(); openPanel(false); }
-  });
   setTheme(theme);
 })();

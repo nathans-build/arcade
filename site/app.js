@@ -410,7 +410,7 @@
     var a = document.activeElement;
     var typing = a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA" || a.tagName === "SELECT" || a.isContentEditable);
     if (typing) return;
-    if (a && a.closest && a.closest("#theme-panel")) return; // the theme picker uses normal keys
+    if (a && a.closest && a.closest("#profile-panel")) return; // the player menu uses normal keys
     if (k === "[" || k === "]") {
       var gi = GRADES.indexOf(grade) + (k === "]" ? 1 : -1);
       if (gi >= 0 && gi < GRADES.length) { setGrade(GRADES[gi]); blip(); }
