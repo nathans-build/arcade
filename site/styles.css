@@ -117,22 +117,21 @@ kbd {
 /* ---------- Grade picker ---------- */
 .grade-panel { margin-bottom: 28px; }
 .hint strong { color: var(--yellow); font-weight: normal; }
-.grades {
-  display: grid;
-  grid-template-columns: repeat(13, minmax(0, 1fr));
-  gap: 6px;
+.grade-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.grade-select {
+  appearance: none; -webkit-appearance: none;
+  font-family: var(--pixel); font-size: clamp(11px, 1.6vw, 14px);
+  min-height: 48px; min-width: 240px; padding: 8px 52px 8px 14px;
+  color: #fff; background-color: var(--red);
+  /* pixel arrow */
+  background-image: linear-gradient(45deg, transparent 50%, var(--yellow) 50%), linear-gradient(135deg, var(--yellow) 50%, transparent 50%);
+  background-position: calc(100% - 26px) 50%, calc(100% - 18px) 50%;
+  background-size: 8px 8px, 8px 8px; background-repeat: no-repeat;
+  border: 2px solid var(--yellow); border-radius: 0;
+  box-shadow: 3px 3px 0 #000, 0 0 14px rgba(227, 38, 47, 0.5); cursor: pointer;
 }
-@media (max-width: 720px) { .grades { grid-template-columns: repeat(7, minmax(0, 1fr)); } }
-.grade-btn {
-  font-family: var(--pixel); font-size: clamp(10px, 1.6vw, 14px);
-  min-height: 44px; padding: 6px 0;
-  color: var(--text); background: var(--panel);
-  border: 2px solid var(--blue); box-shadow: 3px 3px 0 #000;
-  cursor: pointer;
-}
-.grade-btn:hover, .grade-btn:focus-visible { outline: none; border-color: var(--yellow); }
-.grade-btn.on { background: var(--red); border-color: var(--yellow); color: #fff; box-shadow: 3px 3px 0 #000, 0 0 14px rgba(227, 38, 47, 0.5); }
-.grade-btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #000; }
+.grade-select:hover, .grade-select:focus-visible { outline: 2px solid var(--web); outline-offset: 2px; }
+.grade-select option { font-family: var(--term); font-size: 20px; color: var(--text); background: var(--panel); }
 
 /* ---------- Cabinets ---------- */
 .cabinets {
@@ -231,14 +230,38 @@ footer .fine { font-size: 17px; opacity: 0.8; }
 .adapt-btn:hover, .adapt-btn:focus-visible, .adapt-reset:hover, .adapt-reset:focus-visible { outline: none; border-color: var(--yellow, #ffd23f); }
 .adapt-reset { border-color: #3a4170; color: #c9cff0; font-size: 0.85em; }
 
-/* ---------- Credits link on the marquee ---------- */
-.credits-badge {
-  position: absolute; top: 10px; right: 10px; z-index: 2;
+/* ---------- Hero + credits buttons on the marquee ---------- */
+.marquee-buttons { position: absolute; top: 10px; right: 10px; z-index: 2; display: flex; gap: 8px; }
+.credits-badge, .hero-badge {
   font-family: var(--pixel); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--yellow); text-decoration: none;
+  color: var(--yellow); text-decoration: none; cursor: pointer;
   background: rgba(5, 8, 24, 0.85); border: 2px solid var(--blue-light); padding: 6px 8px; box-shadow: 3px 3px 0 #000;
 }
-.credits-badge:hover, .credits-badge:focus-visible { outline: none; border-color: var(--yellow); }
+.hero-badge[aria-expanded="true"] { border-color: var(--yellow); background: var(--red); color: #fff; }
+.credits-badge:hover, .credits-badge:focus-visible, .hero-badge:hover, .hero-badge:focus-visible { outline: none; border-color: var(--yellow); }
+
+/* ---------- Hero maker ---------- */
+.hero-panel {
+  margin: 22px 0 6px; padding: 16px; background: var(--panel-2);
+  border: 3px solid var(--yellow); box-shadow: 6px 6px 0 #000;
+}
+.hero-group { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+.hero-group-label { flex: 0 0 92px; font-family: var(--pixel); font-size: 10px; color: var(--muted); text-transform: uppercase; }
+.swatch {
+  width: 40px; height: 40px; cursor: pointer; padding: 0;
+  border: 3px solid var(--panel); outline: 2px solid var(--blue); box-shadow: 3px 3px 0 #000;
+}
+.swatch.none { background: repeating-linear-gradient(45deg, var(--panel) 0 6px, #2a3470 6px 9px); }
+.swatch[aria-pressed="true"] { outline: 3px solid var(--yellow); }
+.swatch:hover, .swatch:focus-visible { outline-color: var(--yellow); }
+.pick {
+  min-height: 40px; padding: 6px 10px; cursor: pointer;
+  font-family: var(--pixel); font-size: 9px; text-transform: uppercase;
+  color: var(--text); background: var(--panel); border: 2px solid var(--blue); box-shadow: 3px 3px 0 #000;
+}
+.pick[aria-pressed="true"] { background: var(--red); border-color: var(--yellow); color: #fff; }
+.pick:hover, .pick:focus-visible { outline: none; border-color: var(--yellow); }
+.hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
 .credits-link { color: var(--yellow); }
 
 /* ---------- Subject tabs + "fits my grade" ---------- */
@@ -255,6 +278,20 @@ footer .fine { font-size: 17px; opacity: 0.8; }
 .tab.on { background: var(--red); border-color: var(--yellow); color: #fff; box-shadow: 3px 3px 0 #000, 0 0 14px rgba(227, 38, 47, 0.5); }
 .tab.on .tab-count { color: var(--yellow); }
 .tab:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #000; }
+
+/* Topic chips under a subject tab */
+.topics { display: flex; flex-wrap: wrap; gap: 6px; margin: -2px 0 14px; padding-left: 12px; border-left: 3px solid var(--red); }
+.topic {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 36px; padding: 4px 10px; cursor: pointer;
+  font: inherit; font-size: 20px; line-height: 1;
+  color: var(--text); background: var(--night); border: 2px solid #3a4170; box-shadow: 2px 2px 0 #000;
+}
+.topic .tab-count { font-family: var(--pixel); }
+.topic.empty { color: var(--muted); }
+.topic:hover, .topic:focus-visible { outline: none; border-color: var(--yellow); }
+.topic.on { border-color: var(--yellow); background: var(--blue); color: #fff; }
+.topic.on .tab-count { color: var(--yellow); }
 
 .filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 18px; }
 .fit-btn {
@@ -316,7 +353,11 @@ footer .fine { font-size: 17px; opacity: 0.8; }
   .cabinet:hover, .cabinet:focus-visible, .cabinet.selected { transform: none; box-shadow: 4px 4px 0 #000, 0 0 16px rgba(255, 210, 63, 0.35); }
   .fav { top: 50%; transform: translateY(-50%); width: 40px; height: 44px; right: 2px; }
   .tab { padding: 6px 9px; }
-  .credits-badge { top: 6px; right: 6px; font-size: 8px; padding: 4px 6px; }
+  .marquee-buttons { top: 6px; right: 6px; gap: 6px; }
+  .credits-badge, .hero-badge { font-size: 8px; padding: 4px 6px; }
+  .grade-select { min-width: 0; flex: 1 1 200px; }
+  .hero-group-label { flex-basis: 100%; }
+  .topic { font-size: 18px; }
 }
 
 /* ---------- Credits page ---------- */

@@ -18,6 +18,7 @@ browser to try it locally.
      title: "Space Racer",
      tagline: "One sentence about the game.",
      subjects: ["Math"],            // decides which subject tabs show it ("ELA" = Reading & Writing)
+     topics: ["numbers", "algebra"], // topic chips under each subject tab (ids from window.TOPICS)
      grades: ["5", "6", "7", "8"],  // omit for K-12; used by the "Fits my grade" filter
      url: "/space-racer/",
      image: "img/space-racer.png",
@@ -69,8 +70,19 @@ in `kit/banks/` list standard codes to double-check against WCPSS pacing guides.
 
 ## Artwork
 
-The marquee hero is an original pixel-art character drawn in code (`site/app.js`), not affiliated
-with Marvel or any game studio.
+## The menu
+
+- **Grade:** a dropdown (K–12). `[` and `]` also change it. The grade rides along to every game as
+  `?grade=`.
+- **Subjects and topics:** subject tabs (All, Math, Science, Reading & Writing, Social Studies). Under a
+  subject, topic chips narrow it further (for example Math → Geometry & angles). Topics are listed in
+  `window.TOPICS` at the top of `site/games.js`, and each game lists its topic ids in `topics`.
+  `scripts/check-games.js` (run by the build) fails if a game has a subject without a topic or an
+  unknown topic id. Keys: `,` `.` subject, `;` `'` topic.
+- **The banner hero** is an original stick figure with two dot eyes and no mouth, drawn in code
+  (`site/app.js`). **✎ My hero** on the banner opens the hero maker: body and head color, a hat, a
+  cape, and how it moves (swing on a web, run along a web strand, or fly). The design is saved on
+  the device (`arcade.hero` in localStorage). Not affiliated with Marvel or any game studio.
 
 ## Dev site and production (nzdogames.com)
 
