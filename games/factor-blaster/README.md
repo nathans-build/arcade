@@ -35,7 +35,7 @@ The grade comes from the arcade link (`?grade=K` … `?grade=12`) or the title-s
 | 2 | Number bonds (to 20) | `17 → 9 + 8` | 1 | bigger than 10 · even · odd | NC.2.OA.2, NC.2.OA.3, NC.1.NBT.3 |
 | 3 | Factor pairs of multiplication facts | `36 → 4 × 9` | primes | multiples of 2, 3, 5, 4, 6 | NC.3.OA.7 |
 | 4–5 | Factor pairs (to 100) | `84 → 7 × 12` | primes | multiples · even numbers | NC.4.OA.4 |
-| 6–8 | Prime factorization (to 100 / 200 / 360) | `72 → 8 × 9 → 2×2×2×3×3` | primes | multiples · shares a factor with 12 · perfect squares (gr. 8) | NC.6.NS.4, NC.8.EE.2 |
+| 6–8 | Prime factorization (to 100 / 200 / 360) | `72 → 8 × 9 → 2×2×2×3×3` | primes | multiples · **common multiples of two numbers (LCM)**, e.g. 4 and 6 · shares a factor with 12 · **GCF with 24 is 8** (also 36→12, 30→6) · perfect squares (gr. 8) | NC.6.NS.4, NC.8.EE.2 |
 | 9 (NC Math 1) | Factoring: trinomials, GCF | `x²+5x+6 → (x+2)(x+3)`, `3x+12 → 3 · (x+4)` | constants, x, linear factors | has factor (x−r) · has a GCF | NC.M1.A-SSE.3 |
 | 10 (NC Math 2) | + difference of squares, perfect squares, GCF first | `2x²−32 → 2 · (x²−16) → (x+4)(x−4)` | 〃 | + equals 0 when x = r | NC.M1.A-SSE.3, NC.M1.A-APR.3 |
 | 11–12 (NC Math 3–4) | + non-monic, cubic with GCF x | `2x²+7x+3 → (2x+1)(x+3)`, `x³+5x²+6x → x · (x²+5x+6)` | 〃 | 〃 | NC.M1.A-SSE.3, NC.M1.A-APR.3 |

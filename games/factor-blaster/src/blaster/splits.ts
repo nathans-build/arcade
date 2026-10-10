@@ -481,7 +481,26 @@ export function makeRule(grade: Grade, level: number): Rule {
       "square", "BLAST PERFECT SQUARES", "PERFECT SQUARES", "Blast perfect squares.", "NC.8.EE.2", "Perfect squares & roots",
       (n) => Number.isInteger(Math.sqrt(n)), (n) => `${n} IS NOT A PERFECT SQUARE`,
     );
-    const order = g >= 8 ? [multiples, shared, squares] : [multiples, shared];
+    // Least common multiple: shoot only the common multiples of two numbers (multiples of their LCM).
+    const lcmPairs: [number, number][] = [[4, 6], [6, 8], [4, 10], [6, 9], [3, 4]];
+    const [la, lb] = lcmPairs[Math.floor((level - 1) / 5) % lcmPairs.length];
+    const l = (la * lb) / gcd(la, lb);
+    const lcm = numRule(
+      `lcm${la}x${lb}`, `BLAST COMMON MULTIPLES OF ${la} AND ${lb} (LCM)`, `MULTIPLES OF ${la} AND ${lb}`,
+      `Blast numbers that are multiples of both ${la} and ${lb}. Hint: find their least common multiple.`,
+      "NC.6.NS.4", "Least common multiple",
+      (n) => n % l === 0, (n) => `${n}: NOT A MULTIPLE OF LCM ${l}`,
+    );
+    // Greatest common factor: shoot the numbers whose GCF with a given number is exactly d.
+    const gcfPairs: [number, number][] = [[24, 8], [36, 12], [30, 6]];
+    const [gm, gd] = gcfPairs[Math.floor((level - 1) / 5) % gcfPairs.length];
+    const gcfExact = numRule(
+      `gcf${gm}is${gd}`, `BLAST NUMBERS WHOSE GCF WITH ${gm} IS ${gd}`, `GCF WITH ${gm} IS ${gd}`,
+      `Blast numbers whose greatest common factor with ${gm} is ${gd}.`,
+      "NC.6.NS.4", "Greatest common factor",
+      (n) => gcd(n, gm) === gd, (n) => `GCF(${n},${gm}) IS ${gcd(n, gm)}, NOT ${gd}`,
+    );
+    const order = g >= 8 ? [multiples, lcm, gcfExact, shared, squares] : [multiples, lcm, shared, gcfExact];
     return order[(level - 1) % order.length];
   }
 
