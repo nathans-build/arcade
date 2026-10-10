@@ -1397,4 +1397,164 @@ export const SCENE_PAINTERS: Record<SceneId, ScenePainter> = {
       for (let i = 0; i < 4; i++) g.px(146 + ((i * 9 + t * 3) % 30), 80 + ((i * 13 + t * 5) % 44), "#3a3024");
     },
   },
+  // Spooky shelf: cozy-spooky, never truly scary.
+  "castle-night": {
+    floor: 190,
+    bg(g) {
+      bricks(g, 0, 0, W, 150, "#2a2440", "#1c1830");
+      g.dither(0, 0, W, 24, "#2a2440", "#1c1830");
+      // big moonlit window
+      windowFrame(g, 128, 22, 64, 78, "#4a4466", true);
+      g.rect(128, 22, 64, 78, "#101a44");
+      g.ellipse(160, 22, 32, 10, "#101a44");
+      stars(g, 12, 14, 96, 77);
+      g.circle(174, 40, 9, C.cream);
+      g.circle(178, 37, 2, "#e8d8a0");
+      g.rect(158, 14, 4, 86, "#4a4466");
+      g.rect(128, 58, 64, 3, "#4a4466");
+      // portraits (a smiling vampire and a bat)
+      for (const [x, c] of [[46, C.purple], [252, "#5a1424"]] as [number, string][]) {
+        g.rect(x - 18, 34, 36, 44, C.sbYellow);
+        g.rect(x - 15, 37, 30, 38, c);
+        g.circle(x, 52, 7, "#e0dcf5");
+        g.rect(x - 7, 44, 14, 4, "#23203a");
+        g.px(x - 3, 52, C.black); g.px(x + 2, 52, C.black);
+        g.rect(x - 2, 56, 4, 1, C.red);
+        g.tri(x - 10, 75, x, 60, x + 10, 75, "#23203a");
+      }
+      // cobwebs in the corners
+      for (const [x, dir] of [[0, 1], [W, -1]] as [number, number][]) {
+        for (let r = 8; r <= 32; r += 8) g.line(x, r, x + dir * r, 0, "#8a86a8");
+        for (let a = 0; a < 3; a++) g.line(x, 0, x + dir * (34 - a * 10), 10 + a * 12, "#8a86a8");
+      }
+      // candelabras
+      for (const x of [96, 224]) {
+        g.rect(x - 1, 92, 3, 56, C.sbYellow);
+        g.rect(x - 12, 92, 25, 2, C.sbYellow);
+        for (const dx of [-12, 0, 12]) g.rect(x + dx - 1, 84, 3, 8, C.cream);
+        g.ellipse(x, 148, 8, 2, C.sbYellow);
+      }
+      // floor + purple carpet
+      g.rect(0, 150, W, 50, "#3a3450");
+      for (let y = 150, r = 0; y < 200; y += 10, r++) {
+        g.rect(0, y, W, 1, "#2a2440");
+        for (let x = (r % 2) * 14; x < W; x += 28) g.rect(x, y, 1, 10, "#2a2440");
+      }
+      g.poly([[140, 150], [180, 150], [230, 200], [90, 200]], "#5a1e6a");
+      g.line(140, 150, 90, 200, C.sbYellow);
+      g.line(180, 150, 230, 200, C.sbYellow);
+      g.rect(0, 148, W, 3, "#1c1830");
+    },
+    anim(g, t) {
+      for (const x of [96, 224]) for (const dx of [-12, 0, 12]) flame(g, x + dx, 82, t + dx * 0.05, 0.6);
+      // little bats flit past the window
+      for (let i = 0; i < 2; i++) {
+        const bx = 132 + ((t * 18 + i * 30) % 56), by = 30 + i * 18 + Math.sin(t * 3 + i) * 4;
+        const up = Math.floor(t * 8 + i) % 2;
+        g.rect(bx, by, 2, 2, "#1a1428");
+        g.rect(bx - 3, by - (up ? 1 : -1), 3, 1, "#1a1428");
+        g.rect(bx + 2, by - (up ? 1 : -1), 3, 1, "#1a1428");
+      }
+    },
+  },
+
+  "pumpkin-patch": {
+    floor: 190,
+    bg(g) {
+      g.bands(0, 0, W, 120, ["#0c1238", "#1a1f52", "#2e2a66", "#4a3470"]);
+      stars(g, 30, 4, 80, 31);
+      g.circle(60, 34, 14, C.cream);
+      g.circle(55, 30, 3, "#e8d8a0"); g.circle(64, 38, 2, "#e8d8a0");
+      // far village with a festival
+      for (let i = 0; i < 9; i++) {
+        const x = 150 + i * 18, h = 14 + rnd(i + 4) * 14;
+        g.rect(x, 112 - h, 14, h, "#1a1630");
+        g.tri(x - 2, 112 - h, x + 7, 104 - h, x + 16, 112 - h, "#1a1630");
+        g.px(x + 4, 106 - h + 10, C.sbYellow); g.px(x + 9, 108 - h + 12, C.orange);
+      }
+      g.rect(140, 110, 180, 3, "#1a1630");
+      // hills and field
+      g.ellipse(80, 126, 120, 18, "#1e3a26");
+      g.ellipse(260, 128, 110, 16, "#173020");
+      g.rect(0, 124, W, 76, "#1e3a26");
+      g.dither(0, 124, W, 26, "#173020", "#1e3a26");
+      // wooden fence
+      for (let x = 0; x < W; x += 18) g.rect(x, 116, 3, 16, "#5a3a22");
+      g.rect(0, 120, W, 2, "#5a3a22"); g.rect(0, 127, W, 2, "#5a3a22");
+      // scarecrow (friendly)
+      g.rect(266, 92, 3, 66, "#5a3a22");
+      g.rect(250, 104, 36, 3, "#5a3a22");
+      g.rect(258, 104, 20, 22, "#7a3a8a");
+      g.circle(267, 96, 7, C.tan);
+      g.tri(257, 92, 267, 78, 277, 92, "#3a2a1a");
+      g.px(264, 95, C.black); g.px(270, 95, C.black);
+      g.rect(264, 99, 7, 1, C.dbrown);
+      // vines and pumpkins
+      for (let i = 0; i < 26; i++) g.line(rnd(i) * W, 150 + rnd(i + 3) * 46, rnd(i) * W + 18, 152 + rnd(i + 5) * 44, "#2f6a2a");
+      const pumpkins: [number, number, number][] = [[28, 168, 9], [72, 184, 12], [118, 160, 7], [206, 176, 10], [300, 166, 8], [240, 192, 6], [150, 194, 8]];
+      for (const [x, y, r] of pumpkins) {
+        g.ellipse(x, y, r + 2, r, C.orange);
+        g.ellipse(x, y, Math.max(2, r - 4), r, "#ffa23a");
+        g.rect(x - 1, y - r - 3, 3, 4, "#3a6a2a");
+      }
+    },
+    anim(g, t) {
+      // jack-o'-lanterns flicker (happy faces)
+      const lit: [number, number, number][] = [[72, 184, 12], [206, 176, 10], [28, 168, 9]];
+      for (const [x, y, r] of lit) {
+        const on = Math.sin(t * 7 + x) > -0.6 ? C.yellow : C.sbYellow;
+        g.tri(x - 6, y - 2, x - 3, y - 6, x - 1, y - 2, on);
+        g.tri(x + 1, y - 2, x + 3, y - 6, x + 6, y - 2, on);
+        g.poly([[x - 6, y + 2], [x + 6, y + 2], [x + 3, y + Math.max(5, r - 4)], [x - 3, y + Math.max(5, r - 4)]], on);
+      }
+      // fireflies
+      for (let i = 0; i < 8; i++) {
+        const fx = (rnd(i + 60) * W + Math.sin(t * 0.7 + i) * 14) % W, fy = 100 + rnd(i + 70) * 70 + Math.cos(t * 0.9 + i) * 8;
+        if (Math.sin(t * 3 + i * 2) > 0) g.px(Math.floor(fx), Math.floor(fy), C.yellow);
+      }
+    },
+  },
+
+  attic: {
+    floor: 190,
+    bg(g) {
+      g.rect(0, 0, W, 200, "#3a2a20");
+      // slanted roof beams
+      g.poly([[0, 0], [130, 0], [0, 90]], "#2a1c14");
+      g.poly([[W, 0], [190, 0], [W, 90]], "#2a1c14");
+      for (let i = 0; i < 6; i++) { g.line(i * 26, 0, 0, i * 18, "#4a3426"); g.line(W - i * 26, 0, W, i * 18, "#4a3426"); }
+      g.rect(150, 0, 20, 140, "#4a3426");
+      // round window with the moon
+      g.circle(160, 46, 24, "#5a4030");
+      g.circle(160, 46, 20, "#101a44");
+      stars(g, 6, 30, 62, 91);
+      g.circle(166, 40, 6, C.cream);
+      g.rect(158, 26, 4, 40, "#5a4030"); g.rect(140, 44, 40, 4, "#5a4030");
+      // wooden floor
+      planks(g, 150, 200, "#6a4a30", "#5a3e28", "#3a2a1c");
+      // trunks, boxes, a dress form and a rocking horse
+      g.rect(18, 120, 64, 34, "#6a3a1a"); g.rect(18, 116, 64, 8, "#7a4a24");
+      g.rect(18, 132, 64, 3, C.sbYellow); g.rect(46, 128, 8, 10, C.sbYellow);
+      for (const [x, y, w, h] of [[230, 110, 40, 40], [262, 128, 38, 24], [244, 92, 26, 20]] as [number, number, number, number][]) {
+        g.rect(x, y, w, h, "#a07a4a");
+        g.rect(x, y + h / 2 - 1, w, 2, "#7a5a32");
+      }
+      g.rect(108, 128, 3, 26, "#2a1c14");
+      g.ellipse(109, 100, 11, 16, "#8a5a8a");
+      g.ellipse(109, 80, 5, 4, "#2a1c14");
+      g.rect(98, 152, 22, 2, "#2a1c14");
+      g.rect(190, 132, 30, 12, "#c87a3a"); g.circle(218, 128, 6, "#c87a3a");
+      g.rect(194, 144, 2, 8, "#5a3a22"); g.rect(214, 144, 2, 8, "#5a3a22");
+      g.ellipse(205, 154, 18, 2, "#5a3a22");
+      // cobwebs
+      for (let r = 8; r <= 24; r += 8) g.line(0, r + 90, r, 90, "#9a8a78");
+    },
+    anim(g, t) {
+      // dust motes in the moonbeam
+      for (let i = 0; i < 10; i++) {
+        const x = 130 + ((rnd(i + 3) * 60 + t * 4) % 60), y = 60 + ((rnd(i + 9) * 90 + t * (3 + (i % 3))) % 90);
+        g.px(Math.floor(x), Math.floor(y), "#cbbfa8");
+      }
+    },
+  },
 };
