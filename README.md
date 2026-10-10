@@ -107,10 +107,11 @@ in `kit/banks/` list standard codes to double-check against WCPSS pacing guides.
   | Lab Mice | Two lab mice crossing the bench, one dreaming of the whole world |
   | Unicorn Sky | A unicorn galloping past a rainbow, on a pastel page |
   | Idol Hunters | A pop trio on stage singing away goofy little demons |
+  | Speed Streak | A lightning-fast runner racing along a city overpass with a lightning trail; pick the suit (scarlet, rival, junior, shadow or frost) |
 
   Every character is original pixel art drawn in code. The themes are *inspired by* kinds of
-  heroes kids like, but use no characters, names or logos from Marvel, Warner Bros., Netflix or
-  anyone else.
+  heroes kids like, but use no characters, names or logos from Marvel, DC, Warner Bros., Netflix
+  or anyone else.
 
 ## Dev site and production (nzdogames.com)
 
