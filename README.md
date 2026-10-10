@@ -86,9 +86,15 @@ in `kit/banks/` list standard codes to double-check against WCPSS pacing guides.
   keys (`arcade.*`, `pageQuest.*`, `lunarPatrol.*`), which always hold the *active* player's values.
   Switching players files those keys away under the old player in `arcade.profiles`, restores the
   new player's, and reloads the menu, so no game needed changes. `arcade.muted` stays shared by
-  the device. A brand-new device opens the player menu with a welcome. A device that already had
+  the device. A brand-new device (or **+ New player**) opens the setup wizard below. A device that already had
   saved progress becomes "Player 1" with everything kept. Nothing leaves the device. Credits always
   say the games were created by SpiderBen10 (NZDO).
+- **Setup wizard and tour** (`site/welcome.js`): a new player gets a 3-step wizard: name, age (which
+  suggests a grade, since NC kindergarten starts at 5: grade = age − 5, and can be changed), and a
+  theme (or 🎲 Surprise me). **Skip setup** keeps the defaults. Then a 4-tip tour points at the
+  player menu, the Subject/Topic dropdowns, the ☆ favorite and a game cabinet. The tour shows once
+  per player (`arcade.tourDone`), including for players who were already set up, and **Show the
+  tour** in the player menu replays it.
 - **Subject and topic:** two dropdowns. Subject is All, Math, Science, Reading & Writing or Social
   Studies. Once a subject is picked, Topic narrows it (for example Math → Geometry & angles). Each
   option shows how many games it has. Topics are listed in `window.TOPICS` at the top of

@@ -936,4 +936,9 @@
     stickBox.hidden = !THEME_OPTIONS[theme];
   }
   setTheme(theme);
+  window.ArcadeThemes = { // used by the setup wizard (welcome.js)
+    list: THEMES.map(function (t) { return { id: t.id, name: t.name, note: t.note, dots: t.dots.slice() }; }),
+    current: function () { return theme; },
+    set: function (id) { setTheme(id); },
+  };
 })();

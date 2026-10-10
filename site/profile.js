@@ -220,11 +220,24 @@
     if (ev.key === "Enter" && (ev.target === nameInput || ev.target === arcadeInput)) { ev.preventDefault(); openPanel(false); sound.coin(); }
   });
 
-  // Welcome a new player (a brand-new device, or "+ New player").
+  function setName(name) {
+    nameInput.value = name;
+    nameInput.dispatchEvent(new Event("input"));
+  }
+
+  // A new player (a brand-new device, or "+ New player") gets the setup wizard (welcome.js).
   var params = new URLSearchParams(window.location.search);
-  if (storageOk && (isNewDevice || params.has("welcome"))) {
+  var needsWelcome = storageOk && (isNewDevice || params.has("welcome"));
+  if (params.has("welcome") && window.history.replaceState) window.history.replaceState(null, "", window.location.pathname);
+  window.ArcadePlayers = {
+    needsWelcome: needsWelcome,
+    name: function () { return active().name; },
+    setName: setName,
+    openMenu: function () { openPanel(true, false); },
+    closeMenu: function () { if (!panel.hidden) openPanel(false); },
+  };
+  if (needsWelcome && !document.getElementById("wizard-root")) { // no wizard on this page: fall back to the menu
     welcome.hidden = false;
     openPanel(true, true);
-    if (params.has("welcome") && window.history.replaceState) window.history.replaceState(null, "", window.location.pathname);
   }
 })();
