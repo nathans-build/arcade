@@ -83,6 +83,7 @@ The NC DPI site was blocked while this was built, so these codes are best guesse
 | ↑ / ↓ (hold) | FAST / SLOW | Speed up / brake |
 | Space / Z / X | THROW, or tap any house | Throw a packet at the flashing house |
 | A–D or 1–4 | tap a target or a banner answer | Bonus-yard answer |
+| ← → then Space | ◀ ▶ then THROW | Bonus yard: ride under a target and throw at it |
 | Enter / Space | Next street ▶ | Continue after the bonus yard |
 | R | speaker button | Read the rule / question aloud again |
 | P / Esc, M | toolbar | Pause, mute |

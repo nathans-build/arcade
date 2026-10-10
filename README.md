@@ -18,6 +18,7 @@ browser to try it locally.
      title: "Space Racer",
      tagline: "One sentence about the game.",
      subjects: ["Math"],            // decides which subject tabs show it ("ELA" = Reading & Writing)
+     topics: ["numbers", "algebra"], // topic chips under each subject tab (ids from window.TOPICS)
      grades: ["5", "6", "7", "8"],  // omit for K-12; used by the "Fits my grade" filter
      url: "/space-racer/",
      image: "img/space-racer.png",
@@ -26,13 +27,15 @@ browser to try it locally.
    },
    ```
 
-4. Push to `main` (or merge its PR). The arcade redeploys automatically; the new cabinet appears
+4. Push to `main` (or merge its PR). The dev site redeploys automatically; the new cabinet appears
    under its subject tabs and in NEW, and its line appears on the credits page (`site/credits.html`).
+   It reaches nzdogames.com only after it's tested and marked `prod: true` (see
+   [Publishing to production](#publishing-to-production)).
 
 ## Games hosted inside the arcade
 
-Every game lives in this repository and is served by the arcade's single Azure app (the Free tier
-on this subscription allows only a few apps). Each one is a complete Vite project in
+Every game lives in this repository and is served by the arcade's own Azure app (one for the dev
+site, one for production) rather than an app per game (the Free tier allows only a few apps). Each one is a complete Vite project in
 `games/<name>/` (its own `package.json`, tests and `src/kit` copy). `scripts/build-site.sh` builds and
 tests every game and publishes it at `/<name>/` next to the menu, e.g.
 `https://nzdogames.com/word-worm/` (and on the dev site). To add one, drop its folder into
@@ -67,25 +70,78 @@ in `kit/banks/` list standard codes to double-check against WCPSS pacing guides.
 
 ## Artwork
 
-The marquee hero is an original pixel-art character drawn in code (`site/app.js`), not affiliated
-with Marvel or any game studio.
+## The menu
+
+- **Grade:** a dropdown (K–12). `[` and `]` also change it. The grade rides along to every game as
+  `?grade=`.
+- **Subject and topic:** two dropdowns. Subject is All, Math, Science, Reading & Writing or Social
+  Studies. Once a subject is picked, Topic narrows it (for example Math → Geometry & angles). Each
+  option shows how many games it has. Topics are listed in `window.TOPICS` at the top of
+  `site/games.js`, and each game lists its topic ids in `topics`. `scripts/check-games.js` (run by
+  the build) fails if a game has a subject without a topic, or an unknown topic id. Keys: `,` `.`
+  subject, `;` `'` topic.
+- **Themes:** **🎨 Theme** on the banner picks the banner scene and the page colors, saved on the
+  device (`arcade.theme`). `site/theme-boot.js` applies it before the page draws. The scenes are in
+  `site/marquee.js`, and the colors are `[data-theme=...]` blocks at the top of `site/styles.css`.
+
+  | Theme | Banner |
+  |---|---|
+  | Web Slinger (default) | The arcade's original hero swinging over a night city |
+  | Stick Figure | A black-and-white stick man (two dot eyes, no mouth) on a white page; pick its hat and how it moves (swing, run, fly) |
+  | Rocket Armor | A hero in red-and-gold rocket armor flying over a sunset city |
+  | Lab Mice | Two lab mice crossing the bench, one dreaming of the whole world |
+  | Unicorn Sky | A unicorn galloping past a rainbow, on a pastel page |
+  | Idol Hunters | A pop trio on stage singing away goofy little demons |
+
+  Every character is original pixel art drawn in code. The themes are *inspired by* kinds of
+  heroes kids like, but use no characters, names or logos from Marvel, Warner Bros., Netflix or
+  anyone else.
 
 ## Dev site and production (nzdogames.com)
 
-| Site | Address | Deployed from | Workflow |
-|---|---|---|---|
-| **Production** (the real arcade) | https://nzdogames.com | the `production` branch | `.github/workflows/deploy-production.yml` (secret `AZURE_STATIC_WEB_APPS_API_TOKEN_PROD`) |
-| **Dev / test** | https://icy-smoke-05363610f.3.azurestaticapps.net | `main` (plus a preview per pull request) | `.github/workflows/azure-static-web-apps.yml` (secret `AZURE_STATIC_WEB_APPS_API_TOKEN`) |
+**Live since October 7, 2026.** The real arcade is at **https://nzdogames.com**.
 
-- Work lands on `main` first and shows up on the dev site, which has a striped **DEV** ribbon, a
+| Site | Address | Azure app | Deployed from | Workflow |
+|---|---|---|---|---|
+| **Production** (the real arcade) | https://nzdogames.com (www redirects to it); Azure address https://gentle-tree-0a25b090f.6.azurestaticapps.net | `nzdogames-prod` | the `production` branch | `.github/workflows/deploy-production.yml` (secret `AZURE_STATIC_WEB_APPS_API_TOKEN_PROD`) |
+| **Dev / test** | https://icy-smoke-05363610f.3.azurestaticapps.net | the original arcade app | `main` (plus a preview per pull request) | `.github/workflows/azure-static-web-apps.yml` (secret `AZURE_STATIC_WEB_APPS_API_TOKEN`) |
+
+- Work lands on `main` first and shows up on the dev site, which has a yellow **DEV** bar, a
   `[DEV]` tab title and a `robots.txt` that keeps search engines out.
-- **Only fully tested games go to production.** A game reaches nzdogames.com only when its entry
-  in `site/games.js` has `prod: true`. Production builds skip every other game and its menu and
-  credits list only the `prod: true` games. The dev site shows them all, with a **Dev only** chip
-  on games that aren't on production yet. To promote a game, add `prod: true` on `main`, then
-  publish.
-- **To publish to production:** open a pull request from `main` into `production` and merge it.
 - `scripts/build-site.sh` reads `ARCADE_ENV` (`dev` by default, or `production`) and writes
   `env.js` and `robots.txt` for that site.
 - Games link back to the menu with a relative `/` link (`ARCADE_URL` in `kit/grades.ts`), so each
   site's games stay on that site.
+
+### Only fully tested games go to production
+
+A game reaches nzdogames.com only when its entry in `site/games.js` has `prod: true`. Production
+builds skip every other game, and the production menu and credits list only the `prod: true` games.
+The dev site shows every game, with a dashed **Dev only** chip on games that aren't on production
+yet.
+
+**On production now:** Page Quest, Sonar Squad.
+
+### Publishing to production
+
+1. Test the game on the dev site.
+2. On `main`, add `prod: true` to its entry in `site/games.js` (by pull request, as usual).
+3. Open a pull request from `main` into `production` and merge it. The production workflow builds
+   and deploys in about a minute or two.
+4. Check https://nzdogames.com: the game is listed and there is no DEV bar.
+
+Don't commit to `production` directly; it should only ever receive merges from `main`.
+
+### Domain and DNS (Porkbun)
+
+nzdogames.com is registered at Porkbun. Its DNS points to the `nzdogames-prod` app:
+
+| Type | Host | Value |
+|---|---|---|
+| ALIAS | *(root)* | `gentle-tree-0a25b090f.6.azurestaticapps.net` |
+| CNAME | `www` | `gentle-tree-0a25b090f.6.azurestaticapps.net` |
+| TXT | `_dnsauth` | Azure's domain validation code (safe to remove after validation) |
+
+Azure provides the HTTPS certificate. `nzdogames.com` is the default domain in the app's
+**Custom domains** settings. Email records (MX) are separate from the website; leave them alone
+when changing the records above.

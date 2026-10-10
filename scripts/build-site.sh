@@ -6,6 +6,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 for js in site/*.js; do node --check "$js"; done
+node scripts/check-games.js
 
 rm -rf _deploy
 cp -r site _deploy

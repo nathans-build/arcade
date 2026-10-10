@@ -16,6 +16,11 @@ const ROAD_L = 120;
 const ROAD_R = 258;
 const BIKE_MIN = 110;
 const BIKE_MAX = 250;
+/** In the bonus yard the bike can roam the whole yard (to ride under a target and throw). */
+const YARD_MIN = 24;
+const YARD_MAX = W - 24;
+/** How close (in x) the bike must be to a target for THROW to hit it. */
+const YARD_AIM = 26;
 const CENTER_LINE = 188;
 const MAILBOX_X = 92;
 const SIGN_X = 3;
@@ -396,7 +401,7 @@ export class RouteEngine {
   /** Throw at the auto-aimed house (throw key or THROW button). */
   throwAtTarget() {
     if (this.demoMode || this.paused || this.over) return false;
-    if (this.phase === "yard") return false;
+    if (this.phase === "yard") return this.throwInYard();
     const h = this.currentTarget();
     if (!h) {
       this.audio.blip();
@@ -418,6 +423,28 @@ export class RouteEngine {
     this.packetsInAir.push({ sx: this.bx - 4, sd: this.dist + 6, t: 0, dur: 0.28 + Math.abs(dx) / 700, house: h });
     this.audio.shoot();
     this.pushHud();
+    return true;
+  }
+
+  /** The yard target the bike is under, if any. */
+  private yardAim(): number | null {
+    let best: number | null = null;
+    for (let i = 0; i < 4; i++) {
+      if (Math.abs(TARGET_XS[i] - this.bx) <= YARD_AIM && (best === null || Math.abs(TARGET_XS[i] - this.bx) < Math.abs(TARGET_XS[best] - this.bx))) best = i;
+    }
+    return best;
+  }
+
+  /** THROW in the bonus yard answers with the target the bike is under. */
+  private throwInYard(): boolean {
+    if (!this.yard.q || this.yard.picked !== null) return false;
+    const i = this.yardAim();
+    if (i === null) {
+      this.audio.blip();
+      this.popups.push({ x: this.bx, d: this.dist + 30, text: "RIDE UNDER A TARGET", color: PALETTE.yellow, t: 1.2 });
+      return false;
+    }
+    this.selectAnswer(i);
     return true;
   }
 
@@ -489,6 +516,11 @@ export class RouteEngine {
         this.dist = this.yardD;
         this.enterYard();
       }
+    } else if (this.phase === "yard" && !this.demoMode) {
+      // The bike is stopped, but it can still roam the yard, so it never feels stuck.
+      const steer = (this.keys.has("right") ? 1 : 0) - (this.keys.has("left") ? 1 : 0);
+      this.lean += (steer - this.lean) * Math.min(1, dt * 10);
+      this.bx = clamp(this.bx + steer * 92 * dt, YARD_MIN, YARD_MAX);
     }
     if (this.invuln > 0) this.invuln -= dt;
 
@@ -989,6 +1021,14 @@ export class RouteEngine {
         g.fillStyle = "rgba(10,15,46,0.55)";
         g.fillRect(tx - TARGET_R, ty - TARGET_R, TARGET_R * 2 + 1, TARGET_R * 2 + 1);
       }
+      // the target the bike is under (THROW hits it)
+      if (y.q && y.picked === null && this.yardAim() === i && Math.floor(this.time * 4) % 2 === 0) {
+        g.fillStyle = PALETTE.cyan;
+        g.fillRect(tx - TARGET_R - 3, ty - TARGET_R - 3, TARGET_R * 2 + 7, 2);
+        g.fillRect(tx - TARGET_R - 3, ty + TARGET_R + 2, TARGET_R * 2 + 7, 2);
+        g.fillRect(tx - TARGET_R - 3, ty - TARGET_R - 3, 2, TARGET_R * 2 + 7);
+        g.fillRect(tx + TARGET_R + 2, ty - TARGET_R - 3, 2, TARGET_R * 2 + 7);
+      }
       // letter plate
       const plate = isAns ? PALETTE.green : y.picked === i ? PALETTE.cyan : PALETTE.yellow;
       g.fillStyle = "#05060f";
@@ -1104,6 +1144,18 @@ export class RouteEngine {
       g.fillStyle = "rgba(5,6,15,0.7)";
       g.fillRect(ROAD_R - w - 2, 2, w, 9);
       drawText(g, t, ROAD_R - w + 2, 4, PALETTE.cyan);
+    }
+    // what to do in the bonus yard
+    if (this.phase === "yard" && this.yard.q) {
+      const lines = this.yard.picked === null
+        ? ["RIDE UNDER A TARGET AND THROW", "OR PRESS A, B, C OR D"]
+        : this.yard.result === null ? [] : ["NEXT STREET: PRESS ENTER", "OR TAP NEXT STREET"];
+      lines.forEach((t, k) => {
+        const w = measure(t) + 8;
+        g.fillStyle = "rgba(5,6,15,0.75)";
+        g.fillRect(Math.round((W - w) / 2), 104 + k * 10, w, 9);
+        drawText(g, t, W / 2, 106 + k * 10, k === 0 ? PALETTE.yellow : PALETTE.lightBlue, { align: "center" });
+      });
     }
     if (this.crashT > 0 && this.lives <= 0) {
       drawText(g, "LAST BIKE!", W / 2, 90, PALETTE.red, { scale: 2, align: "center", shadow: "#05060f" });
