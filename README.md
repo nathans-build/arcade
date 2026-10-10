@@ -18,6 +18,7 @@ browser to try it locally.
      title: "Space Racer",
      tagline: "One sentence about the game.",
      subjects: ["Math"],            // decides which subject tabs show it ("ELA" = Reading & Writing)
+     topics: ["numbers", "algebra"], // topic chips under each subject tab (ids from window.TOPICS)
      grades: ["5", "6", "7", "8"],  // omit for K-12; used by the "Fits my grade" filter
      url: "/space-racer/",
      image: "img/space-racer.png",
@@ -69,8 +70,32 @@ in `kit/banks/` list standard codes to double-check against WCPSS pacing guides.
 
 ## Artwork
 
-The marquee hero is an original pixel-art character drawn in code (`site/app.js`), not affiliated
-with Marvel or any game studio.
+## The menu
+
+- **Grade:** a dropdown (K–12). `[` and `]` also change it. The grade rides along to every game as
+  `?grade=`.
+- **Subject and topic:** two dropdowns. Subject is All, Math, Science, Reading & Writing or Social
+  Studies. Once a subject is picked, Topic narrows it (for example Math → Geometry & angles). Each
+  option shows how many games it has. Topics are listed in `window.TOPICS` at the top of
+  `site/games.js`, and each game lists its topic ids in `topics`. `scripts/check-games.js` (run by
+  the build) fails if a game has a subject without a topic, or an unknown topic id. Keys: `,` `.`
+  subject, `;` `'` topic.
+- **Themes:** **🎨 Theme** on the banner picks the banner scene and the page colors, saved on the
+  device (`arcade.theme`). `site/theme-boot.js` applies it before the page draws. The scenes are in
+  `site/marquee.js`, and the colors are `[data-theme=...]` blocks at the top of `site/styles.css`.
+
+  | Theme | Banner |
+  |---|---|
+  | Web Slinger (default) | The arcade's original hero swinging over a night city |
+  | Stick Figure | A black-and-white stick man (two dot eyes, no mouth) on a white page; pick its hat and how it moves (swing, run, fly) |
+  | Rocket Armor | A hero in red-and-gold rocket armor flying over a sunset city |
+  | Lab Mice | Two lab mice crossing the bench, one dreaming of the whole world |
+  | Unicorn Sky | A unicorn galloping past a rainbow, on a pastel page |
+  | Idol Hunters | A pop trio on stage singing away goofy little demons |
+
+  Every character is original pixel art drawn in code. The themes are *inspired by* kinds of
+  heroes kids like, but use no characters, names or logos from Marvel, Warner Bros., Netflix or
+  anyone else.
 
 ## Dev site and production (nzdogames.com)
 

@@ -1,4 +1,4 @@
-// SpiderBen10's Arcade — menu + animated marquee. Plain JS, no build step.
+// SpiderBen10's Arcade — the menu. The banner and themes are in marquee.js. Plain JS, no build step.
 (function () {
   "use strict";
 
@@ -34,25 +34,19 @@
     return "6";
   })();
 
-  var picker = document.getElementById("grades");
+  var picker = document.getElementById("grade-select");
   var gradeNow = document.getElementById("grade-now");
-  var gradeButtons = GRADES.map(function (g) {
-    var b = el("button", "grade-btn", g);
-    b.type = "button";
-    b.setAttribute("aria-label", gradeName(g));
-    b.addEventListener("click", function () { setGrade(g); blip(); });
-    picker.appendChild(b);
-    return b;
+  GRADES.forEach(function (g) {
+    var o = el("option", null, gradeName(g));
+    o.value = g;
+    picker.appendChild(o);
   });
+  picker.addEventListener("change", function () { setGrade(picker.value); blip(); });
 
   function setGrade(g) {
     grade = g;
     try { localStorage.setItem(GRADE_KEY, g); } catch (e) { /* ignore */ }
-    gradeButtons.forEach(function (b, i) {
-      var on = GRADES[i] === g;
-      b.classList.toggle("on", on);
-      b.setAttribute("aria-pressed", on ? "true" : "false");
-    });
+    picker.value = g;
     gradeNow.textContent = gradeName(g);
     renderAdapt();
     updateGradeLinks();
@@ -106,7 +100,7 @@
   /* played / new shelves, and the cabinet grid (a compact list on phones)*/
   /* ------------------------------------------------------------------ */
 
-  var TAB_KEY = "arcade.tab", FIT_KEY = "arcade.fitsGrade", RECENT_KEY = "arcade.recent", FAV_KEY = "arcade.favorites";
+  var TAB_KEY = "arcade.tab", TOPIC_KEY = "arcade.topic", FIT_KEY = "arcade.fitsGrade", RECENT_KEY = "arcade.recent", FAV_KEY = "arcade.favorites";
   var RECENT_MAX = 4, NEW_DAYS = 30;
   var TABS = [
     { id: "all", label: "All", subject: null },
@@ -116,6 +110,7 @@
     { id: "social", label: "Social Studies", subject: "Social Studies" },
   ];
   var SUBJECT_NAMES = { ELA: "Reading & Writing" };
+  var TOPICS = window.TOPICS || {};
 
   function el(tag, cls, text) {
     var e = document.createElement(tag);
@@ -138,13 +133,23 @@
     for (var i = 0; i < TABS.length; i++) if (TABS[i].id === t) return t;
     return "all";
   })();
+  var topic = topicDef(tab, load(TOPIC_KEY)) ? load(TOPIC_KEY) : null; // null = every topic
   var fitsOnly = load(FIT_KEY) !== "0";
   var favorites = loadIds(FAV_KEY);
   var recent = loadIds(RECENT_KEY);
 
   function tabDef(id) { for (var i = 0; i < TABS.length; i++) if (TABS[i].id === id) return TABS[i]; return TABS[0]; }
+  function topicDef(tabId, id) {
+    var list = TOPICS[tabDef(tabId).subject] || [];
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
   function inTab(game, t) { return !t.subject || (game.subjects || []).indexOf(t.subject) >= 0; }
-  function shown(game, t) { return inTab(game, t) && (!fitsOnly || supports(game, grade)); }
+  function inTopic(game, tp) { return !tp || (game.topics || []).indexOf(tp) >= 0; }
+  // tp: a topic id, or undefined for the current topic, or null for every topic.
+  function shown(game, t, tp) {
+    return inTab(game, t) && inTopic(game, tp === undefined ? topic : tp) && (!fitsOnly || supports(game, grade));
+  }
   function isNew(game) {
     if (game.new === true) return true;
     if (!game.added) return false;
@@ -153,20 +158,24 @@
     return isFinite(age) && age >= -1 && age < NEW_DAYS;
   }
 
-  // Subject tabs
-  var tabsBox = document.getElementById("tabs");
-  var tabButtons = TABS.map(function (t) {
-    var b = el("button", "tab");
-    b.type = "button";
-    b.appendChild(el("span", "tab-label", t.label));
-    b.appendChild(el("span", "tab-count"));
-    b.addEventListener("click", function () { setTab(t.id); blip(); });
-    tabsBox.appendChild(b);
-    return b;
+  // Subject and topic dropdowns. The topic dropdown only shows once a subject is picked.
+  var subjectSelect = document.getElementById("subject-select");
+  var topicSelect = document.getElementById("topic-select");
+  var topicField = document.getElementById("topic-field");
+  TABS.forEach(function (t) {
+    var o = el("option");
+    o.value = t.id;
+    subjectSelect.appendChild(o);
   });
+  subjectSelect.addEventListener("change", function () { setTab(subjectSelect.value); blip(); });
+  topicSelect.addEventListener("change", function () { setTopic(topicSelect.value || null); blip(); });
+
+  function countLabel(label, n) { return label + " (" + n + ")"; }
   function setTab(id) {
+    var changed = tabDef(id).id !== tab;
     tab = tabDef(id).id;
     save(TAB_KEY, tab);
+    if (changed) setTopicValue(null);
     selectedKey = null;
     renderCabinets();
   }
@@ -177,13 +186,51 @@
   }
   function renderTabs() {
     TABS.forEach(function (t, i) {
-      var n = games.filter(function (g) { return shown(g, t); }).length;
-      var b = tabButtons[i], on = t.id === tab;
-      b.classList.toggle("on", on);
-      b.setAttribute("aria-pressed", on ? "true" : "false");
-      b.lastChild.textContent = String(n);
-      b.setAttribute("aria-label", t.label + ", " + n + " game" + (n === 1 ? "" : "s"));
+      var n = games.filter(function (g) { return shown(g, t, null); }).length;
+      subjectSelect.options[i].textContent = countLabel(t.id === "all" ? "All subjects" : t.label, n);
     });
+    subjectSelect.value = tab;
+  }
+
+  var topicsFor = null;
+  function setTopicValue(id) {
+    topic = id;
+    save(TOPIC_KEY, id || "");
+  }
+  function setTopic(id) {
+    setTopicValue(id);
+    selectedKey = null;
+    renderCabinets();
+  }
+  function topicChoices() { return [null].concat((TOPICS[tabDef(tab).subject] || []).map(function (x) { return x.id; })); }
+  function stepTopic(d) {
+    var list = topicChoices();
+    if (list.length < 2) return;
+    var i = list.indexOf(topic) + d;
+    setTopicValue(list[(i + list.length) % list.length]);
+    selectedKey = null;
+    renderCabinets();
+    blip();
+  }
+  function renderTopics() {
+    var t = tabDef(tab);
+    var list = [{ id: "", label: "All " + t.label + " topics" }].concat(TOPICS[t.subject] || []);
+    topicField.hidden = list.length < 2;
+    if (topicsFor !== t.id) { // rebuild only when the subject changes
+      topicsFor = t.id;
+      topicSelect.textContent = "";
+      list.forEach(function (x) {
+        var o = el("option");
+        o.value = x.id;
+        o._label = x.label;
+        topicSelect.appendChild(o);
+      });
+    }
+    Array.prototype.forEach.call(topicSelect.options, function (o) {
+      var n = games.filter(function (g) { return shown(g, t, o.value || null); }).length;
+      o.textContent = countLabel(o._label, n);
+    });
+    topicSelect.value = topic || "";
   }
 
   // "Fits my grade" filter
@@ -199,7 +246,7 @@
     fitBtn.innerHTML = "Fits my grade: <strong>" + (fitsOnly ? "ON" : "OFF") + "</strong>";
     fitBtn.setAttribute("aria-pressed", fitsOnly ? "true" : "false");
     fitBtn.classList.toggle("on", fitsOnly);
-    var hidden = games.filter(function (g) { return inTab(g, tabDef(tab)) && !supports(g, grade); }).length;
+    var hidden = games.filter(function (g) { return inTab(g, tabDef(tab)) && inTopic(g, topic) && !supports(g, grade); }).length;
     fitNote.textContent = fitsOnly
       ? (hidden ? hidden + " game" + (hidden === 1 ? "" : "s") + " for other grades hidden." : "Every game here fits " + gradeName(grade).toLowerCase() + ".")
       : "Showing every game. Ones for other grades are greyed out.";
@@ -317,6 +364,7 @@
     var t = tabDef(tab);
     var keep = selectedKey;
     renderTabs();
+    renderTopics();
     renderFit();
     shelvesBox.textContent = "";
     function pick(ids) {
@@ -326,7 +374,8 @@
     shelf("recent", "Recently played", pick(recent), true);
     shelf("new", "New", games.filter(function (g) { return isNew(g) && shown(g, t); }), true);
     var main = games.filter(function (g) { return shown(g, t); });
-    shelf("all", t.subject ? t.label + " games" : "All games", main, false);
+    var tp = topicDef(tab, topic);
+    shelf("all", tp ? tp.label + " games" : t.subject ? t.label + " games" : "All games", main, false);
     emptyNote.hidden = main.length > 0;
 
     cabinets = Array.prototype.slice.call(shelvesBox.querySelectorAll("a.cabinet"));
@@ -343,7 +392,7 @@
   document.getElementById("year").textContent = String(new Date().getFullYear());
 
   // Keyboard: arrows move between the visible cabinets, Enter/Space launches,
-  // [ and ] change grade, , and . (or < and >) change subject, F stars the
+  // [ and ] change grade, , and . (or < and >) change subject, ; and ' change topic, F stars the
   // selected game. Tab / Shift+Tab keep their normal focus behavior.
   function select(i, focus) {
     if (!cabinets.length) { selectedKey = null; return; }
@@ -359,8 +408,9 @@
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
     var k = ev.key;
     var a = document.activeElement;
-    var typing = a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA" || a.isContentEditable);
+    var typing = a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA" || a.tagName === "SELECT" || a.isContentEditable);
     if (typing) return;
+    if (a && a.closest && a.closest("#theme-panel")) return; // the theme picker uses normal keys
     if (k === "[" || k === "]") {
       var gi = GRADES.indexOf(grade) + (k === "]" ? 1 : -1);
       if (gi >= 0 && gi < GRADES.length) { setGrade(GRADES[gi]); blip(); }
@@ -368,6 +418,8 @@
     }
     if (k === "," || k === "<") { ev.preventDefault(); stepTab(-1); return; }
     if (k === "." || k === ">") { ev.preventDefault(); stepTab(1); return; }
+    if (k === ";") { ev.preventDefault(); stepTopic(-1); return; }
+    if (k === "'") { ev.preventDefault(); stepTopic(1); return; }
     if (!cabinets.length) return;
     if (k === "f" || k === "F") {
       var cur = cabinets[selected];
@@ -412,159 +464,5 @@
   }
   function blip() { tone(880, 0, 0.05, 0.05); }
   function coin() { tone(988, 0, 0.08, 0.08); tone(1319, 0.08, 0.25, 0.08); }
-
-  /* ------------------------------------------------------------------ */
-  /* Marquee scene: night city, moon, and an original web-swinging hero  */
-  /* ------------------------------------------------------------------ */
-
-  var canvas = document.getElementById("scene");
-  var g = canvas.getContext("2d");
-  var W = canvas.width, H = canvas.height;
-  g.imageSmoothingEnabled = false;
-
-  // Original character "SpiderBen10": red helmet with a single cyan visor stripe,
-  // blue suit, yellow diamond emblem. One hand up on the web line.
-  var HERO = [
-    "......hh........",
-    "......hh........",
-    "......BB........",
-    "......BB........",
-    ".....KRRRK......",
-    "....KRRRRRK.....",
-    "....KRRRRRK.....",
-    "....KVVVVVK.....",
-    "....KRRRRRK.....",
-    ".....KRRRK......",
-    "....BBRRRBB.....",
-    "....BBYYYBBB....",
-    "....BBBYBB.BB...",
-    "....BBBBBB..hh..",
-    ".....RRRRR......",
-    ".....BBBBB......",
-    ".....BB.BB......",
-    "....BB...BB.....",
-    "...hh.....hh....",
-  ];
-  var HERO_COLORS = { h: "#e3262f", R: "#e3262f", K: "#05060f", V: "#7ff3ff", B: "#2456e8", Y: "#ffd23f" };
-
-  function sprite(rows, colors) {
-    var c = document.createElement("canvas");
-    c.width = rows[0].length; c.height = rows.length;
-    var x = c.getContext("2d");
-    rows.forEach(function (row, y) {
-      for (var i = 0; i < row.length; i++) {
-        var col = colors[row[i]];
-        if (col) { x.fillStyle = col; x.fillRect(i, y, 1, 1); }
-      }
-    });
-    return c;
-  }
-  var hero = sprite(HERO, HERO_COLORS);
-
-  function hash(n) { var s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); }
-
-  var stars = [];
-  for (var i = 0; i < 60; i++) stars.push({ x: hash(i) * W, y: hash(i + 99) * 70, p: hash(i + 7) });
-
-  function buildings(seed, count, minH, maxH) {
-    var out = [], x = 0;
-    for (var i = 0; i < count; i++) {
-      var w = 10 + Math.floor(hash(seed + i) * 18);
-      var h = minH + Math.floor(hash(seed + i * 3.3) * (maxH - minH));
-      out.push({ x: x, w: w, h: h, s: seed + i });
-      x += w + (hash(seed + i * 7) > 0.7 ? 3 : 0);
-    }
-    return { list: out, width: x };
-  }
-  var back = buildings(10, 40, 18, 46);
-  var front = buildings(500, 34, 10, 34);
-
-  function drawCity(layer, offset, color, winA, winB, base) {
-    var total = layer.width;
-    for (var k = -1; k <= 1; k++) {
-      layer.list.forEach(function (b) {
-        var x = Math.floor(b.x - (offset % total) + k * total);
-        if (x > W || x + b.w < 0) return;
-        var top = base - b.h;
-        g.fillStyle = color;
-        g.fillRect(x, top, b.w, b.h);
-        for (var wy = top + 3; wy < base - 3; wy += 4) {
-          for (var wx = x + 2; wx < x + b.w - 2; wx += 3) {
-            var r = hash(b.s * 31 + wx * 0.7 + wy * 1.3);
-            if (r > 0.72) { g.fillStyle = r > 0.93 ? winB : winA; g.fillRect(wx, wy, 1, 1); }
-          }
-        }
-        if (hash(b.s + 5) > 0.8) { // rooftop antenna with a red beacon
-          g.fillStyle = color; g.fillRect(x + (b.w >> 1), top - 5, 1, 5);
-          g.fillStyle = frame % 60 < 30 ? "#ff3040" : "#5a0d14"; g.fillRect(x + (b.w >> 1), top - 6, 1, 1);
-        }
-      });
-    }
-  }
-
-  function drawWeb() { // corner web, top-left
-    g.strokeStyle = "rgba(159,176,224,0.45)";
-    g.lineWidth = 1;
-    var spokes = [0.05, 0.3, 0.6, 0.9, 1.25, 1.52];
-    g.beginPath();
-    spokes.forEach(function (a) { g.moveTo(0.5, 0.5); g.lineTo(0.5 + Math.cos(a) * 60, 0.5 + Math.sin(a) * 60); });
-    [14, 28, 42, 56].forEach(function (r) {
-      spokes.forEach(function (a, j) {
-        var p = [Math.cos(a) * r, Math.sin(a) * r];
-        if (j === 0) g.moveTo(p[0], p[1]); else g.lineTo(p[0], p[1]);
-      });
-    });
-    g.stroke();
-  }
-
-  var frame = 0;
-  var t0 = performance.now();
-  function draw(now) {
-    var t = (now - t0) / 1000;
-    frame++;
-    var sky = g.createLinearGradient(0, 0, 0, H);
-    sky.addColorStop(0, "#050818");
-    sky.addColorStop(0.7, "#0d1440");
-    sky.addColorStop(1, "#2a0c2c");
-    g.fillStyle = sky;
-    g.fillRect(0, 0, W, H);
-
-    stars.forEach(function (s) {
-      var tw = (frame + s.p * 200) % 120 < 6;
-      g.fillStyle = s.p > 0.75 && !tw ? "#ffffff" : "#5a6ad0";
-      g.fillRect(Math.floor(s.x), Math.floor(s.y), 1, 1);
-    });
-
-    // Moon (a nod to Lunar Patrol)
-    g.fillStyle = "#fff4c8";
-    for (var y = -11; y <= 11; y++) {
-      var half = Math.floor(Math.sqrt(121 - y * y));
-      g.fillRect(268 - half, 26 + y, half * 2, 1);
-    }
-    g.fillStyle = "#e8d8a0";
-    g.fillRect(262, 20, 3, 3); g.fillRect(271, 29, 4, 3); g.fillRect(266, 33, 2, 2);
-
-    drawWeb();
-    drawCity(back, t * 6, "#131d5c", "#3a5ad8", "#7ff3ff", H);
-    drawCity(front, t * 14, "#070b24", "#ffd23f", "#ff5a64", H);
-
-    // Hero swinging on a web line; the anchor drifts across the sky.
-    var span = W + 120;
-    var ax = ((t * 22 + 150) % span) - 60; // starts mid-sky so the hero is visible right away
-    var ay = -12;
-    var ang = Math.sin(t * 1.8) * 0.65;
-    var len = 36;
-    var hx = ax + Math.sin(ang) * len;
-    var hy = ay + Math.cos(ang) * len;
-    g.strokeStyle = "#f2f4ff";
-    g.beginPath(); g.moveTo(ax, ay); g.lineTo(hx, hy); g.stroke();
-    g.save();
-    g.translate(Math.round(hx), Math.round(hy));
-    g.rotate(-ang * 0.6);
-    g.drawImage(hero, -14, -2, hero.width * 2, hero.height * 2); // 2x chunky pixels
-    g.restore();
-
-    if (!reduceMotion) requestAnimationFrame(draw);
-  }
-  requestAnimationFrame(draw);
+  window.ArcadeSound = { blip: blip, coin: coin }; // marquee.js uses these too
 })();
