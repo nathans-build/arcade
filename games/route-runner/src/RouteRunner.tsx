@@ -492,7 +492,7 @@ function YardBanner({
   open: boolean;
 }) {
   const { q, tally, correct } = view;
-  let head = `◆ BONUS YARD — STREET ${tally.street} · THROW AT A TARGET: PRESS A–D OR TAP`;
+  let head = `◆ BONUS YARD — STREET ${tally.street} · RIDE UNDER A TARGET AND THROW, PRESS A–D, OR TAP IT`;
   if (view.picked !== null && correct === null) head = `PACKET AWAY → ${"ABCD"[view.picked]}`;
   if (correct === true) head = `✔ BULLSEYE! +${view.bonus} · +6 PACKETS`;
   if (correct === false) head = "✘ MISSED THE MARK — THE RIGHT TARGET IS FLASHING · +3 PACKETS";

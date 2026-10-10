@@ -44,6 +44,7 @@ window.TOPICS = {
 window.GAMES = [
   {
     id: "lunar-patrol",
+    prod: true,
     title: "Lunar Patrol Academy",
     tagline: "Jump craters, blast UFOs, and answer questions to refuel your moon rover.",
     subjects: ["Math", "Science", "ELA"],
@@ -54,6 +55,7 @@ window.GAMES = [
   },
   {
     id: "web-invaders",
+    prod: true,
     title: "Web Invaders",
     tagline: "Invaders carry the answers. Web the right one before the formation lands.",
     subjects: ["Math", "Science", "ELA"],
@@ -64,6 +66,7 @@ window.GAMES = [
   },
   {
     id: "factor-blaster",
+    prod: true,
     title: "Factor Blaster",
     tagline: "Blast number rocks and watch them split into their factors.",
     subjects: ["Math"],
@@ -74,6 +77,7 @@ window.GAMES = [
   },
   {
     id: "sum-stack",
+    prod: true,
     title: "Sum Stack",
     tagline: "Stack falling number blocks so every row hits the target.",
     subjects: ["Math"],
@@ -84,6 +88,7 @@ window.GAMES = [
   },
   {
     id: "route-runner",
+    prod: true,
     title: "Route Runner",
     tagline: "Ride the street and deliver only to houses that fit the rule.",
     subjects: ["Science", "Math", "ELA"],
@@ -94,6 +99,7 @@ window.GAMES = [
   },
   {
     id: "city-shield",
+    prod: true,
     title: "City Shield",
     tagline: "Stop the missiles whose math equals the target before they hit the city.",
     subjects: ["Math"],
@@ -104,6 +110,7 @@ window.GAMES = [
   },
   {
     id: "rock-driller",
+    prod: true,
     title: "Rock Driller",
     tagline: "Drill through real rock layers and collect the fossils and gems buried inside.",
     subjects: ["Science"],
@@ -114,6 +121,7 @@ window.GAMES = [
   },
   {
     id: "word-worm",
+    prod: true,
     title: "Word Worm",
     tagline: "Shoot the letters and word parts that spell the target before the worm reaches you.",
     subjects: ["ELA"],
@@ -124,6 +132,7 @@ window.GAMES = [
   },
   {
     id: "lane-leap",
+    prod: true,
     title: "Lane Leap",
     tagline: "Hop across traffic and the river, landing only on logs that fit the rule.",
     subjects: ["Math", "Science", "ELA"],
@@ -134,6 +143,7 @@ window.GAMES = [
   },
   {
     id: "maze-muncher",
+    prod: true,
     title: "Maze Muncher",
     tagline: "Chomp the dots and eat the power pellet with the right answer to turn the tables.",
     subjects: ["Math", "Science", "ELA", "Social Studies"],
@@ -144,6 +154,7 @@ window.GAMES = [
   },
   {
     id: "jungle-run",
+    prod: true,
     title: "Jungle Run",
     tagline: "Swing through the jungle, find treasures, and read the map to choose the right path.",
     subjects: ["Social Studies", "Science", "ELA", "Math"],
@@ -154,6 +165,7 @@ window.GAMES = [
   },
   {
     id: "stack-chef",
+    prod: true,
     title: "Stack Chef",
     tagline: "Drop the slabs onto the plate in the right order: stories, life cycles, number sense.",
     subjects: ["Math", "Science", "ELA"],
@@ -187,6 +199,7 @@ window.GAMES = [
   },
   {
     id: "plants-vs-undead",
+    prod: true,
     title: "Plants vs Undead",
     tagline: "Grow roots, leaves and flowers, make sugar by photosynthesis, and hold the lawn against the silly undead.",
     subjects: ["Science"],
@@ -210,6 +223,7 @@ window.GAMES = [
   },
   {
     id: "clue-compass",
+    prod: true,
     title: "Clue Compass",
     tagline: "A runaway robot keeps borrowing landmarks. Read the clues, pick where to go next, and track it from your town to North Carolina, the USA and the whole world.",
     subjects: ["Social Studies", "ELA"],
@@ -222,6 +236,7 @@ window.GAMES = [
   },
   {
     id: "thread-chasers",
+    prod: true,
     title: "Thread Chasers",
     tagline: "Chase how paper, gold, zero and big ideas traveled the world. Pick the right place and era, or hit a dead end and learn why.",
     subjects: ["Social Studies", "ELA"],
@@ -234,6 +249,7 @@ window.GAMES = [
   },
   {
     id: "trail-ledger",
+    prod: true,
     title: "Trail Ledger",
     tagline: "Lead a real journey through US history: pack within a budget, ration your food, read the landmarks and keep your Ledger to the end of the road.",
     subjects: ["Social Studies", "Math", "ELA"],
@@ -246,6 +262,7 @@ window.GAMES = [
   },
   {
     id: "splash-arc",
+    prod: true,
     title: "Splash Arc",
     tagline: "Aim water balloons with geometry: angles, 2D and 3D shapes, coordinates, volume and trig put out fires and water the gardens.",
     subjects: ["Math", "Science"],
@@ -257,6 +274,7 @@ window.GAMES = [
   },
   {
     id: "sidewalk-stand",
+    prod: true,
     title: "Sidewalk Stand",
     tagline: "Run a juice cart in the park: plan with the forecast, serve the rush, make change and keep the ledger. Money math from coins to profit functions.",
     subjects: ["Math", "Social Studies"],
