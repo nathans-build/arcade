@@ -38,6 +38,7 @@ window.TOPICS = {
     { id: "geography", label: "Geography & maps" },
     { id: "history", label: "History" },
     { id: "economics", label: "Economics" },
+    { id: "civics", label: "Civics & government" },
     { id: "social-mix", label: "Quiz mix" },
   ],
 };
@@ -284,6 +285,28 @@ window.GAMES = [
     image: "img/sidewalk-stand.png",
     year: 2026,
     added: "2026-10-04",
+  },
+  {
+    id: "dojo-tower",
+    title: "Dojo Tower",
+    tagline: "Climb a 5-floor dojo, poof the Ink Ninjas and beat each floor master with right answers. Civics, math, forces and words.",
+    subjects: ["Social Studies", "Math", "Science", "ELA"],
+    topics: ["civics", "numbers", "physical", "grammar", "reading"],
+    url: "/dojo-tower/",
+    image: "img/dojo-tower.png",
+    year: 2026,
+    added: "2026-10-11",
+  },
+  {
+    id: "cipher-pursuit",
+    title: "Cipher Pursuit",
+    tagline: "Splat the Smudge Gang with foam, then crack coded checkpoints by steering your gadget car into the right lane.",
+    subjects: ["Math", "ELA"],
+    topics: ["numbers", "ratios", "algebra", "phonics", "grammar"],
+    url: "/cipher-pursuit/",
+    image: "img/cipher-pursuit.png",
+    year: 2026,
+    added: "2026-10-11",
   },
 ];
 
