@@ -63,7 +63,20 @@
     var tip = el("section", "support-card");
     tip.appendChild(el("h2", null, "☕ Tip the arcade"));
     tip.appendChild(el("p", null, "Tips help pay for the website and for new games and stories by SpiderBen10 (NZDO). They're optional and not tax-deductible."));
-    if (tips.length) tips.forEach(function (t) { tip.appendChild(linkButton(t.label, t.url)); });
+    if (tips.length) tips.forEach(function (t) {
+      tip.appendChild(linkButton(t.label, t.url));
+      if (t.qr) {
+        var fig = el("figure", "support-qr");
+        var img = el("img");
+        img.src = t.qr;
+        img.width = 180;
+        img.height = 180;
+        img.alt = "QR code: " + t.label;
+        fig.appendChild(img);
+        fig.appendChild(el("figcaption", "hint", t.qrNote || "Scan with your phone's camera."));
+        tip.appendChild(fig);
+      }
+    });
     else tip.appendChild(el("p", "hint", "Tip links are coming soon."));
     grid.appendChild(tip);
 

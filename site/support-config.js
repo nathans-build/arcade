@@ -4,7 +4,8 @@
 window.SUPPORT = {
   // Tip the arcade. Example: { label: "Tip with a card, Apple Pay or Google Pay", url: "https://buy.stripe.com/..." }
   tips: [
-    { label: "Tip with Venmo (@nzdogames)", url: "https://www.venmo.com/u/nzdogames" },
+    // qr: a QR code image (in site/img) for people on a computer to scan with their phone.
+    { label: "Tip with Venmo (@nzdogames)", url: "https://www.venmo.com/u/nzdogames", qr: "img/venmo-qr.png", qrNote: "On a computer? Scan with your phone's camera to open @nzdogames in Venmo." },
   ],
   // A children's charity people can give to directly (the money goes straight to them).
   // Example: { name: "First Book", url: "https://firstbook.org/donate/", about: "Gets new books to kids in need." }
