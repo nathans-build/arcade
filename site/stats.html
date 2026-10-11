@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Stats · SpiderBen10's Arcade</title>
+    <meta name="robots" content="noindex" />
+    <meta name="theme-color" content="#0a0f2e" />
+    <link rel="stylesheet" href="fonts/fonts.css" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="theme-boot.js"></script>
+  </head>
+  <body class="credits-page stats-page">
+    <div class="page">
+      <nav class="back-bar"><a class="back-link" href="./">◀ Arcade</a></nav>
+      <header class="marquee marquee-plain">
+        <div class="marquee-text">
+          <p class="eyebrow">Owner only · Anonymous daily totals</p>
+          <h1><span class="h-red">Arcade</span> <span class="h-blue">Stats</span></h1>
+          <p class="byline">Who's playing what, and for how long. No names, no IP addresses, no cookies.</p>
+        </div>
+      </header>
+      <main>
+        <div class="filter-selects">
+          <div class="select-field">
+            <label class="select-label" for="days">Period</label>
+            <select class="pick-select" id="days">
+              <option value="1">Today</option>
+              <option value="7" selected>Last 7 days</option>
+              <option value="30">Last 30 days</option>
+              <option value="90">Last 90 days</option>
+              <option value="365">Last year</option>
+            </select>
+          </div>
+        </div>
+        <p class="hint" id="status">Loading…</p>
+        <div id="report"></div>
+      </main>
+      <footer>
+        <p class="fine">Days are in UTC. "Devices" counts each device once a day. Play time only counts while a game is on screen.</p>
+      </footer>
+    </div>
+    <script src="env.js"></script>
+    <script src="ribbon.js"></script>
+    <script src="games.js"></script>
+    <script src="stats.js"></script>
+  </body>
+</html>

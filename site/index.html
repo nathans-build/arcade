@@ -6,9 +6,7 @@
     <title>SpiderBen10's Arcade</title>
     <meta name="description" content="Retro arcade games created by SpiderBen10 (NZDO)." />
     <meta name="theme-color" content="#0a0f2e" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="fonts/fonts.css" />
     <link rel="stylesheet" href="styles.css" />
     <script src="theme-boot.js"></script>
   </head>
@@ -77,6 +75,7 @@
         <div class="hero-actions">
           <button type="button" class="adapt-btn on" id="profile-done">Done ▶</button>
           <button type="button" class="adapt-reset" id="tour-again">Show the tour</button>
+          <button type="button" class="adapt-reset tip-jar-btn" hidden>💛 Support the arcade (grown-ups)</button>
           <button type="button" class="adapt-reset" id="player-delete" hidden>Delete player</button>
         </div>
       </section>
@@ -114,6 +113,7 @@
       <footer>
         <p>© <span id="year"></span> SpiderBen10 (NZDO). Every game in this arcade was designed and built by SpiderBen10. <a class="credits-link" href="credits.html" data-keep-grade>Credits ▶</a></p>
         <p class="fine">Banner themes and characters are original artwork. Not affiliated with Marvel, DC, Warner Bros., Netflix or any game studio.</p>
+        <p class="legal-links"><a href="support.html">💛 Support the arcade</a> · <a href="privacy.html">Privacy Policy</a> · <a href="terms.html">Terms of Use</a></p>
       </footer>
     </div>
     <script src="env.js"></script>
@@ -123,5 +123,8 @@
     <script src="app.js"></script>
     <script src="marquee.js"></script>
     <script src="welcome.js"></script>
+    <script src="support-config.js"></script>
+    <script src="tipjar.js"></script>
+    <script src="track.js"></script>
   </body>
 </html>

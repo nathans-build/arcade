@@ -39,3 +39,5 @@ jobs:
           action: upload
           app_location: _deploy
           skip_app_build: true
+          # Usage-stats API (Azure Functions, Node): api/
+          api_location: api
