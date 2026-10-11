@@ -3,7 +3,9 @@
 // (the dev site still shows it, with "not set up yet" notes).
 window.SUPPORT = {
   // Tip the arcade. Example: { label: "Tip with a card, Apple Pay or Google Pay", url: "https://buy.stripe.com/..." }
-  tips: [],
+  tips: [
+    { label: "Tip with Venmo (@nzdogames)", url: "https://www.venmo.com/u/nzdogames" },
+  ],
   // A children's charity people can give to directly (the money goes straight to them).
   // Example: { name: "First Book", url: "https://firstbook.org/donate/", about: "Gets new books to kids in need." }
   charity: {
