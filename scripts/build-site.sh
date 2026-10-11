@@ -45,6 +45,10 @@ for pkg in games/*/package.json; do
   cp -r "$dir/dist" "_deploy/$name"
   # Only the arcade's own staticwebapp.config.json (at the root) should apply.
   rm -f "_deploy/$name/staticwebapp.config.json"
+  # Anonymous usage stats (site/track.js; it only sends on production): which game, and for how long.
+  if [ -f "_deploy/$name/index.html" ] && ! grep -q 'src="/track.js"' "_deploy/$name/index.html"; then
+    sed -i 's#</head>#  <script src="/env.js"></script><script src="/track.js" defer></script>\n  </head>#' "_deploy/$name/index.html"
+  fi
   echo "::endgroup::"
 done
 

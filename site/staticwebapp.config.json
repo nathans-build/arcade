@@ -1,9 +1,38 @@
 {
   "routes": [
-    { "route": "/img/*", "headers": { "cache-control": "public, max-age=86400" } }
+    {
+      "route": "/stats.html",
+      "allowedRoles": [
+        "owner"
+      ],
+      "headers": {
+        "cache-control": "no-store"
+      }
+    },
+    {
+      "route": "/api/stats",
+      "allowedRoles": [
+        "owner"
+      ]
+    },
+    {
+      "route": "/img/*",
+      "headers": {
+        "cache-control": "public, max-age=86400"
+      }
+    }
   ],
   "globalHeaders": {
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "strict-origin-when-cross-origin"
+  },
+  "responseOverrides": {
+    "401": {
+      "redirect": "/.auth/login/github?post_login_redirect_uri=/stats.html",
+      "statusCode": 302
+    }
+  },
+  "platform": {
+    "apiRuntime": "node:20"
   }
 }
