@@ -530,11 +530,24 @@ body.modal-open { overflow: hidden; }
 .tour-buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
 .tour-target { outline: 3px solid var(--yellow) !important; outline-offset: 4px; z-index: 30; } /* keeps its own position (the ☆ is absolutely placed) */
 
-/* ---------- Tip jar ---------- */
-.tip-jar { width: min(560px, 100%); }
+/* ---------- Grown-up check (support page) ---------- */
 .tip-gate { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin: 10px 0 4px; }
 .tip-gate label { flex: 1 1 100%; font-size: 24px; }
 .tip-gate .text-input { width: 120px; }
-.tip-text { margin: 0 0 12px; font-size: 22px; }
-.tip-links { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
-.tip-link { text-decoration: none; display: inline-block; }
+
+/* ---------- Owner stats page ---------- */
+.stat-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 10px 0 24px; }
+.stat-tile { display: flex; flex-direction: column; gap: 4px; padding: 12px; background: var(--panel); border: 2px solid var(--blue); box-shadow: 3px 3px 0 var(--shadow); }
+.stat-num { font-family: var(--pixel); font-size: clamp(14px, 2.4vw, 20px); color: var(--yellow); }
+.stat-label { color: var(--muted); }
+.stat-section { margin-bottom: 24px; }
+.stat-section td { position: relative; }
+.stat-bar { display: block; height: 4px; margin-top: 3px; background: var(--blue-light); }
+
+/* ---------- Support page ---------- */
+.support-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 16px; }
+.support-card { padding: 16px; background: var(--panel); border: 3px solid var(--blue); box-shadow: 4px 4px 0 var(--shadow); margin-bottom: 16px; }
+.support-grid .support-card { margin-bottom: 0; }
+.support-card h2 { margin-top: 0; }
+.support-card p { margin: 0 0 12px; }
+.support-link { display: inline-block; text-decoration: none; margin: 4px 8px 4px 0; }

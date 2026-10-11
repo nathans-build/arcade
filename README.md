@@ -119,6 +119,41 @@ in `kit/banks/` list standard codes to double-check against WCPSS pacing guides.
   heroes kids like, but use no characters, names or logos from Marvel, DC, Warner Bros., Netflix
   or anyone else.
 
+## Support page and usage stats
+
+### Support page (`site/support.html`)
+- **💛 Support the arcade (grown-ups)** in the player menu and on the credits page opens the
+  support page. It starts with a quick grown-up check (a times-table question), then shows two
+  separate ways to help:
+  - **Tip the arcade:** optional tips for hosting and new games (not tax-deductible).
+  - **Give to a children's charity:** a link straight to the charity's own donation page. The
+    money goes to the charity, not the arcade, so there's no "percentage of tips" promise to manage.
+- Links go in `site/support-config.js` (`tips` and `charity`). Public links only, never keys.
+  Until one is set, the button is hidden on nzdogames.com (the dev site shows a preview).
+
+### Usage stats (our own, private)
+- `site/track.js` runs on the menu and on every game page (`scripts/build-site.sh` adds it to
+  each game). It only sends on **production**, and not at all for browsers sending Global
+  Privacy Control. Events: a menu **visit** (once a day per device it also sends grade, device
+  type, time zone and theme), a game **play** (game and grade) and **time** (seconds a game was
+  actually on screen).
+- `api/` is a small Azure Functions app that Static Web Apps deploys with the site
+  (`api_location: api`). `POST /api/track` adds the event to **daily totals** in Azure Table
+  Storage. It never reads or stores IP addresses, user agents, names or IDs, and sets no cookies.
+  `GET /api/stats?days=30` returns the report.
+- **`/stats.html`** shows the report: visits, devices, most-played games with total and average
+  play time, plays by day, grades, device types, time zones and themes. It is locked to the
+  `owner` role (`site/staticwebapp.config.json`); other visitors are sent to GitHub sign-in.
+- Tests: `cd api && npm test`.
+
+**One-time Azure setup (in the portal, by the owner):**
+1. Create a **Storage account** (Standard, LRS; it costs cents a month) and copy its
+   **connection string** (Security + networking → Access keys).
+2. In the production Static Web App: **Settings → Environment variables** → add
+   `ANALYTICS_STORAGE` = that connection string. (Until it exists, tracking quietly does nothing.)
+3. **Settings → Role management → Invite**: your GitHub account, role `owner`. Open the invite
+   link once, then visit https://nzdogames.com/stats.html.
+
 ## Dev site and production (nzdogames.com)
 
 **Live since October 7, 2026.** The real arcade is at **https://nzdogames.com**.
