@@ -561,3 +561,7 @@ body.modal-open { overflow: hidden; }
 .legal li { margin-bottom: 6px; }
 .legal a, .legal-links a, .support-card a:not(.support-link) { color: var(--yellow); }
 .legal-links { font-size: 19px; color: var(--muted); }
+.support-qr { display: flex; align-items: center; gap: 14px; margin: 12px 0 0; }
+.support-qr img { width: 180px; height: 180px; flex: none; image-rendering: pixelated; border: 6px solid #ffffff; box-shadow: 4px 4px 0 var(--shadow); background: #ffffff; }
+.support-qr figcaption { margin: 0; font-size: 19px; }
+@media (max-width: 560px) { .support-qr { flex-direction: column; align-items: flex-start; } }
