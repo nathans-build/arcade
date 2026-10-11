@@ -14,8 +14,8 @@
     if (text != null) e.textContent = text;
     return e;
   }
-  function linkButton(label, url) {
-    var a = el("a", "adapt-btn on support-link", label + " ↗");
+  function linkButton(label, url, cls) {
+    var a = el("a", (cls || "adapt-btn on") + " support-link", label + " ↗");
     a.href = url;
     a.target = "_blank";
     a.rel = "noopener noreferrer";
@@ -64,7 +64,21 @@
     tip.appendChild(el("h2", null, "☕ Tip the arcade"));
     tip.appendChild(el("p", null, "Tips help pay for the website and for new games and stories by SpiderBen10 (NZDO). They're optional and not tax-deductible."));
     if (tips.length) tips.forEach(function (t) {
-      tip.appendChild(linkButton(t.label, t.url));
+      if (t.amounts && t.amounts.length && t.amountUrl) {
+        tip.appendChild(el("p", "support-amount-title", t.label));
+        var row = el("div", "support-amounts");
+        t.amounts.forEach(function (n) {
+          var b = linkButton("$" + n, t.amountUrl.replace("{amount}", encodeURIComponent(n)), n === t.featured ? "adapt-btn on featured" : "adapt-btn");
+          b.setAttribute("aria-label", "Tip $" + n + " with Venmo");
+          if (n === t.featured) b.title = "Most popular";
+          row.appendChild(b);
+        });
+        row.appendChild(linkButton("Other amount", t.url, "adapt-btn"));
+        tip.appendChild(row);
+        tip.appendChild(el("p", "hint", "Buttons fill in the amount; you can still change it in Venmo."));
+      } else {
+        tip.appendChild(linkButton(t.label, t.url));
+      }
       if (t.qr) {
         var fig = el("figure", "support-qr");
         var img = el("img");
