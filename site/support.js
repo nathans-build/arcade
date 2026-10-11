@@ -82,6 +82,11 @@
     priv.id = "privacy";
     priv.appendChild(el("h2", null, "What we measure"));
     priv.appendChild(el("p", null, "To learn which games kids enjoy, the arcade counts anonymous daily totals: which games are played and for how long, plus grade, device type (phone, tablet or computer), time zone and theme. We don't collect names, emails, IP addresses or cookies, and nothing is shared or sold. Browsers that send Global Privacy Control aren't counted."));
+    var more = el("p");
+    var pl = el("a", null, "Read the full Privacy Policy");
+    pl.href = "privacy.html";
+    more.appendChild(pl);
+    priv.appendChild(more);
     main.appendChild(priv);
 
     var first = main.querySelector("a.support-link");

@@ -131,6 +131,13 @@ in `kit/banks/` list standard codes to double-check against WCPSS pacing guides.
 - Links go in `site/support-config.js` (`tips` and `charity`). Public links only, never keys.
   Until one is set, the button is hidden on nzdogames.com (the dev site shows a preview).
 
+### Privacy Policy and Terms of Use
+- `site/privacy.html` and `site/terms.html` (plain-language drafts, linked from the footers, the
+  credits page and the support page). The owner and contact email come from `site/site-info.js`.
+  Have a lawyer review them before relying on them.
+- **Fonts are served from this site** (`site/fonts/`, SIL Open Font License), so no page contacts
+  Google or any other third party. Every game's `index.html` uses `/fonts/fonts.css`.
+
 ### Usage stats (our own, private)
 - `site/track.js` runs on the menu and on every game page (`scripts/build-site.sh` adds it to
   each game). It only sends on **production**, and not at all for browsers sending Global
