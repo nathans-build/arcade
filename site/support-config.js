@@ -6,5 +6,9 @@ window.SUPPORT = {
   tips: [],
   // A children's charity people can give to directly (the money goes straight to them).
   // Example: { name: "First Book", url: "https://firstbook.org/donate/", about: "Gets new books to kids in need." }
-  charity: null,
+  charity: {
+    name: "No Kid Hungry",
+    url: "https://www.nokidhungry.org/donate",
+    about: "No Kid Hungry (a campaign of the nonprofit Share Our Strength) works to end childhood hunger in America, helping kids get the meals they need to learn and play.",
+  },
 };
