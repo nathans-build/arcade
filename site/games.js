@@ -8,6 +8,8 @@
 // 30 days after that date.
 // `prod: true` sends a game to the real arcade (nzdogames.com). Only mark a game once it is
 // fully tested; without it the game is on the dev (test) site only.
+// `focus: true` means the game has a Focus mode: when a topic is picked in the menu, the game
+// opens focused on it (?topic=<id>). Its `topics` should list every topic it can focus on.
 // Topic chips shown under each subject tab, in this order. Ids are unique across subjects.
 window.TOPICS = {
   Math: [
@@ -288,10 +290,11 @@ window.GAMES = [
   },
   {
     id: "dojo-tower",
+    focus: true,
     title: "Dojo Tower",
     tagline: "Climb a 5-floor dojo, poof the Ink Ninjas and beat each floor master with right answers. Civics, math, forces and words.",
     subjects: ["Social Studies", "Math", "Science", "ELA"],
-    topics: ["civics", "numbers", "physical", "grammar", "reading"],
+    topics: ["civics", "history", "geography", "economics", "numbers", "factors", "ratios", "fractions", "algebra", "geometry", "life", "earth", "physical", "reading", "phonics", "grammar"],
     url: "/dojo-tower/",
     image: "img/dojo-tower.png",
     year: 2026,
@@ -299,10 +302,11 @@ window.GAMES = [
   },
   {
     id: "cipher-pursuit",
+    focus: true,
     title: "Cipher Pursuit",
     tagline: "Splat the Smudge Gang with foam, then crack coded checkpoints by steering your gadget car into the right lane.",
     subjects: ["Math", "ELA"],
-    topics: ["numbers", "ratios", "algebra", "phonics", "grammar"],
+    topics: ["numbers", "factors", "ratios", "fractions", "algebra", "geometry", "phonics", "grammar"],
     url: "/cipher-pursuit/",
     image: "img/cipher-pursuit.png",
     year: 2026,

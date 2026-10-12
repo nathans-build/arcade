@@ -73,6 +73,8 @@ export class Renderer {
   private flash = 0;
   private time = 0;
   card: QuestionCard | null = null;
+  /** FOCUS mode's topic (e.g. "RATIOS & RATES"), shown on the floor and boss banners; null in MIX. */
+  focusTag: string | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     canvas.width = VIEW_W * SCALE;
@@ -593,7 +595,8 @@ export class Renderer {
       ctx.fillRect(0, 50, VIEW_W, 2);
       ctx.fillRect(0, 124, VIEW_W, 2);
       this.text(`FLOOR ${sim.floor}`, VIEW_W / 2, 60, 12, C.yellow, "center", true);
-      this.text(f.hall, VIEW_W / 2, 80, 7, C.white, "center", true);
+      this.text(f.hall, VIEW_W / 2, this.focusTag ? 76 : 80, 7, C.white, "center", true);
+      if (this.focusTag) this.text(this.fit(`FOCUS: ${this.focusTag}`, VIEW_W - 20, 5), VIEW_W / 2, 87, 5, C.cyan, "center", true);
       this.text(`MASTER: ${f.bossName}`, VIEW_W / 2, 96, 5, C.red, "center", true);
       this.text(sim.dir > 0 ? "GO RIGHT >>" : "<< GO LEFT", VIEW_W / 2, 110, 5, Math.floor(this.time * 3) % 2 ? C.cyan : C.white, "center");
     }
@@ -601,8 +604,9 @@ export class Renderer {
       const bx = sim.bossDrawX();
       this.bubble(f.taunt, bx - sim.camX - sim.dir * 30, GROUND - 58, 170);
       ctx.fillStyle = "rgba(5,8,24,0.8)";
-      ctx.fillRect(0, 26, VIEW_W, 20);
+      ctx.fillRect(0, 26, VIEW_W, this.focusTag ? 30 : 20);
       this.text(f.bossName, VIEW_W / 2, 32, 8, C.red, "center", true);
+      if (this.focusTag) this.text(this.fit(this.focusTag, VIEW_W - 20, 5), VIEW_W / 2, 45, 5, C.cyan, "center", true);
     }
     if (sim.mode === "boss" && !sim.bossAnim) {
       const last = sim.lastBoss;

@@ -11,6 +11,12 @@
  *   LETTER KEY (checks the explanation shows and no car is lost), pause/resume, and finally run
  *   out of cars to see the mission report. Then on a 390x844 phone (touch): no sideways scroll on
  *   the title, while driving and at a checkpoint; touch pads show; FIRE and tapping an answer work.
+ * Subject + topic: MIXED is the default; at grade 7 pick MATH (keyboard, arrows in the subject row)
+ *   then Ratios & rates, drive to the first checkpoint and check it is a rate/ratio question, the
+ *   radio shows the topic, the choice is saved (arcade.cipher-pursuit.subject / .topic) and the
+ *   mission report names it; ?grade=5&topic=codes starts on MATH · Secret codes with an easy cipher;
+ *   ?grade=1&topic=ratios falls back to ALL MATH with a note; the picker has no sideways scroll at
+ *   390 and 360 px.
  * Fails on any console error or page error.
  */
 const path = require("path");
@@ -335,12 +341,229 @@ async function phone(browser, grade) {
   return errors;
 }
 
+const RATIO_FAMILIES = ["drt", "rate", "ratio", "pctof", "pctchange", "fracrate", "mpg"];
+const qInfo = (page) =>
+  page.evaluate(() => {
+    const q = window.__cp().cp.q;
+    return q && { family: q.family, standard: q.standard, prompt: q.prompt, meta: q.meta, choices: q.choices };
+  });
+
+async function focusDesktop(browser) {
+  const g = "7";
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const page = await ctx.newPage();
+  const errors = [];
+  watchErrors(page, errors);
+  await page.goto(`${BASE}?grade=${g}&debug&god`, { waitUntil: "load" });
+  await page.waitForFunction(() => !!window.__cp && !!window.__cp());
+  const log = [];
+  // MIXED is the default (no topic row); the subject row works from the keyboard.
+  const mixed = page.locator('.cp-subject[data-subject="mixed"]');
+  if ((await mixed.getAttribute("aria-checked")) !== "true") note(g, "focus: MIXED isn't the default");
+  if ((await page.locator(".cp-topic").count()) !== 0) note(g, "focus: topics shown for MIXED");
+  const subjects = (await page.locator(".cp-subject .cp-pixel").allInnerTexts()).join(" · ");
+  if (subjects !== "MATH · ELA · MIXED") note(g, `focus: subject row "${subjects}"`);
+  await mixed.focus();
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(100);
+  if ((await page.locator('.cp-subject[data-subject="math"]').getAttribute("aria-checked")) !== "true") note(g, "focus: keyboard didn't pick MATH");
+  if ((await page.locator('.cp-topic[data-topic="all"]').getAttribute("aria-checked")) !== "true") note(g, "focus: ALL MATH isn't preselected");
+  // ELA: ALL ELA + Grammar; phonics disabled at grade 7. Then back to MATH and pick Ratios.
+  await page.locator('.cp-subject[data-subject="ela"]').click();
+  const elaTopics = await page.locator(".cp-topic").allInnerTexts();
+  if (!elaTopics[0].includes("ALL ELA") || !elaTopics.some((t) => t.includes("Grammar & words"))) note(g, `focus: ELA topics ${JSON.stringify(elaTopics)}`);
+  if (!(await page.locator('.cp-topic[data-topic="phonics"]').isDisabled())) note(g, "focus: phonics should be disabled at grade 7");
+  await page.locator('.cp-subject[data-subject="math"]').click();
+  const disabled = await page.locator(".cp-topic:disabled").allInnerTexts();
+  log.push(`grade 7 math topics disabled: ${disabled.map((t) => t.replace(/\s+/g, " ")).join(" | ")}`);
+  await page.locator('.cp-topic[data-topic="ratios"]').click();
+  if ((await page.locator('.cp-topic[data-topic="ratios"]').getAttribute("aria-checked")) !== "true") note(g, "focus: ratios not selected");
+  const saved = await page.evaluate(() => [localStorage.getItem("arcade.cipher-pursuit.subject"), localStorage.getItem("arcade.cipher-pursuit.topic")].join("/"));
+  if (saved !== "math/ratios") note(g, `focus: not saved (${saved})`);
+  const startText = await page.locator(".cp-cta.big").innerText();
+  if (!/ratios/i.test(startText)) note(g, `focus: start button "${startText}"`);
+  await page.locator(".cp-cta.big").click();
+  await page.waitForTimeout(300);
+  const idleHead = await page.locator(".cp-radio .head").innerText();
+  if (!/RATIOS/.test(idleHead)) note(g, `focus: radio head doesn't show the topic: "${idleHead}"`);
+  // Drive for real to the first checkpoint.
+  const t0 = Date.now();
+  while ((await sim(page)).phase === "drive" && Date.now() - t0 < 45000) {
+    await page.evaluate(() => {
+      const s = window.__cp();
+      s.input.targetX = s.roadAt(s.dist + 30).cx;
+    });
+    await page.waitForTimeout(250);
+  }
+  await page.evaluate(() => (window.__cp().input.targetX = null));
+  if ((await sim(page)).phase !== "approach") note(g, "focus: never reached a checkpoint");
+  else {
+    const q = await qInfo(page);
+    const isRate = RATIO_FAMILIES.includes(q.family) || /\.RP\./.test(q.standard);
+    if (!isRate) note(g, `focus: first checkpoint isn't a rate/ratio: ${q.family} ${q.standard} "${q.prompt}"`);
+    const head = await page.locator(".cp-radio .head").innerText();
+    if (!/RATIOS/.test(head)) note(g, `focus: question header "${head}"`);
+    log.push(`focus ratios checkpoint 1 (drove ${((Date.now() - t0) / 1000).toFixed(1)}s): [${q.family} ${q.standard}] "${q.prompt}" ${JSON.stringify(q.choices)}`);
+    // Two more checkpoints: still ratios.
+    for (let k = 0; k < 2; k++) {
+      const s = await sim(page);
+      await page.keyboard.press(String(s.answer + 1));
+      await waitPhase(page, "debrief");
+      await page.waitForTimeout(1300);
+      await page.keyboard.press("Enter");
+      await page.evaluate(() => window.__cp().skipToCheckpoint());
+      await waitPhase(page, "approach", 5000);
+      const q2 = await qInfo(page);
+      if (!(RATIO_FAMILIES.includes(q2.family) || /\.RP\./.test(q2.standard))) note(g, `focus: checkpoint ${k + 2} off topic: ${q2.family} ${q2.standard}`);
+      log.push(`focus ratios checkpoint ${k + 2}: [${q2.family} ${q2.standard}] "${q2.prompt}"`);
+    }
+  }
+  // Run out of cars: the mission report names the focus topic.
+  await page.evaluate(() => {
+    const s = window.__cp();
+    s.god = false;
+  });
+  const s1 = await sim(page);
+  if (s1.phase === "approach") {
+    await page.keyboard.press(String(s1.answer + 1));
+    await waitPhase(page, "debrief");
+  }
+  if ((await sim(page)).phase === "debrief") await page.evaluate(() => window.__cp().continueDrive());
+  for (let k = 0; k < 6 && (await sim(page)).phase !== "over"; k++) {
+    await page.evaluate(() => {
+      const s = window.__cp();
+      if (s.phase !== "drive") return;
+      Object.assign(s, { invuln: 0, shield: false, turbo: 0, smoke: 0 });
+      s.enemies.push({ id: 7000 + Math.random(), kind: "smudge", off: s.x - s.roadAt(s.dist).cx, wy: s.dist + 2, vy: 0, w: 10, h: 15, state: "live", t: 0, boat: false });
+    });
+    await page.waitForTimeout(1800);
+  }
+  const rep = await page.locator(".cp-reportfocus").innerText().catch(() => "");
+  if (!rep.includes("Ratios & rates")) note(g, `focus: mission report doesn't name the topic ("${rep}")`);
+  log.push(`report: ${rep}`);
+  // Reload without ?topic=: the saved FOCUS ratios comes back.
+  await page.goto(`${BASE}?grade=${g}&debug`, { waitUntil: "load" });
+  await page.waitForFunction(() => !!window.__cp && !!window.__cp());
+  if ((await page.locator('.cp-topic[data-topic="ratios"]').getAttribute("aria-checked").catch(() => null)) !== "true") note(g, "focus: saved choice not restored");
+  // A grade with no ratios (no ?grade=, picker shown): the saved topic falls back to ALL MATH.
+  await page.goto(`${BASE}?debug`, { waitUntil: "load" });
+  await page.locator(".cp-grade", { hasText: /^2$/ }).click();
+  const fb = await page.locator(".cp-topic.on").getAttribute("data-topic").catch(() => null);
+  if (fb !== "all") note(g, `focus: grade 2 fallback topic ${fb}`);
+  await page.locator(".cp-grade", { hasText: /^7$/ }).click();
+  if ((await page.locator(".cp-topic.on").getAttribute("data-topic").catch(() => null)) !== "ratios") note(g, "focus: back at grade 7 the saved ratios should return");
+  console.log("focus desktop:\n  " + log.join("\n  "));
+  await ctx.close();
+  return errors;
+}
+
+async function focusLinks(browser) {
+  const errors = [];
+  const log = [];
+  // ?grade=5&topic=codes → FOCUS: Secret codes, easy cipher.
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const page = await ctx.newPage();
+    watchErrors(page, errors);
+    await page.goto(`${BASE}?grade=5&topic=codes&debug&god`, { waitUntil: "load" });
+    await page.waitForFunction(() => !!window.__cp && !!window.__cp());
+    if ((await page.locator('.cp-subject[data-subject="math"]').getAttribute("aria-checked")) !== "true") note("5", "?topic=codes didn't pick MATH");
+    if ((await page.locator('.cp-topic[data-topic="codes"]').getAttribute("aria-checked")) !== "true") note("5", "?topic=codes not selected");
+    const saved = await page.evaluate(() => localStorage.getItem("arcade.cipher-pursuit.subject") || localStorage.getItem("arcade.cipher-pursuit.topic"));
+    if (saved) note("5", `?topic= override should not be saved (${saved})`);
+    await page.locator(".cp-cta.big").click();
+    await page.waitForTimeout(300);
+    for (let k = 0; k < 3; k++) {
+      await page.evaluate(() => window.__cp().skipToCheckpoint());
+      await waitPhase(page, "approach", 5000);
+      const q = await qInfo(page);
+      const m = q.meta;
+      if (!q.family.startsWith("cipher")) note("5", `codes checkpoint ${k + 1}: ${q.family}`);
+      const shift = m.shift !== undefined ? m.shift : null;
+      if (shift !== null && shift > 3) note("5", `codes: shift ${shift} too big for grade 5`);
+      if (m.kind === "cipher" && m.input.length > 4) note("5", `codes: word ${m.input} too long for grade 5`);
+      if (!(await page.locator(".cp-radio .decoder").count())) note("5", "codes: A–Z strip not shown");
+      const head = await page.locator(".cp-radio .head").innerText();
+      if (!/SECRET CODES/.test(head)) note("5", `codes: header "${head}"`);
+      log.push(`grade 5 codes ${k + 1}: [${q.family} ${q.standard}] "${q.prompt}" ${JSON.stringify(q.choices)}`);
+      const s = await sim(page);
+      await page.keyboard.press(String(s.answer + 1));
+      await waitPhase(page, "debrief");
+      await page.waitForTimeout(1300);
+      await page.keyboard.press("Enter");
+    }
+    await ctx.close();
+  }
+  // ?grade=1&topic=ratios → not offered: a note, ALL MATH, the game still starts.
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const page = await ctx.newPage();
+    watchErrors(page, errors);
+    await page.goto(`${BASE}?grade=1&topic=ratios&debug&god`, { waitUntil: "load" });
+    await page.waitForFunction(() => !!window.__cp && !!window.__cp());
+    const notice = await page.locator(".cp-notice").innerText().catch(() => "");
+    if (!/grades 6–8/.test(notice)) note("1", `?topic=ratios at grade 1: notice "${notice}"`);
+    if ((await page.locator('.cp-subject[data-subject="math"]').getAttribute("aria-checked")) !== "true") note("1", "?topic=ratios at grade 1 should pick MATH");
+    if ((await page.locator('.cp-topic[data-topic="all"]').getAttribute("aria-checked")) !== "true") note("1", "?topic=ratios at grade 1 should fall back to ALL MATH");
+    const ratios = page.locator('.cp-topic[data-topic="ratios"]');
+    if (!(await ratios.isDisabled())) note("1", "ratios should be disabled at grade 1");
+    if (!(await ratios.innerText()).includes("Grades 6–8")) note("1", `ratios note "${await ratios.innerText()}"`);
+    await page.locator(".cp-cta.big").click();
+    const head1 = await page.locator(".cp-radio .head").innerText();
+    if (!/ALL MATH/.test(head1)) note("1", `ALL MATH radio head "${head1}"`);
+    await page.evaluate(() => window.__cp().skipToCheckpoint());
+    await waitPhase(page, "approach", 5000);
+    const q = await page.evaluate(() => window.__cp().cp.q);
+    if (q.subject !== "math") note("1", `ALL MATH checkpoint is ${q.subject}`);
+    log.push(`grade 1 ?topic=ratios → "${notice}" · ALL MATH checkpoint: [${q.family} ${q.standard}] "${q.prompt}"`);
+    await ctx.close();
+  }
+  // Phones: the FOCUS picker has no sideways scroll.
+  for (const width of [390, 360]) {
+    const ctx = await browser.newContext({ viewport: { width, height: 800 }, hasTouch: true, isMobile: true, deviceScaleFactor: 3 });
+    const page = await ctx.newPage();
+    watchErrors(page, errors);
+    await page.goto(`${BASE}?grade=6&topic=ratios&debug`, { waitUntil: "load" });
+    await page.waitForFunction(() => !!window.__cp && !!window.__cp());
+    for (const subj of ["math", "ela", "mixed", "math"]) {
+      await page.locator(`.cp-subject[data-subject="${subj}"]`).tap();
+      await page.waitForTimeout(100);
+      const m = await page.evaluate(() => {
+        const over = [...document.querySelectorAll(".cp-focus button, .cp-cta")].filter((b) => {
+          const r = b.getBoundingClientRect();
+          return r.left < -0.5 || r.right > window.innerWidth + 0.5;
+        }).length;
+        return { sw: document.documentElement.scrollWidth, bw: document.body.scrollWidth, iw: window.innerWidth, over };
+      });
+      if (m.sw > m.iw || m.bw > m.iw || m.over) note("6", `phone ${width}px ${subj}: sideways overflow ${JSON.stringify(m)}`);
+    }
+    // Tap a topic and start: the radio shows it.
+    await page.locator('.cp-topic[data-topic="fractions"]').tap();
+    await page.locator(".cp-cta.big").tap();
+    await page.waitForTimeout(300);
+    const head = await page.locator(".cp-radio .head").innerText();
+    if (!/FRACTIONS/.test(head)) note("6", `phone ${width}px: radio head "${head}"`);
+    const m2 = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: window.innerWidth }));
+    if (m2.sw > m2.iw) note("6", `phone ${width}px: sideways scroll while driving`);
+    await page.screenshot({ path: path.join(process.env.OUT || "/tmp", `cp-focus-phone-${width}.png`) });
+    log.push(`phone ${width}px: picker ok`);
+    await ctx.close();
+  }
+  console.log("focus links:\n  " + log.join("\n  "));
+  return errors;
+}
+
 (async () => {
   const browser = await chromium.launch();
+  if (process.env.FOCUS_ONLY !== "1") {
   for (const g of GRADES) {
     const errs = [...(await desktop(browser, g)), ...(await phone(browser, g))];
     for (const e of errs) note(g, `console/page error: ${e}`);
   }
+  }
+  for (const e of [...(await focusDesktop(browser)), ...(await focusLinks(browser))]) note("focus", `console/page error: ${e}`);
   // No ?grade=: the game shows its own grade picker.
   const page = await browser.newPage();
   await page.goto(BASE, { waitUntil: "load" });

@@ -166,6 +166,11 @@ export class DojoEngine {
     this.renderer.card = card;
   }
 
+  /** FOCUS mode's topic tag for the floor and boss banners (null in MIX). */
+  setFocusTag(tag: string | null) {
+    this.renderer.focusTag = tag;
+  }
+
   finishFloor() {
     this.sim.finishFloor();
   }

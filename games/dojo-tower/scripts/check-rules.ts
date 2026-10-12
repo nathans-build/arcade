@@ -9,6 +9,11 @@
  * 3. The simulation, played headlessly: punches and kicks poof ninjas, ducking/jumping dodge ink
  *    stars, blobs need a low attack, scroll ninjas open a question, the Thunder Kick clears the
  *    screen, losing all energy costs a life, and the whole tower can be climbed.
+ * 4. One subject / one topic: for every grade K-12, every topic offered there and every "ALL <SUBJECT>",
+ *    60 drawn questions all belong to it, are well formed and varied; topics not offered really lack
+ *    questions; topic classification; ?topic= / ?subject= parsing; the saved choice falls back when the
+ *    grade changes; and (through Vite's SSR loader, which understands the kit's import.meta.glob)
+ *    MIXED is unchanged.
  */
 import { GRADES } from "../src/kit/grades";
 import type { Grade, Question } from "../src/kit/types";
@@ -20,6 +25,14 @@ import {
   FLOORS, METER_MAX, applyAnswer, bossHpFor, newFight, newStreak, resolveBossAnswer, spendThunder,
 } from "../src/dojo/rules";
 import { DojoSim, GROUND, MAX_ENERGY, START_LIVES, type SimEvent } from "../src/dojo/sim";
+import { MATH_GENERATORS, mathQuestion } from "../src/kit/math";
+import type { Subject } from "../src/kit/types";
+import {
+  FOCUS_SUBJECTS, FOCUS_TOPICS, FocusCatalog, FocusDeck, MIN_DISTINCT, MIXED, SUBJECT_CHOICES, SUBJECT_KEY, TOPIC_KEY,
+  classifyTopic, focusFromUrl, focusLabel, focusTag, gradeRangeNote, loadFocus, loadStoredTopic, mathHasVariety,
+  mathSourceGrade, parseStoredFocus, refocusSavedForGrade, saveFocus, topicForSubject, topicsOf, validateFocus,
+  type FocusChoice, type FocusTopicId, type TopicChoice,
+} from "../src/dojo/focus";
 
 let failures = 0;
 let checks = 0;
@@ -413,11 +426,275 @@ function placeEnemy(sim: DojoSim, kind: "ninja" | "blob" | "thrower" | "scroll",
   check(sim.player.y >= 0 && GROUND > 0, () => "student stays on or above the floor");
 }
 
+/* ------------------------------------------------------------ 4. FOCUS mode */
+
+// The kit's banks, loaded file by file (kit/banks/index.ts uses Vite's import.meta.glob).
+type Written = Exclude<Subject, "math">;
+const BANK: Record<Written, Partial<Record<Grade, Question[]>>> = { science: {}, ela: {}, social: {} };
+for (const s of Object.keys(BANK) as Written[]) {
+  for (const g of GRADES) BANK[s][g] = ((await import(`../src/kit/banks/${s}/g${g}.ts`)) as { default: Question[] }).default;
+}
+const bankSource = (s: Written, g: Grade) => BANK[s][g] ?? [];
+const catalog = new FocusCatalog(bankSource);
+const gi = (g: Grade) => GRADES.indexOf(g);
+
+// Topic ids are the arcade menu's.
+const MENU_IDS: Record<string, string[]> = {
+  math: ["numbers", "factors", "ratios", "fractions", "algebra", "geometry"],
+  science: ["life", "earth", "physical"],
+  ela: ["reading", "phonics", "grammar"],
+  social: ["civics", "history", "geography", "economics"],
+};
+check(FOCUS_SUBJECTS.map((s) => s.id).join() === "math,science,ela,social", () => "focus subjects");
+for (const [subj, list] of Object.entries(MENU_IDS)) {
+  check(topicsOf(subj as Subject).map((t) => t.id).join() === list.join(), () => `${subj} topic ids: ${topicsOf(subj as Subject).map((t) => t.id)}`);
+}
+check(FOCUS_TOPICS.length === 16, () => "16 focus topics");
+check(SUBJECT_KEY === "arcade.dojo-tower.subject" && TOPIC_KEY === "arcade.dojo-tower.topic", () => "storage keys");
+check(SUBJECT_CHOICES.map((s) => s.id).join() === "math,science,ela,social,mixed" && SUBJECT_CHOICES.every((s) => s.note.length > 3), () => "subject row");
+
+// Classification spot checks
+const C = (subject: Subject, standard: string, skill = "x") => classifyTopic({ subject, standard, skill });
+const CLASSES: [Subject, string, string, FocusTopicId | null][] = [
+  ["math", "NC.6.RP.3", "Unit rates", "ratios"], ["math", "NC.7.RP.3", "Percent problems", "ratios"],
+  ["math", "NC.5.NF.1", "Add and subtract unlike fractions", "fractions"], ["math", "NC.6.NS.1", "Divide fractions", "fractions"],
+  ["math", "NC.5.NBT.7", "Multiply decimals", "fractions"], ["math", "NC.4.NF.7", "Compare decimals", "fractions"],
+  ["math", "NC.4.OA.4", "Factors, multiples, and primes", "factors"], ["math", "NC.6.NS.4", "Greatest common factor", "factors"],
+  ["math", "NC.6.NS.4", "Least common multiple", "factors"], ["math", "NC.3.OA.4", "Unknown factor", "numbers"],
+  ["math", "NC.3.OA.7", "Multiplication facts", "numbers"], ["math", "NC.2.NBT.1", "Place value", "numbers"],
+  ["math", "NC.7.NS.1", "Add and subtract integers", "numbers"], ["math", "NC.2.MD.8", "Count money", "numbers"],
+  ["math", "NC.6.EE.7", "One-step equations", "algebra"], ["math", "NC.8.F.4", "Slope", "algebra"],
+  ["math", "NC.M1.A-REI.3", "Solve linear equations", "algebra"], ["math", "NC.M3.F-TF.2", "Unit circle values", "algebra"],
+  ["math", "NC.M4.AF.3.2", "Solve logarithmic equations", "algebra"], ["math", "NC.M4.AF.2.2", "Law of Cosines", "geometry"],
+  ["math", "NC.M2.G-SRT.6", "Trigonometric ratios", "geometry"], ["math", "NC.3.MD.7", "Area of rectangles", "geometry"],
+  ["math", "NC.5.MD.5", "Volume", "geometry"], ["math", "NC.K.G.4", "Shapes: sides and corners", "geometry"],
+  ["math", "NC.7.SP.7", "Probability", null], ["math", "NC.M1.S-ID.2", "Center and spread", null],
+  ["science", "PS.Phy.1.2", "x", "physical"], ["science", "PS.Chm.1.1", "x", "physical"], ["science", "PS.K.2", "x", "physical"],
+  ["science", "LS.Bio.3.1", "x", "life"], ["science", "LS.4.1.2", "x", "life"], ["science", "ESS.EES.2.2", "x", "earth"], ["science", "ESS.K.1.1", "x", "earth"],
+  ["ela", "RL.3.2", "Central message", "reading"], ["ela", "RI.9-10.8", "Logical fallacies", "reading"],
+  ["ela", "RF.K.3", "Rhyming words", "phonics"], ["ela", "L.3.2", "Spelling", "phonics"],
+  ["ela", "L.4.1", "Relative pronouns", "grammar"], ["ela", "L.9-10.4", "Latin roots", "grammar"],
+  ["social", "K.C&G.1", "x", "civics"], ["social", "CL.C&G.2", "x", "civics"], ["social", "WH.H.1.2", "x", "history"],
+  ["social", "AH.G.1", "x", "geography"], ["social", "3.E.1.1", "x", "economics"], ["social", "EPF.MCM.1.1", "x", "economics"],
+  ["social", "K.B.1.1", "x", null],
+];
+for (const [subj, std, skill, want] of CLASSES) check(C(subj, std, skill) === want, () => `classify ${subj} ${std} "${skill}" = ${C(subj, std, skill)}, want ${want}`);
+// Every kit item gets a topic (except behavioral sciences in social studies), and so does every math generator but statistics.
+for (const s of Object.keys(BANK) as Written[]) {
+  for (const g of GRADES) {
+    for (const q of bankSource(s, g)) {
+      const t = classifyTopic(q);
+      if (s === "social" && /^(K|\d+|WH|CL|AH)\.B\./.test(q.standard)) check(t === null, () => `${q.id} ${q.standard} should have no topic`);
+      else check(t !== null && MENU_IDS[s].includes(t), () => `${q.id} (${s} ${q.standard} "${q.skill}") classified ${t}`);
+    }
+  }
+}
+for (const g of GRADES) {
+  for (const gen of MATH_GENERATORS[g]) {
+    const t = classifyTopic({ subject: "math", standard: gen.standard, skill: gen.skill });
+    if (/\.(SP|S-[A-Z]+)\./.test(gen.standard)) check(t === null, () => `${gen.standard} (statistics) should have no topic`);
+    else check(t !== null, () => `math generator ${g} ${gen.key} ${gen.standard} "${gen.skill}" has no topic`);
+  }
+}
+
+// Every grade, every offered topic and every "ALL <SUBJECT>": 60 questions (every third a quick scroll draw).
+const offeredAt = new Map<Grade, FocusTopicId[]>();
+let focusDraws = 0;
+function checkDeck(g: Grade, subject: Subject, topic: TopicChoice) {
+  const deck = new FocusDeck(catalog, g, subject, topic);
+  const prompts = new Set<string>();
+  let lastPrompt = "";
+  let backToBack = 0;
+  for (let i = 0; i < 60; i++) {
+    const q = deck.draw(i % 3 === 0);
+    focusDraws++;
+    const where = `focus ${g}/${subject}/${topic} #${i} ${q.id} ${q.standard} "${q.prompt.slice(0, 40)}"`;
+    if (topic === "all") check(q.subject === subject, () => `${where}: subject ${q.subject}`);
+    else check(classifyTopic(q) === topic, () => `${where}: classified ${classifyTopic(q)}`);
+    check(q.choices.length === 4 && q.choices.every((c) => typeof c === "string" && c.trim().length > 0), () => `${where}: needs 4 non-empty choices`);
+    // Exact strings: capitalization items ("Lake Erie" / "lake erie") differ only by case on purpose.
+    check(new Set(q.choices.map((c) => c.trim())).size === 4, () => `${where}: choices not unique: ${q.choices.join(" | ")}`);
+    check(Number.isInteger(q.answer) && q.answer >= 0 && q.answer < 4, () => `${where}: bad answer ${q.answer}`);
+    check(q.explanation.trim().length >= 5, () => `${where}: no explanation`);
+    check(!q.passage, () => `${where}: passages are not used in the tower`);
+    check(bandOf(q.grade) === bandOf(g) || Math.abs(gi(q.grade) - gi(g)) <= 1, () => `${where}: grade ${q.grade} too far from ${g}`);
+    if (q.prompt === lastPrompt) backToBack++;
+    lastPrompt = q.prompt;
+    prompts.add(q.prompt);
+  }
+  check(prompts.size >= (topic === "all" ? 20 : MIN_DISTINCT), () => `focus ${g}/${subject}/${topic}: only ${prompts.size} different questions in 60 draws`);
+  check(backToBack === 0, () => `focus ${g}/${subject}/${topic}: the same question twice in a row ${backToBack} times`);
+}
+for (const g of GRADES) {
+  const offered = catalog.available(g);
+  offeredAt.set(g, offered);
+  for (const s of FOCUS_SUBJECTS) checkDeck(g, s.id, "all");
+  for (const topic of offered) checkDeck(g, FOCUS_TOPICS.find((t) => t.id === topic)!.subject, topic);
+  // Topics not offered really lack questions at this grade.
+  for (const t of FOCUS_TOPICS.filter((x) => !offered.includes(x.id))) {
+    if (t.subject === "math") {
+      check(mathSourceGrade(g, t.id) === null && !mathHasVariety(g, t.id), () => `${g}/${t.id} not offered but has math`);
+      const seen = new Set<string>();
+      for (let i = 0; i < 400; i++) {
+        const q = mathQuestion(g);
+        if (classifyTopic(q) === t.id) seen.add(q.prompt);
+      }
+      check(seen.size < MIN_DISTINCT, () => `${g}/${t.id} not offered but grade ${g} math made ${seen.size} different questions`);
+    } else {
+      check(catalog.writtenPool(g, t.id).length < MIN_DISTINCT, () => `${g}/${t.id} not offered but pool has ${catalog.writtenPool(g, t.id).length}`);
+      check(catalog.ownCount(g, t.id) < MIN_DISTINCT, () => `${g}/${t.id} not offered but grade ${g} alone has ${catalog.ownCount(g, t.id)}`);
+    }
+  }
+}
+// Grade-band expectations from the arcade menu
+const offers = (g: Grade, t: FocusTopicId) => offeredAt.get(g)!.includes(t);
+for (const g of GRADES) {
+  const n = gi(g);
+  check(offers(g, "ratios") === (n >= 6 && n <= 8), () => `ratios at grade ${g}: ${offers(g, "ratios")}`);
+  if (n <= 3) check(!offers(g, "factors"), () => `factors should not be offered at grade ${g}`);
+  if (n <= 2) check(offers(g, "phonics") && offers(g, "numbers"), () => `K-2 needs phonics and numbers (grade ${g})`);
+  if (n >= 6) check(!offers(g, "phonics"), () => `phonics should not be offered at grade ${g}`);
+  if (n >= 6) check(offers(g, "algebra"), () => `algebra should be offered at grade ${g}`);
+  if (n >= 9) check(offers(g, "geometry") && !offers(g, "numbers"), () => `high school math topics at grade ${g}`);
+  for (const t of ["life", "earth", "physical", "reading", "grammar", "civics", "history", "geography", "economics"] as FocusTopicId[]) {
+    check(offers(g, t), () => `${t} should be offered at grade ${g}`);
+  }
+}
+for (const t of FOCUS_TOPICS) check(GRADES.some((g) => offers(g, t.id)), () => `${t.id} is never offered`);
+check(catalog.gradesNote("ratios") === "Grades 6–8", () => `ratios note: ${catalog.gradesNote("ratios")}`);
+check(gradeRangeNote(["K", "1", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]) === "Grades K–1, 3+", () => "grade range note");
+check(gradeRangeNote(["4"]) === "Grade 4" && gradeRangeNote([]) === "Not available yet", () => "grade range note (single/empty)");
+
+// Drawing never hangs: an empty bank still gives math, and math topics always answer.
+{
+  const empty = new FocusCatalog(() => []);
+  // With no kit banks, only math and Dojo Tower's own civics and forces sets remain.
+  check(empty.available("5").every((t) => FOCUS_TOPICS.find((x) => x.id === t)!.subject === "math" || t === "civics" || t === "physical"), () => `empty banks offer ${empty.available("5")}`);
+  const v = validateFocus({ subject: "ela", topic: "reading" }, "5", empty);
+  check(v.subject === "ela" && v.topic === "all", () => "a topic the grade lacks falls back to ALL <SUBJECT>");
+  const t0 = Date.now();
+  const d = new FocusDeck(catalog, "4", "math", "factors");
+  for (let i = 0; i < 200; i++) d.draw(true);
+  check(Date.now() - t0 < 5000, () => `200 focus math draws took ${Date.now() - t0} ms`);
+}
+
+// ?topic= / ?subject=
+{
+  const u = (search: string, g: Grade) => focusFromUrl(search, g, catalog);
+  const is = (c: FocusChoice | null, subject: string, topic?: TopicChoice) =>
+    !!c && c.subject === subject && (topic === undefined || (c.subject !== "mixed" && c.topic === topic));
+  check(is(u("?grade=7&topic=ratios", "7").choice, "math", "ratios"), () => "?topic=ratios at grade 7");
+  check(is(u("?grade=4&topic=civics", "4").choice, "social", "civics"), () => "?topic=civics at grade 4 is social studies");
+  const r2 = u("?grade=2&topic=ratios", "2");
+  check(r2.choice === null && r2.unavailable === "ratios", () => `?topic=ratios at grade 2 should be ignored: ${JSON.stringify(r2)}`);
+  check(u("?topic=dragons", "5").choice === null && u("?topic=dragons", "5").unavailable === null, () => "unknown topic ignored");
+  check(u("", "5").choice === null && u("?grade=5", "5").choice === null, () => "no topic: no override");
+  check(is(u("?topic=PHONICS", "1").choice, "ela", "phonics"), () => "topic ids are case-insensitive");
+  check(is(u("?subject=science", "5").choice, "science", "all"), () => "?subject= alone: ALL SCIENCE");
+  check(is(u("?subject=mixed", "5").choice, "mixed"), () => "?subject=mixed");
+  check(is(u("?subject=math&topic=all", "5").choice, "math", "all"), () => "?subject=math&topic=all");
+  check(is(u("?subject=ela&topic=geometry", "8").choice, "math", "geometry"), () => "the topic decides the subject");
+  check(u("?subject=wizardry", "5").choice === null, () => "unknown subject ignored");
+  check(u("?topic=", "5").choice === null, () => "empty topic ignored");
+}
+
+// Saving, validating and the grade-change fallback (with an in-memory localStorage)
+{
+  const mem = new Map<string, string>();
+  (globalThis as unknown as { localStorage: Pick<Storage, "getItem" | "setItem" | "removeItem"> }).localStorage = {
+    getItem: (k) => mem.get(k) ?? null,
+    setItem: (k, v) => void mem.set(k, String(v)),
+    removeItem: (k) => void mem.delete(k),
+  };
+  const same = (a: FocusChoice, b: FocusChoice) => JSON.stringify(a) === JSON.stringify(b);
+  check(loadFocus().subject === "mixed", () => "nothing saved: MIXED");
+  saveFocus({ subject: "math", topic: "ratios" });
+  check([...mem.keys()].every((k) => k.startsWith("arcade.dojo-tower.")), () => `keys ${[...mem.keys()]}`);
+  check(mem.get(SUBJECT_KEY) === "math" && mem.get(TOPIC_KEY) === "ratios", () => `stored ${JSON.stringify([...mem])}`);
+  check(same(loadFocus(), { subject: "math", topic: "ratios" }), () => `saved focus ${JSON.stringify(loadFocus())}`);
+  // Grade 7 -> 2: ratios isn't offered, so the saved choice becomes ALL MATH there.
+  check(same(refocusSavedForGrade("2", catalog), { subject: "math", topic: "all" }), () => "grade 2 fallback");
+  check(same(loadFocus(), { subject: "math", topic: "all" }), () => "fallback saved");
+  check(same(refocusSavedForGrade("3", catalog), { subject: "math", topic: "all" }), () => "ALL stays ALL");
+  saveFocus({ subject: "ela", topic: "phonics" });
+  check(same(refocusSavedForGrade("1", catalog), { subject: "ela", topic: "phonics" }), () => "phonics stays at grade 1");
+  check(same(refocusSavedForGrade("10", catalog), { subject: "ela", topic: "all" }), () => "phonics @10 -> ALL ELA");
+  // MIXED keeps the last topic for when that subject is picked again.
+  saveFocus({ subject: "science", topic: "earth" });
+  saveFocus(MIXED);
+  check(loadFocus().subject === "mixed" && loadStoredTopic() === "earth", () => "MIXED keeps the last topic");
+  check(refocusSavedForGrade("2", catalog).subject === "mixed", () => "MIXED survives a grade change");
+  check(topicForSubject("science", "5", catalog) === "earth" && topicForSubject("math", "5", catalog) === "all", () => "topicForSubject");
+  check(validateFocus(MIXED, "7", catalog).subject === "mixed", () => "validate MIXED");
+  const wrongSubj = validateFocus({ subject: "ela", topic: "ratios" }, "7", catalog);
+  check(same(wrongSubj, { subject: "ela", topic: "all" }), () => "a topic from another subject becomes ALL");
+  check(parseStoredFocus(null, null).subject === "mixed" && parseStoredFocus("wizardry", "ratios").subject === "mixed", () => "bad stored subject is MIXED");
+  check(same(parseStoredFocus("math", "dragons"), { subject: "math", topic: "all" }), () => "bad stored topic is ALL");
+  check(same(parseStoredFocus("ela", "ratios"), { subject: "ela", topic: "all" }), () => "stored topic of another subject is ALL");
+  check(focusTag({ subject: "math", topic: "ratios" }) === "RATIOS & RATES" && focusTag({ subject: "social", topic: "all" }) === "SOCIAL STUDIES" && focusTag(MIXED) === null, () => "focus tags");
+  check(focusLabel({ subject: "math", topic: "ratios" }) === "Math: Ratios & rates" && focusLabel({ subject: "science", topic: "all" }) === "All science", () => "focus labels");
+  delete (globalThis as { localStorage?: unknown }).localStorage;
+}
+
+// MIX unchanged, and the game's real wiring (kit bankFor via import.meta.glob), through Vite's SSR loader.
+{
+  const { createServer } = await import("vite");
+  const server = await createServer({ configFile: new URL("../vite.config.ts", import.meta.url).pathname, server: { middlewareMode: true, hmr: false }, appType: "custom", logLevel: "error" });
+  try {
+    const mod = (await server.ssrLoadModule("/src/dojo/topics.ts")) as typeof import("../src/dojo/topics");
+    for (const g of ["K", "4", "7", "11"] as Grade[]) {
+      const mix = new mod.TopicDecks(g, "dojo-tower-test");
+      const mixed = new mod.TopicDecks(g, "dojo-tower-test", MIXED);
+      for (let i = 0; i < 12; i++) {
+        const quick = i % 2 === 0;
+        const e = mix.draw("ela", quick);
+        check(e.subject === "ela", () => `MIX ${g} floor 1 drew ${e.subject}`);
+        const m = mix.draw("math", quick);
+        check(m.subject === "math", () => `MIX ${g} floor 2 drew ${m.subject}`);
+        const c = mix.draw("civics", quick);
+        check(c.subject === "social" && c.standard.includes("C&G"), () => `MIX ${g} floor 3 drew ${c.subject} ${c.standard}`);
+        const f = mix.draw("forces", quick);
+        check(f.subject === "science", () => `MIX ${g} floor 4 drew ${f.subject}`);
+      }
+      for (let i = 0; i < 6; i++) {
+        const f = FLOOR_INFO[i % 4];
+        const q = mixed.draw(f.topic, false);
+        const want = { ela: "ela", math: "math", civics: "social", forces: "science", mixed: "" }[f.topic];
+        check(q.subject === want, () => `MIXED ${g} floor ${f.n} drew ${q.subject}`);
+      }
+      const roof = new Set(Array.from({ length: 8 }, () => mix.draw("mixed", false).subject));
+      check(roof.size === 4, () => `MIX ${g} roof should rotate through 4 subjects, got ${[...roof]}`);
+      // Same topics offered with the real kit banks as with the test's loader.
+      check(mod.focusCatalog.available(g).join() === offeredAt.get(g)!.join(), () => `real catalog at ${g}: ${mod.focusCatalog.available(g)} vs ${offeredAt.get(g)}`);
+    }
+    // FOCUS through TopicDecks: every floor, boss or scroll, draws the topic (dealt: answer still right).
+    const runs: [Grade, Subject, TopicChoice][] = [["7", "math", "ratios"], ["4", "social", "civics"], ["1", "ela", "phonics"], ["10", "science", "life"], ["5", "science", "all"], ["8", "math", "all"], ["3", "social", "all"]];
+    for (const [g, subject, topic] of runs) {
+      const decks = new mod.TopicDecks(g, "dojo-tower-test", { subject, topic });
+      for (const floor of FLOOR_INFO) {
+        for (const quick of [false, true]) {
+          const q = decks.draw(floor.topic, quick);
+          if (topic === "all") check(q.subject === subject, () => `ALL ${subject} ${g} floor ${floor.n} drew ${q.subject}`);
+          else check(classifyTopic(q) === topic, () => `FOCUS ${g}/${topic} floor ${floor.n} drew ${q.standard}`);
+          check(q.answer >= 0 && q.answer < 4 && new Set(q.choices).size === 4, () => `FOCUS ${g}/${topic}: bad dealt question`);
+        }
+      }
+    }
+    // A topic the grade can't offer plays ALL of its subject rather than off-topic questions.
+    const bad = new mod.TopicDecks("2", "dojo-tower-test", { subject: "math", topic: "ratios" });
+    check(bad.draw("ela", false).subject === "math", () => "unavailable topic should play ALL MATH");
+  } finally {
+    await server.close();
+  }
+}
+
 console.log(`${checks} checks, ${failures} failures`);
 console.log(
   `Banks: civics ${BANDS.map((b) => `${b} ${CIVICS[b].length} (${CIVICS[b].filter((q) => q.quick).length} quick)`).join(", ")}; ` +
     `forces ${BANDS.map((b) => `${b} ${FORCES[b].length}`).join(", ")}`,
 );
+console.log(`Focus: ${focusDraws} questions drawn. Topics by grade:`);
+for (const g of GRADES) console.log(`  ${g.padStart(2)}: ${offeredAt.get(g)!.join(", ")}`);
 if (failures) {
   console.error(`${failures} check(s) failed`);
   process.exit(1);

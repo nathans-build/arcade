@@ -11,6 +11,7 @@ import {
   type Question,
 } from "@/kit";
 import { CIVICS } from "./civics";
+import { FocusCatalog, FocusDeck, validateFocus, type FocusChoice } from "./focus";
 import { FORCES, FORCE_SKILL } from "./forces";
 import type { Topic } from "./floors";
 import { bandOf, type Band } from "./qmake";
@@ -23,6 +24,7 @@ import { bandOf, type Band } from "./qmake";
  *   CIVICS  Dojo Tower's civics bank for the grade band + the kit's Civics & Government items
  *   SCIENCE Dojo Tower's forces set for the band + the kit's force and motion items
  *   MIXED   all four in turn
+ * With one subject picked (focus.ts) every floor and scroll draws from that subject, or one topic of it.
  * Scroll questions (on the floors) are quick items; boss questions can be longer, never passages.
  */
 
@@ -72,14 +74,21 @@ export function forcesPool(grade: Grade): Question[] {
   return [...FORCES[band], ...kit];
 }
 
+/** Which focus topics each grade offers, built from the kit's written banks. */
+export const focusCatalog = new FocusCatalog(bankFor);
+
 export class TopicDecks {
   private band: Band;
   private ela: { full: QuestionDeck; quick: QuestionDeck };
   private civics: { full: PoolDeck; quick: PoolDeck };
   private forces: { full: PoolDeck; quick: PoolDeck };
   private mixTurn = Math.floor(Math.random() * 4);
+  /** One subject (or one topic): every question of the run comes from this deck, whatever the floor. */
+  private focus: FocusDeck | null = null;
 
-  constructor(private grade: Grade, gameId: string) {
+  constructor(private grade: Grade, gameId: string, choice: FocusChoice = { subject: "mixed" }) {
+    const c = validateFocus(choice, grade, focusCatalog);
+    if (c.subject !== "mixed") this.focus = new FocusDeck(focusCatalog, grade, c.subject, c.topic);
     this.band = bandOf(grade);
     this.ela = {
       full: new QuestionDeck(grade, "ela", { gameId }),
@@ -110,6 +119,11 @@ export class TopicDecks {
   }
 
   draw(topic: Topic, quick: boolean): DealtQuestion {
+    if (this.focus) {
+      const q = this.focus.draw(quick);
+      if (q.subject === "math") markAdaptive(q, this.grade);
+      return deal(q);
+    }
     if (topic === "mixed") {
       const order: Topic[] = ["civics", "math", "forces", "ela"];
       return this.draw(order[this.mixTurn++ % order.length], quick);

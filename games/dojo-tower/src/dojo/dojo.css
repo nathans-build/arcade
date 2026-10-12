@@ -118,6 +118,39 @@
 }
 .dt-grade:hover, .dt-grade:focus-visible { border-color: var(--dt-cyan); outline: none; }
 .dt-grade.on { background: var(--dt-red); border-color: var(--dt-yellow); color: #fff; }
+.dt-grade.on:focus-visible { outline: 2px dashed var(--dt-cyan); outline-offset: 2px; }
+
+/* Subject row (like the other arcade games) and, for one subject, its topic row */
+.dt-subjects { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 4px 0 8px; }
+.dt-subject {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  flex: 1 1 108px; max-width: 170px; min-height: 48px; padding: 8px 6px; cursor: pointer;
+  font-family: "VT323", ui-monospace, monospace; color: var(--dt-white);
+  background: #0c1450; border: 2px solid var(--dt-dim); box-shadow: 3px 3px 0 #000;
+}
+.dt-subject .dt-pixel { font-size: clamp(8px, 1.3vw, 11px); line-height: 1.3; }
+.dt-subject small { font-size: clamp(14px, 1.8vw, 17px); color: #b8c0f0; line-height: 1; text-align: center; }
+.dt-subject.on { background: var(--dt-blue); border-color: var(--dt-yellow); }
+.dt-subject.on small { color: #fff; }
+.dt-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 6px 0; }
+.dt-chip {
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 40px; max-width: 100%; padding: 4px 10px; cursor: pointer;
+  font-family: "VT323", ui-monospace, monospace; font-size: clamp(17px, 2.1vw, 20px); line-height: 1;
+  color: var(--dt-white); background: #0c1450; border: 2px solid var(--dt-dim); box-shadow: 3px 3px 0 #000;
+  overflow-wrap: anywhere;
+}
+.dt-chip.all { text-transform: uppercase; letter-spacing: 0.04em; }
+.dt-focusline { text-align: center; margin-top: 6px; }
+.dt-floors.compact .dt-floorrow { grid-template-columns: 34px 1fr 1fr; }
+@media (max-width: 640px) { .dt-floors.compact .dt-floorrow .boss { grid-column: auto; text-align: right; } }
+.dt-chip.on { background: var(--dt-blue); border: 2px solid var(--dt-yellow); color: #fff; }
+.dt-chip:disabled { cursor: not-allowed; color: #59639a; border-color: #2a3470; background: #090f38; box-shadow: none; }
+.dt-chip small { font-size: 0.75em; color: #8a94c8; margin-top: 2px; }
+.dt-subject:hover, .dt-subject:focus-visible, .dt-chip:hover:not(:disabled), .dt-chip:focus-visible { border-color: var(--dt-cyan); outline: none; }
+.dt-subject.on:focus-visible, .dt-chip.on:focus-visible { outline: 2px dashed var(--dt-cyan); outline-offset: 2px; }
+.dt-focusnote { text-align: center; color: var(--dt-yellow); margin: 2px 0 4px; }
+.dt-reportmode { margin-top: 4px; }
 
 /* Tower floor list on the title screen (top floor first) */
 .dt-floors { margin: 12px 0 4px; border: 2px solid #1f2d7a; background: #0a1240; }

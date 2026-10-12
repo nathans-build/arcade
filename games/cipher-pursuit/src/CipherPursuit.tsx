@@ -29,6 +29,10 @@ import type { CPQuestion } from "@/pursuit/questions";
 import { Renderer, LANE_COLORS, type Banner } from "@/pursuit/render";
 import { GADGET_NAMES, H, PursuitSim, W, ZONE_NAMES, laneAt, type SimEvent } from "@/pursuit/sim";
 import { CodeSource, type KitHooks } from "@/pursuit/source";
+import {
+  SUBJECT_MODES, focusName, focusTag, gradesNote, loadPref, prefOf, readUrlFocus, resolveFocus, savePref, topicAvailable, topicsFor,
+  type Focus, type FocusPref,
+} from "@/pursuit/topics";
 import "@/pursuit/pursuit.css";
 
 const GAME_ID = "cipher-pursuit";
@@ -93,6 +97,18 @@ function sayCode(q: CPQuestion) {
 
 const isCipher = (q: CPQuestion) => q.family.startsWith("cipher");
 
+/** Arrow keys move between the buttons of a radiogroup (Tab still moves in and out). */
+function arrowNav(e: React.KeyboardEvent<HTMLElement>) {
+  const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+  if (!step) return;
+  const btns = [...e.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)")];
+  const i = btns.indexOf(document.activeElement as HTMLButtonElement);
+  if (i < 0) return;
+  e.preventDefault();
+  e.stopPropagation();
+  btns[(i + step + btns.length) % btns.length].focus();
+}
+
 export default function CipherPursuit() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audio = useMemo(() => new ChipAudio(BASS, 152), []);
@@ -104,6 +120,13 @@ export default function CipherPursuit() {
   const debriefAt = useRef(0);
 
   const [grade, setGrade] = useState<Grade>(() => initialGrade("3"));
+  // ?topic= from the arcade menu wins for this visit (not saved); otherwise the saved choice.
+  const [urlFocus] = useState(() => readUrlFocus(window.location.search, initialGrade("3")));
+  const [pref, setPref] = useState<FocusPref>(() => urlFocus.pref ?? loadPref());
+  const [notice, setNotice] = useState<string | null>(urlFocus.note);
+  const focus = useMemo(() => resolveFocus(pref, grade), [pref, grade]);
+  const focusRef = useRef(focus);
+  focusRef.current = focus;
   const [screen, setScreen] = useState<Screen>("title");
   const [hud, setHud] = useState<HudState>(EMPTY_HUD);
   const [code, setCode] = useState<CodeView | null>(null);
@@ -118,6 +141,8 @@ export default function CipherPursuit() {
   const stageRef = useRef<HTMLDivElement>(null);
   const [screenWidth, setScreenWidth] = useState<number | null>(null);
 
+  const prefRef = useRef(pref);
+  prefRef.current = pref;
   const readAloudRef = useRef(readAloud);
   readAloudRef.current = readAloud;
   const gradeRef = useRef(grade);
@@ -148,7 +173,7 @@ export default function CipherPursuit() {
 
   /** A sim for the title screen: drives itself (no crashes) behind the menu. */
   const makeDemo = useCallback((g: Grade) => {
-    const src = new CodeSource(g, kitHooks);
+    const src = new CodeSource(g, kitHooks, Math.random, resolveFocus(prefRef.current, g));
     const sim = new PursuitSim({ gradeN: gradeNumber(g), nextQuestion: (ctx) => src.next(ctx), god: true });
     simRef.current = sim;
     setCode(null);
@@ -283,6 +308,7 @@ export default function CipherPursuit() {
   const chooseGrade = useCallback(
     (g: Grade) => {
       setGrade(g);
+      setNotice(null);
       rememberGrade(g);
       setReadAloud(readAloudPref(isEarlyReader(g)));
       makeDemo(g);
@@ -294,7 +320,7 @@ export default function CipherPursuit() {
     audio.unlock();
     audio.startMusic();
     rememberGrade(grade);
-    const src = new CodeSource(grade, kitHooks);
+    const src = new CodeSource(grade, kitHooks, Math.random, focus);
     const god = new URLSearchParams(window.location.search).has("god");
     simRef.current = new PursuitSim({ gradeN: gradeNumber(grade), nextQuestion: (ctx) => src.next(ctx), god });
     bannerRef.current = { text: ZONE_NAMES.city, sub: "STAGE 1 · GO, AGENT!", t: 2.6, color: "#ffd23f" };
@@ -305,7 +331,20 @@ export default function CipherPursuit() {
     setTip(isEarlyReader(grade) ? "Steer with ◀ ▶. Press SPACE (or FIRE) to splat Smudge cars with foam!" : "Splat Smudge Gang cars with foam (Space). Dodge oil slicks and stay on the road!");
     setPaused(false);
     setScreen("playing");
-  }, [audio, grade]);
+  }, [audio, grade, focus]);
+
+  /** A change made on the title screen: saved for next time (the arcade swaps arcade.* keys per player). */
+  const changePref = useCallback(
+    (p: FocusPref) => {
+      setPref(p);
+      savePref(p);
+      setNotice(null);
+      // The demo behind the menu follows the new choice.
+      prefRef.current = p;
+      makeDemo(gradeRef.current);
+    },
+    [makeDemo],
+  );
 
   const togglePause = useCallback((force?: boolean) => {
     setPaused((p) => {
@@ -501,7 +540,9 @@ export default function CipherPursuit() {
           </div>
         </div>
 
-        {screen === "playing" && <Radio code={code} tip={tip} hud={hud} onPick={pickLane} onDriveOn={driveOn} onSpeak={speechSupported() ? replay : null} readAloud={readAloud} />}
+        {screen === "playing" && (
+          <Radio code={code} tip={tip} hud={hud} focus={focus} onPick={pickLane} onDriveOn={driveOn} onSpeak={speechSupported() ? replay : null} readAloud={readAloud} />
+        )}
 
         <div className="cp-stage" ref={stageRef}>
           <div className="cp-screen" style={screenWidth ? { width: screenWidth } : undefined}>
@@ -516,7 +557,9 @@ export default function CipherPursuit() {
               onPointerCancel={onCanvasUp}
             />
 
-            {screen === "title" && <TitleScreen grade={grade} onGrade={chooseGrade} onStart={startGame} highScore={highScore} />}
+            {screen === "title" && (
+              <TitleScreen grade={grade} onGrade={chooseGrade} onStart={startGame} highScore={highScore} focus={focus} onPref={changePref} notice={notice} />
+            )}
 
             {screen === "playing" && paused && (
               <div className="cp-overlay">
@@ -545,6 +588,7 @@ export default function CipherPursuit() {
               <MissionReport
                 log={log}
                 grade={grade}
+                focus={focus}
                 score={hud.score}
                 miles={hud.miles}
                 splats={splats}
@@ -586,16 +630,17 @@ function SpeakerIcon() {
 
 /** The agent radio above the screen: tips while driving, the coded question at a checkpoint, then the debrief. */
 function Radio({
-  code, tip, hud, onPick, onDriveOn, onSpeak, readAloud,
+  code, tip, hud, focus, onPick, onDriveOn, onSpeak, readAloud,
 }: {
-  code: CodeView | null; tip: string; hud: HudState; onPick: (i: number) => void; onDriveOn: () => void; onSpeak: (() => void) | null; readAloud: boolean;
+  code: CodeView | null; tip: string; hud: HudState; focus: Focus; onPick: (i: number) => void; onDriveOn: () => void; onSpeak: (() => void) | null; readAloud: boolean;
 }) {
+  const tag = focusTag(focus);
   if (!code) {
     return (
       <div className="cp-radio idle" aria-live="polite">
         <div className="head cp-pixel">
           <span>AGENT RADIO · {hud.zone} · STAGE {hud.stage}</span>
-          <span className="std">CODES {hud.cracked}/{hud.cleared}</span>
+          <span className="std">{tag ? <span className="cp-focustag">{tag} · </span> : null}CODES {hud.cracked}/{hud.cleared}</span>
         </div>
         <div className="tip">{tip}</div>
         <div className="tip dim">
@@ -613,7 +658,7 @@ function Radio({
     <div className={`cp-radio ${done ? (code.correct ? "correct" : "wrong") : ""}`} aria-live="polite">
       <div className="head cp-pixel">
         <span>{head}</span>
-        <span className="std">{q.subject === "ela" ? "ELA" : "MATH"} · {q.standard}</span>
+        <span className="std">{tag && focus.mode === "focus" ? <span className="cp-focustag">{tag}</span> : q.subject === "ela" ? "ELA" : "MATH"} · {q.standard}</span>
       </div>
       <div className="prompt">
         {onSpeak && (
@@ -675,9 +720,75 @@ function HowToPlay({ early }: { early: boolean }) {
   );
 }
 
-function TitleScreen({ grade, onGrade, onStart, highScore }: { grade: Grade; onGrade: (g: Grade) => void; onStart: () => void; highScore: number }) {
+/**
+ * The subject row (MATH · ELA · MIXED, like the other arcade games), then, for MATH or ELA, a topic
+ * row: ALL <subject> first, then its topics. Topics the grade can't fill are disabled with a note.
+ */
+function FocusPicker({ grade, focus, onPref }: { grade: Grade; focus: Focus; onPref: (p: FocusPref) => void }) {
+  const cur = prefOf(focus);
+  return (
+    <div className="cp-focus">
+      <div className="cp-subjects" role="radiogroup" aria-label="Subject" onKeyDown={arrowNav}>
+        {SUBJECT_MODES.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            role="radio"
+            aria-checked={cur.subject === m.id}
+            data-subject={m.id}
+            className={`cp-subject ${cur.subject === m.id ? "on" : ""}`}
+            onClick={() => cur.subject !== m.id && onPref({ subject: m.id, topic: "all" })}
+          >
+            <span className="cp-pixel">{m.label}</span>
+            <small>{m.note}</small>
+          </button>
+        ))}
+      </div>
+      {cur.subject !== "mixed" && (
+        <div className="cp-topics" role="radiogroup" aria-label={cur.subject === "math" ? "Math topic" : "ELA topic"} onKeyDown={arrowNav}>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={cur.topic === "all"}
+            data-topic="all"
+            className={`cp-topic all ${cur.topic === "all" ? "on" : ""}`}
+            onClick={() => onPref({ subject: cur.subject, topic: "all" })}
+          >
+            <span className="cp-pixel">{cur.subject === "math" ? "ALL MATH" : "ALL ELA"}</span>
+          </button>
+          {topicsFor(cur.subject).map((t) => {
+            const ok = topicAvailable(t.id, grade);
+            return (
+              <button
+                key={t.id}
+                type="button"
+                role="radio"
+                aria-checked={cur.topic === t.id}
+                disabled={!ok}
+                data-topic={t.id}
+                className={`cp-topic ${cur.topic === t.id ? "on" : ""}`}
+                onClick={() => onPref({ subject: cur.subject, topic: t.id })}
+                title={ok ? t.label : `${t.label}: ${gradesNote(t.id)}`}
+              >
+                <span>{t.label}</span>
+                {!ok && <small>{gradesNote(t.id)}</small>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TitleScreen({
+  grade, onGrade, onStart, highScore, focus, onPref, notice,
+}: {
+  grade: Grade; onGrade: (g: Grade) => void; onStart: () => void; highScore: number; focus: Focus; onPref: (p: FocusPref) => void; notice: string | null;
+}) {
   const fromArcade = gradeFromArcade();
   const [help, setHelp] = useState(false);
+  const tag = focusTag(focus);
   return (
     <div className="cp-overlay title-bg">
       <div className="cp-panel title">
@@ -699,8 +810,13 @@ function TitleScreen({ grade, onGrade, onStart, highScore }: { grade: Grade; onG
             </div>
           </>
         )}
+        <div className="cp-h cp-pixel">PICK YOUR SUBJECT</div>
+        {notice && <div className="cp-help center y cp-notice" role="status">{notice}</div>}
+        <FocusPicker grade={grade} focus={focus} onPref={onPref} />
         <div className="cp-row center">
-          <button className="cp-cta big" autoFocus onClick={onStart}>Start mission ▶</button>
+          <button className="cp-cta big" autoFocus onClick={onStart}>
+            {tag ? `Start: ${tag} ▶` : "Start mission ▶"}
+          </button>
           <button className="cp-cta ghost" onClick={() => setHelp((h) => !h)} aria-expanded={help}>How to play</button>
         </div>
         {help ? (
@@ -717,10 +833,11 @@ function TitleScreen({ grade, onGrade, onStart, highScore }: { grade: Grade; onG
 }
 
 function MissionReport({
-  log, grade, score, miles, splats, highScore, onAgain, onMenu,
+  log, grade, focus, score, miles, splats, highScore, onAgain, onMenu,
 }: {
-  log: LogEntry[]; grade: Grade; score: number; miles: number; splats: number; highScore: number; onAgain: () => void; onMenu: () => void;
+  log: LogEntry[]; grade: Grade; focus: Focus; score: number; miles: number; splats: number; highScore: number; onAgain: () => void; onMenu: () => void;
 }) {
+  const name = focusName(focus);
   const byStd = new Map<string, { skill: string; subject: Subject; n: number; c: number }>();
   for (const l of log) {
     const cur = byStd.get(l.standard) ?? { skill: l.skill, subject: l.subject, n: 0, c: 0 };
@@ -734,6 +851,13 @@ function MissionReport({
     <div className="cp-overlay">
       <div className="cp-panel">
         <div className="cp-h cp-pixel" style={{ color: "var(--cp-red)" }}>MISSION OVER · AGENT REPORT · {gradeLabel(grade).toUpperCase()}</div>
+        <div className="cp-help center cp-reportfocus">
+          {name ? (
+            <>{focus.mode === "focus" ? "Focus mission" : "Subject mission"}: <b className="c">{name}</b></>
+          ) : (
+            <>Mixed mission: math and words from all over {gradeLabel(grade)}</>
+          )}
+        </div>
         <div className="cp-help big">
           Score <b className="y">{score}</b>
           {score >= highScore && score > 0 ? " · NEW HIGH SCORE!" : ""} · {miles.toFixed(1)} miles · {splats} splats · Codes cracked <b className="c">{right}/{log.length}</b>
