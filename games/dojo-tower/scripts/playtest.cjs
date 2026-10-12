@@ -2,12 +2,16 @@
  * Automated playtest (dev only). Needs the built game served at /dojo-tower/ with the arcade's
  * /fonts/ next to it, and a global Playwright (Chromium):
  *   npm run build
- *   (serve a folder holding dojo-tower -> dist and fonts -> ../../site/fonts on port 8771)
+ *   (serve a folder holding dojo-tower -> dist and fonts -> ../../site/fonts on port 8771, or set BASE)
  *   node scripts/playtest.cjs          (SHOT=../../site/img/dojo-tower.png saves a 640x400 boss-fight picture)
  * For each grade: keyboard on a 1280x800 desktop, then touch on a 390x844 phone. It checks the grade
  * badge, starts the game, walks, punches a ninja, ducks, jumps, reaches the floor master, answers wrong
  * (blocked: boss HP, lives and energy unchanged) and right (combo hits) until the master is beaten,
  * climbs to floor 2, checks there is no sideways scrolling and no console errors.
+ * Then the subject / topic picker: at grade 7 pick MATH -> Ratios & rates with the keyboard and check the
+ * scroll and floor-master questions are ratio/rate ones (and the choice is remembered); ?grade=4&topic=civics
+ * starts on Social Studies -> Civics; ?grade=2&topic=ratios is ignored with a note; ALL SCIENCE asks only
+ * science; and the picker has no sideways scroll on 390px and 360px phones.
  */
 const path = require("path");
 const fs = require("fs");
@@ -15,6 +19,7 @@ const { execSync } = require("child_process");
 const { chromium } = require(path.join(execSync("npm root -g").toString().trim(), "playwright"));
 
 const BASE = process.env.BASE || "http://127.0.0.1:8771/dojo-tower/";
+const ORIGIN = new URL(BASE).origin + "/";
 const GRADES = (process.env.GRADES || "3,8").split(",");
 const SHOT = process.env.SHOT;
 
@@ -26,7 +31,7 @@ const sim = (page) =>
       lives: s.lives, energy: s.energy, hp: s.fight ? s.fight.hp : null, enemies: s.enemies.length, meter: s.streak.meter,
     };
   });
-const quiz = (page) => page.evaluate(() => (window.__dtQuiz ? { answer: window.__dtQuiz.q.answer, picked: window.__dtQuiz.picked, kind: window.__dtQuiz.kind, prompt: window.__dtQuiz.q.prompt, grade: window.__dtQuiz.q.grade, subject: window.__dtQuiz.q.subject } : null));
+const quiz = (page) => page.evaluate(() => (window.__dtQuiz ? { answer: window.__dtQuiz.q.answer, picked: window.__dtQuiz.picked, kind: window.__dtQuiz.kind, prompt: window.__dtQuiz.q.prompt, grade: window.__dtQuiz.q.grade, subject: window.__dtQuiz.q.subject, standard: window.__dtQuiz.q.standard, skill: window.__dtQuiz.q.skill } : null));
 
 async function noSideways(page) {
   return page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth && document.body.scrollWidth <= window.innerWidth);
@@ -47,7 +52,7 @@ async function run(browser, grade, mode) {
     if (m.type() === "error") errors.push(m.text());
   });
   page.on("request", (r) => {
-    if (!r.url().startsWith("http://127.0.0.1:8771/") && !r.url().startsWith("data:")) external.push(r.url());
+    if (!r.url().startsWith(ORIGIN) && !r.url().startsWith("data:")) external.push(r.url());
   });
   await page.goto(`${BASE}?grade=${grade}&debug`, { waitUntil: "load" });
   await page.waitForFunction(() => !!window.__dt);
@@ -309,6 +314,178 @@ async function run(browser, grade, mode) {
   return problems;
 }
 
+/* ------------------------------------------------------------ subject / topic picker */
+
+async function newPage(browser, opts) {
+  const ctx = await browser.newContext(opts);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => {
+    if (m.type() === "error") errors.push(m.text());
+  });
+  return { ctx, page, errors };
+}
+
+const checked = (page, sel) => page.locator(`${sel}[aria-checked="true"]`).count();
+const RATIO = /\.RP\./;
+
+/** From the title screen: start, warp to this floor's master and return its first question. */
+async function bossQuestion(page) {
+  await page.waitForFunction(() => window.__dt.sim.mode === "run", null, { timeout: 6000 });
+  await page.evaluate(() => { const s = window.__dt.sim; s.invincible = true; s.warpToBoss(); s.held[s.dir > 0 ? "right" : "left"] = true; });
+  await page.waitForSelector(".dt-quiz.boss", { timeout: 8000 });
+  await page.evaluate(() => { const s = window.__dt.sim; s.held.left = s.held.right = false; });
+  return quiz(page);
+}
+
+/** Answers the open boss fight right until the master falls (then on to the next floor). */
+async function beatBoss(page, seen) {
+  for (let i = 0; i < 12; i++) {
+    const q = await quiz(page);
+    if (!q) break;
+    if (q.picked === null) {
+      seen.push(q);
+      await page.keyboard.press(String(q.answer + 1));
+    }
+    await page.waitForTimeout(300);
+    const done = await page.evaluate(() => window.__dt.sim.fight && window.__dt.sim.fight.hp <= 0);
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(250);
+    if (done) break;
+  }
+}
+
+async function focusTests(browser) {
+  const problems = [];
+
+  // 1. Grade 7: MATH -> Ratios & rates with the keyboard.
+  {
+    const { ctx, page, errors } = await newPage(browser, { viewport: { width: 1280, height: 800 } });
+    await page.goto(`${BASE}?grade=7&debug`, { waitUntil: "load" });
+    await page.waitForFunction(() => !!window.__dt);
+    if (!(await checked(page, '[data-subject="mixed"]'))) problems.push("MIXED is not the default subject");
+    if (await page.locator(".dt-chips.topics").count()) problems.push("topic row shown for MIXED");
+    await page.locator('[data-subject="mixed"]').focus();
+    await page.keyboard.press("Home"); // first subject: MATH
+    if (!(await checked(page, '[data-subject="math"]'))) problems.push("Home in the subject row did not pick MATH");
+    const topicIds = await page.locator(".dt-chips.topics button").evaluateAll((bs) => bs.map((b) => b.dataset.topic));
+    if (topicIds[0] !== "all" || !(await page.locator('[data-topic="all"]').innerText()).includes("ALL MATH")) problems.push(`first topic should be ALL MATH: ${topicIds}`);
+    if (!(await checked(page, '[data-topic="all"]'))) problems.push("ALL MATH not selected after picking MATH");
+    await page.locator('[data-topic="all"]').focus();
+    for (let i = 0; i < topicIds.indexOf("ratios"); i++) await page.keyboard.press("ArrowRight");
+    if (!(await checked(page, '[data-topic="ratios"]'))) problems.push("arrow keys did not reach Ratios & rates");
+    const stored = await page.evaluate(() => [localStorage.getItem("arcade.dojo-tower.subject"), localStorage.getItem("arcade.dojo-tower.topic")]);
+    if (stored.join() !== "math,ratios") problems.push(`stored ${stored}`);
+    const line = await page.locator(".dt-focusline").innerText().catch(() => "");
+    if (!line.includes("Ratios & rates")) problems.push(`title does not say every floor asks the topic: "${line}"`);
+    await page.locator(".dt-cta.big").click();
+    await page.waitForFunction(() => window.__dt.sim.mode === "run", null, { timeout: 6000 });
+    // A gold-scroll ninja's question
+    await page.evaluate(() => { const s = window.__dt.sim; s.invincible = true; s.enemies = []; s.player.facing = s.dir; const e = s.spawn("scroll", true); e.x = s.player.x + s.dir * 15; e.speed = 0; });
+    await page.keyboard.press("z");
+    await page.waitForSelector(".dt-quiz.scroll", { timeout: 3000 }).catch(() => problems.push("scroll question did not open"));
+    let q = await quiz(page);
+    if (!q || !RATIO.test(q.standard)) problems.push(`grade 7 ratios scroll asked ${q && q.standard} "${q && q.prompt}"`);
+    if (q) {
+      await page.keyboard.press(String(q.answer + 1));
+      await page.waitForTimeout(150);
+      await page.keyboard.press("Enter");
+    }
+    const seen = [];
+    q = await bossQuestion(page).catch(() => null);
+    if (!q) problems.push("grade 7 ratios: no boss question");
+    else {
+      const head = await page.locator(".dt-quiz .head").innerText();
+      if (!head.includes("RATIOS & RATES")) problems.push(`boss header "${head}" should name the topic`);
+      console.log(`  grade 7 ratios boss: [${q.standard}] ${q.skill}: ${q.prompt}`);
+      await beatBoss(page, seen);
+      await page.waitForFunction(() => window.__dt.sim.floor === 2, null, { timeout: 6000 }).catch(() => problems.push("did not reach floor 2"));
+      const q2 = await bossQuestion(page).catch(() => null);
+      if (q2) seen.push(q2);
+      const off = seen.filter((x) => !RATIO.test(x.standard));
+      if (off.length) problems.push(`off-topic boss questions: ${off.map((x) => x.standard).join(", ")}`);
+      if (new Set(seen.map((x) => x.prompt)).size < seen.length) problems.push("a ratio question repeated within two floors");
+    }
+    // Remembered on the next visit
+    await page.goto(`${BASE}?grade=7&debug`, { waitUntil: "load" });
+    await page.waitForFunction(() => !!window.__dt);
+    if (!(await checked(page, '[data-topic="ratios"]'))) problems.push("Ratios & rates not remembered");
+    if (errors.length) problems.push(`console errors (grade 7): ${errors.join(" | ")}`);
+    await ctx.close();
+  }
+
+  // 2. ?grade=4&topic=civics starts on Social Studies -> Civics.
+  {
+    const { ctx, page, errors } = await newPage(browser, { viewport: { width: 1280, height: 800 } });
+    await page.goto(`${BASE}?grade=4&topic=civics&debug`, { waitUntil: "load" });
+    await page.waitForFunction(() => !!window.__dt);
+    if (!(await checked(page, '[data-subject="social"]')) || !(await checked(page, '[data-topic="civics"]'))) problems.push("?topic=civics did not preselect Social Studies -> Civics");
+    const stored = await page.evaluate(() => localStorage.getItem("arcade.dojo-tower.topic"));
+    if (stored) problems.push("a ?topic= link should not overwrite the saved choice");
+    await page.keyboard.press("Enter");
+    const q = await bossQuestion(page).catch(() => null);
+    if (!q || !q.standard.includes("C&G")) problems.push(`grade 4 civics boss asked ${q && q.standard}`);
+    else console.log(`  grade 4 civics boss: [${q.standard}] ${q.prompt}`);
+    if (errors.length) problems.push(`console errors (grade 4): ${errors.join(" | ")}`);
+    await ctx.close();
+  }
+
+  // 3. ?grade=2&topic=ratios: ignored, with a note; the tower plays MIXED. Then ALL SCIENCE.
+  {
+    const { ctx, page, errors } = await newPage(browser, { viewport: { width: 1280, height: 800 } });
+    await page.goto(`${BASE}?grade=2&topic=ratios&debug`, { waitUntil: "load" });
+    await page.waitForFunction(() => !!window.__dt);
+    if (!(await checked(page, '[data-subject="mixed"]'))) problems.push("grade 2 ?topic=ratios should stay MIXED");
+    const note = await page.locator(".dt-focusnote").innerText().catch(() => "");
+    if (!/Ratios & rates is for Grades 6–8/.test(note)) problems.push(`grade 2 note: "${note}"`);
+    await page.locator('[data-subject="math"]').click();
+    const ratios = page.locator('[data-topic="ratios"]');
+    if (!(await ratios.isDisabled()) || !(await ratios.innerText()).includes("Grades 6–8")) problems.push("ratios should be disabled at grade 2 with a grades note");
+    await page.locator('[data-subject="mixed"]').click();
+    await page.locator(".dt-cta.big").click(); // Enter would press the focused subject button
+    let q = await bossQuestion(page).catch(() => null);
+    if (!q || q.subject !== "ela") problems.push(`grade 2 MIXED floor 1 asked ${q && q.subject}`);
+    // ALL SCIENCE
+    await page.goto(`${BASE}?grade=5&subject=science&debug`, { waitUntil: "load" });
+    await page.waitForFunction(() => !!window.__dt);
+    if (!(await checked(page, '[data-topic="all"]'))) problems.push("?subject=science should pick ALL SCIENCE");
+    await page.keyboard.press("Enter");
+    q = await bossQuestion(page).catch(() => null);
+    if (!q || q.subject !== "science") problems.push(`ALL SCIENCE floor 1 asked ${q && q.subject}`);
+    if (errors.length) problems.push(`console errors (grade 2/5): ${errors.join(" | ")}`);
+    await ctx.close();
+  }
+
+  // 4. Phones: the picker fits without sideways scroll, and topics are tappable.
+  for (const width of [390, 360]) {
+    const { ctx, page, errors } = await newPage(browser, { viewport: { width, height: 800 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+    await page.goto(`${BASE}?grade=7&topic=ratios&debug`, { waitUntil: "load" });
+    await page.waitForFunction(() => !!window.__dt);
+    await page.locator('[data-topic="fractions"]').tap();
+    if (!(await checked(page, '[data-topic="fractions"]'))) problems.push(`${width}px: tapping a topic did not pick it`);
+    for (const s of ["science", "ela", "social", "math"]) {
+      await page.locator(`[data-subject="${s}"]`).tap();
+      if (!(await noSideways(page))) problems.push(`${width}px: sideways scroll with ${s} topics shown`);
+    }
+    // Back on MATH the topic row starts at ALL MATH again; pick Fractions & decimals.
+    if (!(await checked(page, '[data-topic="all"]'))) problems.push(`${width}px: MATH should come back on ALL MATH`);
+    await page.locator('[data-topic="fractions"]').tap();
+    const w = await page.evaluate(() => document.documentElement.scrollWidth);
+    if (w > width) problems.push(`${width}px: page is ${w}px wide`);
+    const small = await page.locator(".dt-subject, .dt-chip").evaluateAll((bs) => bs.filter((b) => b.getBoundingClientRect().height < 36).length);
+    if (small) problems.push(`${width}px: ${small} picker buttons shorter than 36px`);
+    if (process.env.PAGESHOT) await page.screenshot({ path: `${process.env.PAGESHOT}-picker-${width}.png`, fullPage: true });
+    await page.locator(".dt-cta.big").tap();
+    const q = await bossQuestion(page).catch(() => null);
+    if (!q || !/\.(NF|NS|NBT)\./.test(q.standard)) problems.push(`${width}px fractions boss asked ${q && q.standard}`);
+    if (!(await noSideways(page))) problems.push(`${width}px: sideways scroll in the boss quiz`);
+    if (errors.length) problems.push(`console errors (${width}px): ${errors.join(" | ")}`);
+    await ctx.close();
+  }
+  return problems;
+}
+
 (async () => {
   const browser = await chromium.launch();
   let bad = 0;
@@ -318,6 +495,11 @@ async function run(browser, grade, mode) {
       console.log(`grade ${g} ${mode}: ${p.length ? "PROBLEMS\n  - " + p.join("\n  - ") : "ok"}`);
       bad += p.length;
     }
+  }
+  if (process.env.FOCUS !== "0") {
+    const p = await focusTests(browser);
+    console.log(`subject / topic picker: ${p.length ? "PROBLEMS\n  - " + p.join("\n  - ") : "ok"}`);
+    bad += p.length;
   }
   await browser.close();
   process.exit(bad ? 1 : 0);

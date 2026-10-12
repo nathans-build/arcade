@@ -20,11 +20,17 @@ import { mathQuestion } from "../src/kit/math";
 import { GRADES } from "../src/kit/grades";
 import type { Grade, Question } from "../src/kit/types";
 import { hasGlyphs, textWidth } from "../src/pursuit/font";
-import { CODE_WORDS } from "../src/pursuit/cipher";
+import { CODE_WORDS, EASY_CODE_WORDS } from "../src/pursuit/cipher";
 import {
   SIGHT_SENTENCES, SIGHT_SETS, VOCAB, parseNum, type CPQuestion, type Family, type GenCtx,
 } from "../src/pursuit/questions";
-import { CodeSource, GATE_TEXT_MAX, GENERATORS, familiesFor, fitsGates, kitElaPool, type KitHooks } from "../src/pursuit/source";
+import {
+  CodeSource, GATE_TEXT_MAX, GENERATORS, familiesFor, fitsGates, focusFamilies, kitElaFocusPool, kitElaPool, kitFromGen, kitGensFor, type KitHooks,
+} from "../src/pursuit/source";
+import {
+  MIN_DISTINCT, OFFERED, TOPICS, TOPIC_IDS, availableTopics, gradesNote, parsePref, questionTopic, readUrlFocus, resolveFocus, topicAvailable, topicInfo,
+  type FocusPref, type SubjectId, type TopicId,
+} from "../src/pursuit/topics";
 import { GATE_CX, GATE_HALF, LANE_W, PursuitSim, laneAt, laneCenter, type SimEvent } from "../src/pursuit/sim";
 
 let failures = 0;
@@ -144,7 +150,7 @@ function promptMatchesMeta(q: CPQuestion) {
       inPrompt(q, m.plain, m.coded);
       const k = (((A.indexOf(m.coded[0]) - A.indexOf(m.plain[0])) % 26) + 26) % 26;
       check(caesar(m.plain, k) === m.coded, () => `${q.id}: ${m.plain} → ${m.coded} is not one shift`);
-      check(CODE_WORDS.includes(m.plain), () => `${q.id}: plain word ${m.plain} not in the word list`);
+      check(CODE_WORDS.includes(m.plain) || EASY_CODE_WORDS.includes(m.plain), () => `${q.id}: plain word ${m.plain} not in the word list`);
       break;
     }
     case "cipher":
@@ -166,7 +172,7 @@ function promptMatchesMeta(q: CPQuestion) {
   }
 }
 
-const STD = /^(NC\.(K|[1-8])\.[A-Z]{1,3}\.\d+|NC\.M[1-4]\.[A-Z]{1,2}-[A-Z]{1,4}\.\d+[a-z]?|NC\.M4\.[A-Z]+\.\d+(\.\d+)?|RF\.(K|[1-5])\.\d|L\.(K|\d{1,2})\.\d|R[LI]\.(K|\d{1,2})\.\d+)$/;
+const STD = /^(NC\.(K|[1-8])\.[A-Z]{1,3}\.\d+|NC\.M[1-4]\.[A-Z]{1,2}-[A-Z]{1,4}\.\d+[a-z]?|NC\.M4\.[A-Z]+\.\d+(\.\d+)?|RF\.(K|[1-5])\.\d|L\.(K|\d{1,2}|9-10|11-12)\.\d|R[LI]\.(K|\d{1,2}|9-10|11-12)\.\d+|W\.(\d{1,2}|9-10|11-12)\.\d)$/;
 
 /** Every rule a lane-gate question must follow. */
 function validate(q: CPQuestion, where: string) {
@@ -439,9 +445,234 @@ for (const g of GRADES) {
   check(sim.cleared >= 3, () => `free drive reached only ${sim.cleared} checkpoints in ${t.toFixed(0)}s`);
 }
 
+
+/* ------------------------------------------------------------ 6. FOCUS mode (one subject + one topic) */
+
+// MIX is unchanged: the family table per grade is locked here (FOCUS never touches it).
+const MIX_TABLE = JSON.stringify(GRADES.map((g) => familiesFor(g === "K" ? 0 : Number(g))));
+check(
+  MIX_TABLE ===
+    '[[["kitMath",3],["addSub",2.5],["countNext",1.5],["sightMatch",3],["kitEla",0.6]],[["kitMath",3],["addSub",2.5],["countNext",1],["sightMatch",1.5],["sightSentence",1.5],["kitEla",0.6]],[["kitMath",3],["addSub",2.5],["countNext",1],["sightSentence",3],["kitEla",0.6]],[["multFact",2],["multWord",2],["kitMath",2],["vocab",2.5],["kitEla",1.5]],[["drt",2.5],["multWord",1],["kitMath",2.5],["vocab",2.5],["kitEla",1.5]],[["drt",2],["bigMult",1.5],["kitMath",2.5],["vocab",2.5],["kitEla",1.5]],[["drt",2],["rate",2],["ratio",1.5],["pctof",2],["kitMath",2.5]],[["drt",2],["fracrate",2],["pctchange",2],["mpg",1.5],["kitMath",2.5]],[["slope",2],["rateTable",2],["chase",2],["kitMath",2.5]],[["lineq",2],["lineParam",1.5],["avgRate",1.5],["cipherDecode",2],["cipherEncode",1],["cipherLetter",0.7],["cipherShift",1],["kitMath",2]],[["lineq",2],["lineParam",1.5],["avgRate",1.5],["cipherDecode",2],["cipherEncode",1],["cipherLetter",0.7],["cipherShift",1],["kitMath",2]],[["lineq",2],["lineParam",1.5],["avgRate",1.5],["cipherDecode",2],["cipherEncode",1],["cipherLetter",0.7],["cipherShift",1],["kitMath",2]],[["lineq",2],["lineParam",1.5],["avgRate",1.5],["cipherDecode",2],["cipherEncode",1],["cipherLetter",0.7],["cipherShift",1],["kitMath",2]]]',
+  () => `MIX family table changed: ${MIX_TABLE}`,
+);
+// MIX ciphers (grades 9-12) keep the harder codes: Math 1 standard, the long word list.
+for (const g of ["9", "10", "11", "12"] as Grade[]) {
+  const r = mulberry32(555 + Number(g));
+  const src = new CodeSource(g, hooks, r);
+  for (let i = 0; i < 300; i++) {
+    const q = src.next({ mph: 55, fuelPct: 50 });
+    if (!q.family.startsWith("cipher")) continue;
+    check(q.standard === "NC.M1.F-IF.2", () => `MIX grade ${g}: cipher standard ${q.standard}`);
+    const m = q.meta;
+    if (m.kind === "cipher") check(CODE_WORDS.includes(m.mode === "decode" ? caesar(m.input, -m.shift) : m.input), () => `MIX grade ${g}: cipher word not from the MIX list`);
+  }
+}
+
+/** Independent topic check from the standard code / family alone (not the game's classifier). */
+function looksLike(topic: TopicId, q: CPQuestion): boolean {
+  const s = q.standard;
+  switch (topic) {
+    case "codes": return q.family.startsWith("cipher") && /^(cipher|cipher-letter|cipher-shift)$/.test(q.meta.kind);
+    case "phonics": return /^RF\.(K|[1-5])\.\d$/.test(s);
+    case "grammar": return /^L\./.test(s);
+    case "ratios": return /^NC\.[67]\.RP\.\d$/.test(s);
+    case "factors": return /^NC\.(4\.OA\.4|6\.NS\.4)$/.test(s);
+    case "fractions": return /^NC\.[3-6]\.(NF|NBT|NS)\.\d$/.test(s) && (/\.NF\./.test(s) || /decimal|fraction/i.test(q.skill));
+    case "numbers": return /^NC\.(K|[1-8])\.(CC|OA|NBT|NS|MD)\.\d$|^NC\.M[1-3]\.N-|^NC\.M4\.N\./.test(s) && !/decimal/i.test(q.skill);
+    case "algebra": return /^NC\.[6-8]\.(EE|F)\.\d$|^NC\.M[1-3]\.[AFN]-|^NC\.M4\.AF\./.test(s);
+    case "geometry": return /^NC\.(K|[1-8])\.(G|MD)\.\d$|^NC\.M[1-3]\.G-|^NC\.M4\.AF\.2\.2$/.test(s);
+  }
+}
+
+/** Distinct lane-sized prompts every source of a topic can make at a grade (own families, kit math, kit ELA). */
+function capacity(topic: TopicId, g: Grade): number {
+  const n = g === "K" ? 0 : Number(g);
+  const prompts = new Set<string>();
+  const r = mulberry32(31 * n + topic.length);
+  for (const [fam] of focusFamilies(topic, n)) {
+    const gen = GENERATORS[fam]!;
+    for (let i = 0; i < 300; i++) {
+      const q = gen({ grade: g, n, r, drive: { mph: 30 + r() * 60, fuelPct: r() * 100 } });
+      if (q && fitsGates(q) && questionTopic(q, n) === topic) prompts.add(q.prompt);
+    }
+  }
+  for (const gen of kitGensFor(topic, g)) {
+    for (let i = 0; i < 300; i++) {
+      const q = kitFromGen(g, gen);
+      if (q) prompts.add(q.prompt);
+    }
+  }
+  for (const q of kitElaFocusPool(topic, ELA[g] ?? [])) prompts.add(q.prompt);
+  return prompts.size;
+}
+
+const FOCUS_DRAWS = 200;
+let focusDraws = 0;
+const offeredByBand: string[] = [];
+for (const g of GRADES) {
+  const n = g === "K" ? 0 : Number(g);
+  offeredByBand.push(`${g}: ${TOPIC_IDS.filter((t) => topicAvailable(t, g)).join(", ")}`);
+  for (const topic of TOPIC_IDS) {
+    const cap = capacity(topic, g);
+    if (!topicAvailable(topic, g)) {
+      // Topics left out really lack lane-sized items at this grade…
+      check(cap < MIN_DISTINCT, () => `grade ${g}: ${topic} is not offered but has ${cap} distinct prompts (≥ ${MIN_DISTINCT})`);
+      // …and a source asked for one anyway still answers (MIX) instead of hanging.
+      const q = new CodeSource(g, hooks, mulberry32(9), { mode: "focus", topic }).next({ mph: 55, fuelPct: 50 });
+      validate(q, `grade ${g} unoffered ${topic} fallback`);
+      continue;
+    }
+    check(cap >= MIN_DISTINCT, () => `grade ${g}: ${topic} offered but only ${cap} distinct prompts`);
+    const r = mulberry32(1009 * (n + 1) + topic.length * 17);
+    const src = new CodeSource(g, hooks, r, { mode: "focus", topic });
+    const prompts: string[] = [];
+    let own = 0;
+    for (let k = 0; k < FOCUS_DRAWS; k++) {
+      const q = src.next({ mph: 30 + r() * 60, fuelPct: r() * 100 });
+      focusDraws++;
+      const where = `focus ${topic} grade ${g} #${k} (${q.family} ${q.standard})`;
+      validate(q, where);
+      check(q.grade === g, () => `${where}: tagged grade ${q.grade}`);
+      check(questionTopic(q, n) === topic, () => `${where}: classified as ${questionTopic(q, n)}: ${q.prompt}`);
+      check(looksLike(topic, q), () => `${where}: doesn't look like ${topic}: "${q.prompt}" (${q.skill})`);
+      if (q.family !== "kitMath" && q.family !== "kitEla") own++;
+      // Easy secret codes for grades 3-8: small shifts, short familiar words.
+      if (topic === "codes" && n <= 8) {
+        const m = q.meta;
+        if (m.kind === "cipher") {
+          check(m.shift >= 1 && m.shift <= 3, () => `${where}: easy code shift ${m.shift}`);
+          const plain = m.mode === "decode" ? caesar(m.input, -m.shift) : m.input;
+          check(EASY_CODE_WORDS.includes(plain) && plain.length <= 4, () => `${where}: easy code word ${plain}`);
+        }
+        if (m.kind === "cipher-letter") check(m.shift <= 3, () => `${where}: easy letter shift ${m.shift}`);
+        if (m.kind === "cipher-shift") check(EASY_CODE_WORDS.includes(m.plain) && val(q.choices[q.answer]) <= 3, () => `${where}: easy key`);
+        if (m.kind === "cipher-letter" && n <= 5) check(!q.prompt.includes("wrapping"), () => `${where}: grades 3-5 shouldn't wrap`);
+      }
+      if (prompts.length && topic !== "phonics") {
+        check(prompts[prompts.length - 1] !== q.prompt, () => `${where}: same prompt twice in a row`);
+      }
+      prompts.push(q.prompt);
+    }
+    const distinct = new Set(prompts).size;
+    check(distinct >= 12, () => `focus ${topic} grade ${g}: only ${distinct} distinct prompts in ${FOCUS_DRAWS}`);
+    // Recent prompts are avoided: no prompt again within the next 5 when the pool is big.
+    if (cap >= 40) {
+      for (let i = 5; i < prompts.length; i++) {
+        check(!prompts.slice(i - 5, i).includes(prompts[i]), () => `focus ${topic} grade ${g}: "${prompts[i]}" repeated within 5`);
+      }
+    }
+    // Ratios at grades 6-8 lead with the car's own speed / fuel problems.
+    if (topic === "ratios") check(own / FOCUS_DRAWS >= 0.5, () => `focus ratios grade ${g}: only ${own}/${FOCUS_DRAWS} car problems`);
+  }
+}
+// Every subject has something at every grade, so FOCUS is always possible.
+for (const g of GRADES) {
+  check(availableTopics("math", g).length > 0 && availableTopics("ela", g).length > 0, () => `grade ${g}: a subject has no focus topics`);
+}
+check(TOPICS.every((t) => OFFERED[t.id].every((n) => n >= 0 && n <= 12)), () => "OFFERED grades out of range");
+check(gradesNote("ratios") === "Grades 6–8" && gradesNote("algebra") === "Grades 6+" && gradesNote("phonics") === "Grades K–2"
+  && gradesNote("factors") === "Grades 4, 6" && gradesNote("codes") === "Grades 3+" && gradesNote("numbers") === "Grades K–7, 10, 12",
+  () => `grade notes: ${TOPIC_IDS.map((t) => gradesNote(t)).join(" | ")}`);
+
+// ALL MATH / ALL ELA at every grade: one subject, lane-sized, checked, varied.
+for (const g of GRADES) {
+  const n = g === "K" ? 0 : Number(g);
+  for (const subject of ["math", "ela"] as SubjectId[]) {
+    const r = mulberry32(4093 * (n + 1) + subject.length);
+    const src = new CodeSource(g, hooks, r, { mode: "subject", subject });
+    const prompts = new Set<string>();
+    let codes = 0;
+    for (let k = 0; k < FOCUS_DRAWS; k++) {
+      const q = src.next({ mph: 30 + r() * 60, fuelPct: r() * 100 });
+      focusDraws++;
+      const where = `ALL ${subject} grade ${g} #${k} (${q.family} ${q.standard})`;
+      validate(q, where);
+      check(q.subject === subject, () => `${where}: subject ${q.subject}`);
+      check(q.grade === g || q.family === "kitMath", () => `${where}: tagged grade ${q.grade}`);
+      if (q.family.startsWith("cipher")) codes++;
+      prompts.add(q.prompt);
+    }
+    check(prompts.size >= 12, () => `ALL ${subject} grade ${g}: only ${prompts.size} distinct prompts`);
+    if (subject === "math" && n >= 3) check(codes > 0, () => `ALL math grade ${g}: no secret codes`);
+  }
+}
+
+// ?topic= / ?subject= parsing
+{
+  const u = (q: string, g: Grade) => readUrlFocus(q, g);
+  const f = (q: string, g: Grade) => JSON.stringify(u(q, g).pref);
+  const P = (subject: string, topic: string) => JSON.stringify({ subject, topic });
+  check(f("?grade=7&topic=ratios", "7") === P("math", "ratios"), () => "?topic=ratios at grade 7");
+  check(f("?topic=RATIOS", "6") === P("math", "ratios"), () => "?topic= is case-insensitive");
+  check(f("?grade=5&topic=codes", "5") === P("math", "codes"), () => "?topic=codes at grade 5");
+  check(f("?grade=2&topic=phonics", "2") === P("ela", "phonics"), () => "?topic=phonics at grade 2");
+  check(f("?grade=1&topic=ratios", "1") === P("math", "all") && /grades 6–8/.test(u("?topic=ratios", "1").note ?? ""),
+    () => `?topic=ratios at grade 1: ${JSON.stringify(u("?topic=ratios", "1"))}`);
+  check(f("?topic=bogus", "5") === "null" && u("?topic=bogus", "5").note === null, () => "unknown topic is ignored quietly");
+  check(f("?topic=", "5") === "null" && f("", "5") === "null" && f("?grade=5", "5") === "null", () => "no topic → keep saved");
+  check(f("?topic=math-mix", "5") === P("math", "all") && f("?topic=ela-mix", "9") === P("ela", "all"), () => "menu quiz-mix ids → ALL <subject>");
+  check(f("?topic=mix", "5") === P("mixed", "all"), () => "?topic=mix → MIXED");
+  check(f("?subject=Math", "5") === P("math", "all") && f("?subject=ELA", "5") === P("ela", "all") && f("?subject=mixed", "5") === P("mixed", "all"), () => "?subject= alone");
+  check(f("?topic=codes&subject=Math", "9") === P("math", "codes"), () => "?subject=Math with a math topic");
+  check(f("?topic=grammar&subject=ELA", "9") === P("ela", "grammar"), () => "?subject=ELA with an ELA topic");
+  check(f("?topic=codes&subject=ela", "9") === "null", () => "?subject that contradicts the topic is ignored");
+  check(f("?topic=geography", "5") === "null", () => "other subjects' topics are ignored");
+  for (const g of GRADES) {
+    for (const t of TOPIC_IDS) {
+      const got = u(`?grade=${g}&topic=${t}`, g).pref;
+      const sub = topicInfo(t).subject;
+      check(JSON.stringify(got) === P(sub, topicAvailable(t, g) ? t : "all"), () => `?topic=${t} at grade ${g}: ${JSON.stringify(got)}`);
+    }
+  }
+}
+
+// Saved subject + topic: parsing, and re-validation when the grade changes.
+{
+  const P = (subject: string, topic: string) => JSON.stringify({ subject, topic });
+  check(JSON.stringify(parsePref(null, null)) === P("mixed", "all"), () => "nothing saved → MIXED");
+  check(JSON.stringify(parsePref("oops", "ratios")) === P("mixed", "all"), () => "bad saved subject → MIXED");
+  check(JSON.stringify(parsePref("math", "nope")) === P("math", "all"), () => "unknown saved topic → ALL");
+  check(JSON.stringify(parsePref("ela", "ratios")) === P("ela", "all"), () => "topic from another subject → ALL");
+  check(JSON.stringify(parsePref("math", "ratios")) === P("math", "ratios"), () => "saved focus round trip");
+  check(JSON.stringify(parsePref("mixed", "codes")) === P("mixed", "all"), () => "MIXED ignores a topic");
+  const r = (subject: SubjectId, topic: TopicId | "all", g: Grade) => JSON.stringify(resolveFocus({ subject, topic } as FocusPref, g));
+  check(r("math", "ratios", "7") === '{"mode":"focus","topic":"ratios"}', () => "ratios stays at grade 7");
+  check(r("math", "ratios", "5") === '{"mode":"subject","subject":"math"}', () => `ratios at grade 5 → ${r("math", "ratios", "5")}`);
+  check(r("math", "ratios", "1") === '{"mode":"subject","subject":"math"}', () => "ratios at grade 1 → ALL MATH");
+  check(r("ela", "phonics", "5") === '{"mode":"subject","subject":"ela"}', () => "phonics at grade 5 → ALL ELA");
+  check(r("ela", "grammar", "K") === '{"mode":"subject","subject":"ela"}', () => "grammar at K → ALL ELA");
+  check(r("math", "codes", "2") === '{"mode":"subject","subject":"math"}', () => "codes at grade 2 → ALL MATH");
+  check(r("math", "all", "9") === '{"mode":"subject","subject":"math"}', () => "ALL MATH");
+  check(JSON.stringify(resolveFocus({ subject: "mixed", topic: "all" }, "7")) === '{"mode":"mix"}', () => "MIXED → MIX");
+  for (const g of GRADES) {
+    for (const t of TOPIC_IDS) {
+      const got = resolveFocus({ subject: topicInfo(t).subject, topic: t }, g);
+      const ok = topicAvailable(t, g) ? got.mode === "focus" && got.topic === t : got.mode === "subject" && got.subject === topicInfo(t).subject;
+      check(ok, () => `resolveFocus(${t}, ${g}) → ${JSON.stringify(got)}`);
+    }
+  }
+}
+
+// Headless FOCUS missions: every checkpoint the sim announces is from the topic.
+for (const [g, topic] of [["7", "ratios"], ["5", "codes"], ["1", "phonics"], ["10", "geometry"], ["4", "factors"]] as [Grade, TopicId][]) {
+  const r = mulberry32(2024 + topic.length);
+  const src = new CodeSource(g, hooks, r, { mode: "focus", topic });
+  const sim = new PursuitSim({ gradeN: g === "K" ? 0 : Number(g), nextQuestion: (ctx) => src.next(ctx), rand: r });
+  for (let k = 0; k < 4; k++) {
+    sim.skipToCheckpoint();
+    const ann = run(sim, 2, (e) => e.type === "announce").find((e) => e.type === "announce");
+    check(!!ann && ann.type === "announce" && questionTopic(ann.q, Number(g)) === topic, () => `focus mission ${topic} grade ${g}: checkpoint ${k + 1} off topic`);
+    sim.choose(sim.cp.q!.answer);
+    run(sim, 40, (e) => e.type === "result");
+    sim.continueDrive();
+  }
+  check(sim.lives === 3 && sim.correctCount === 4, () => `focus mission ${topic} grade ${g}: bookkeeping`);
+}
+console.log("Focus topics offered per grade:\n  " + offeredByBand.join("\n  "));
+
 console.log(
   failures === 0
-    ? `OK: ${checks} checks · ${GRADES.length} grades × ${SEEDS * 4} checkpoints · ${direct} direct generator runs · ${played} headless missions`
+    ? `OK: ${checks} checks · ${GRADES.length} grades × ${SEEDS * 4} checkpoints · ${direct} direct generator runs · ${played} headless missions · ${focusDraws} focus checkpoints`
     : `${failures} failure(s) out of ${checks} checks`,
 );
 process.exit(failures === 0 ? 0 : 1);

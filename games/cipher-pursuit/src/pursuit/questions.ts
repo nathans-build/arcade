@@ -7,7 +7,7 @@
  * Pure TypeScript (no DOM, no Vite), so the checker can run it with tsx.
  */
 import type { Grade, Question } from "../kit/types";
-import { decode, encode, letterSteps, mod, shiftLetter, CODE_WORDS, ALPHABET } from "./cipher";
+import { decode, encode, letterSteps, mod, shiftLetter, CODE_WORDS, EASY_CODE_WORDS, ALPHABET } from "./cipher";
 
 export type Rand = () => number;
 
@@ -339,12 +339,24 @@ export const lineParam: Generator = (c) => {
 /** Shift cipher items: tagged with NC Math 1 function evaluation (a letter rule applied to inputs). */
 const CIPHER_STD = "NC.M1.F-IF.2";
 
+/**
+ * Grades 3-8 only meet ciphers in Focus: Secret codes, as easy codes (shift 1-3, short familiar
+ * words, A-Z strip on screen), tagged with the grade's patterns / rules standard.
+ */
+const EASY_CIPHER_STD: Record<number, string> = {
+  3: "NC.3.OA.9", 4: "NC.4.OA.5", 5: "NC.5.OA.3", 6: "NC.6.EE.9", 7: "NC.6.EE.9", 8: "NC.8.F.1",
+};
+const easyCodes = (c: GenCtx) => c.n <= 8;
+const cipherStd = (c: GenCtx) => (easyCodes(c) ? EASY_CIPHER_STD[Math.max(3, c.n)] : CIPHER_STD);
+
 function shiftFor(c: GenCtx): number {
+  if (c.n <= 4) return ri(c.r, 1, 2);
   if (c.n <= 9) return ri(c.r, 1, 3);
   if (c.n === 10) return ri(c.r, 1, 5);
   return ri(c.r, 2, 9);
 }
 function codeWord(c: GenCtx): string {
+  if (easyCodes(c)) return pickR(c.r, EASY_CODE_WORDS);
   const max = c.n <= 9 ? 5 : 7;
   const pool = CODE_WORDS.filter((w) => w.length >= 3 && w.length <= max);
   return pickR(c.r, pool);
@@ -354,7 +366,7 @@ export const cipherDecode: Generator = (c) => {
   const k = shiftFor(c);
   const plain = codeWord(c);
   const coded = encode(plain, k);
-  return make(c, "cipherDecode", CIPHER_STD, "Shift cipher: decode", `Decode the message. Move each letter back ${k}: ${coded}`, plain,
+  return make(c, "cipherDecode", cipherStd(c), "Shift cipher: decode", `Decode the message. Move each letter back ${k}: ${coded}`, plain,
     [decode(coded, k > 1 ? k - 1 : k + 2), decode(coded, k + 1), encode(coded, k)],
     `Move each letter ${k} back in the alphabet: ${letterSteps(coded, plain)}. The message is ${plain}.`,
     { kind: "cipher", mode: "decode", shift: k, input: coded });
@@ -364,20 +376,27 @@ export const cipherEncode: Generator = (c) => {
   const k = shiftFor(c);
   const plain = codeWord(c);
   const coded = encode(plain, k);
-  return make(c, "cipherEncode", CIPHER_STD, "Shift cipher: encode", `Code the word. Move each letter forward ${k}: ${plain}`, coded,
+  return make(c, "cipherEncode", cipherStd(c), "Shift cipher: encode", `Code the word. Move each letter forward ${k}: ${plain}`, coded,
     [encode(plain, k > 1 ? k - 1 : k + 2), encode(plain, k + 1), decode(plain, k)],
     `Move each letter ${k} forward, wrapping Z back to A: ${letterSteps(plain, coded)}. The code is ${coded}.`,
     { kind: "cipher", mode: "encode", shift: k, input: plain });
 };
 
 export const cipherLetter: Generator = (c) => {
-  const k = ri(c.r, 2, 6);
-  const letter = pickR(c.r, ["U", "V", "W", "X", "Y", "Z"]);
+  const easy = easyCodes(c);
+  const k = easy ? shiftFor(c) : ri(c.r, 2, 6);
+  // Easy codes: grades 3-5 never wrap past Z; 6-8 sometimes do. Harder codes always wrap.
+  const letters = easy ? [...ALPHABET].slice(0, c.n <= 5 ? 26 - k : 26) : ["U", "V", "W", "X", "Y", "Z"];
+  const letter = pickR(c.r, letters);
   const ans = shiftLetter(letter, k);
+  const wraps = ALPHABET.indexOf(letter) + k > 25;
   const steps = [...Array(k)].map((_, i) => shiftLetter(letter, i + 1)).join(", ");
-  return make(c, "cipherLetter", CIPHER_STD, "Shift cipher: wraparound", `Code rule: move each letter forward ${k}, wrapping Z to A. What does ${letter} become?`, ans,
+  const rule = wraps || !easy ? `move each letter forward ${k}, wrapping Z to A` : `move each letter forward ${k}`;
+  return make(c, "cipherLetter", cipherStd(c), easy && !wraps ? "Shift cipher: one letter" : "Shift cipher: wraparound", `Code rule: ${rule}. What does ${letter} become?`, ans,
     [shiftLetter(letter, k - 1), shiftLetter(letter, k + 1), shiftLetter(letter, -k)],
-    `Count forward ${k} from ${letter}: ${steps}. After Z the alphabet starts again at A, so ${letter} becomes ${ans}.`,
+    easy && !wraps
+      ? `Count forward ${k} from ${letter}: ${steps}. So ${letter} becomes ${ans}.`
+      : `Count forward ${k} from ${letter}: ${steps}. After Z the alphabet starts again at A, so ${letter} becomes ${ans}.`,
     { kind: "cipher-letter", shift: k, letter });
 };
 
@@ -386,7 +405,7 @@ export const cipherShift: Generator = (c) => {
   const plain = codeWord(c);
   const coded = encode(plain, k);
   const d = mod(ALPHABET.indexOf(coded[0]) - ALPHABET.indexOf(plain[0]), 26);
-  return make(c, "cipherShift", CIPHER_STD, "Shift cipher: find the key", `${plain} was coded as ${coded}. What was the shift?`, `+${d}`,
+  return make(c, "cipherShift", cipherStd(c), "Shift cipher: find the key", `${plain} was coded as ${coded}. What was the shift?`, `+${d}`,
     [`+${d + 1}`, d > 1 ? `+${d - 1}` : `+${d + 2}`, `−${d}`],
     `${plain[0]} moved to ${coded[0]}: that's ${d} letters forward. Every letter moves the same amount, so the key is +${d}.`,
     { kind: "cipher-shift", plain, coded });

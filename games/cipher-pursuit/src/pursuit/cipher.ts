@@ -36,3 +36,10 @@ export const CODE_WORDS = [
   "ROCKET", "PLANET", "TIGER", "PIZZA", "WIZARD", "JUMP", "QUIZ", "ZEBRA", "YELLOW", "WATER", "OCEAN", "MOON",
   "STAR", "CAMERA", "PILOT", "ORBIT", "MAGNET", "LOCK", "KEY", "BADGE", "SPY", "GO", "HIDE", "FAST", "DASH",
 ];
+
+/** Short, familiar words for the easy codes (grades 3-8 in Focus: Secret codes). */
+export const EASY_CODE_WORDS = [
+  "CAR", "VAN", "MAP", "KEY", "SPY", "SUN", "DOG", "CAT", "HAT", "RED", "BUS", "PIG", "CUP", "BED", "TOP", "BOX",
+  "FOX", "FUN", "BOAT", "ROAD", "FAST", "JUMP", "HIDE", "LOCK", "CODE", "STAR", "MOON", "LANE", "FISH", "FROG",
+  "CAKE", "BIRD", "TREE", "BOOK", "GOLD", "SHIP", "RAIN", "SNOW", "HELP", "DASH", "CLUE", "MILK", "LAMP", "DUCK",
+];

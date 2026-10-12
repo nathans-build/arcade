@@ -26,7 +26,26 @@ import { FLOOR_INFO, TOPIC_LABEL, TOPIC_NOTES } from "@/dojo/floors";
 import { bandOf } from "@/dojo/qmake";
 import { METER_MAX, type BossResult } from "@/dojo/rules";
 import { START_LIVES, MAX_ENERGY, type Hud } from "@/dojo/sim";
-import { TopicDecks } from "@/dojo/topics";
+import { TopicDecks, focusCatalog } from "@/dojo/topics";
+import {
+  FOCUS_SUBJECTS,
+  MIXED,
+  SUBJECT_CHOICES,
+  allLabel,
+  focusFromUrl,
+  focusLabel,
+  focusTag,
+  focusTopic,
+  loadFocus,
+  refocusSavedForGrade,
+  saveFocus,
+  topicForSubject,
+  topicsOf,
+  validateFocus,
+  type DojoSubject,
+  type FocusChoice,
+  type TopicChoice,
+} from "@/dojo/focus";
 import "@/dojo/dojo.css";
 
 const GAME_ID = "dojo-tower";
@@ -60,6 +79,17 @@ const EMPTY_HUD: Hud = {
 
 const HELD_KEYS: Record<string, "left" | "right" | "down"> = { ArrowLeft: "left", ArrowRight: "right", ArrowDown: "down" };
 
+/** First visit state: `?topic=` / `?subject=` from the arcade menu win for this visit, then the saved choice. */
+function initialFocus(grade: Grade): { choice: FocusChoice; note: string | null } {
+  const url = focusFromUrl(typeof window === "undefined" ? "" : window.location.search, grade, focusCatalog);
+  let note: string | null = null;
+  if (url.unavailable) {
+    const t = focusTopic(url.unavailable);
+    note = `${t.label} is for ${focusCatalog.gradesNote(t.id)}, not ${gradeLabel(grade)}.`;
+  }
+  return { choice: url.choice ?? validateFocus(loadFocus(), grade, focusCatalog), note };
+}
+
 const debug = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("debug");
 
 export default function DojoTower() {
@@ -69,6 +99,11 @@ export default function DojoTower() {
   const audio = useMemo(() => new ChipAudio(BASS, 132), []);
 
   const [grade, setGrade] = useState<Grade>(() => initialGrade("3"));
+  const [focusInit] = useState(() => initialFocus(initialGrade("3")));
+  const [focus, setFocus] = useState<FocusChoice>(focusInit.choice);
+  const [focusNote, setFocusNote] = useState<string | null>(focusInit.note);
+  /** The focus the current run was started with (the report and question headers use it). */
+  const [runFocus, setRunFocus] = useState<FocusChoice>(MIXED);
   const [screen, setScreen] = useState<Screen>("title");
   const [hud, setHud] = useState<Hud>(EMPTY_HUD);
   const [quiz, setQuiz] = useState<Quiz | null>(null);
@@ -85,6 +120,7 @@ export default function DojoTower() {
   readAloudRef.current = readAloud;
   const gradeRef = useRef(grade);
   gradeRef.current = grade;
+  const runTag = focusTag(runFocus);
   const early = isEarlyReader(grade);
 
   // Fit the 16:10 screen inside the space left over, limited by width or height.
@@ -148,7 +184,7 @@ export default function DojoTower() {
     engineRef.current?.setCard(
       quiz
         ? {
-            title: quiz.kind === "boss" ? `VS ${FLOOR_INFO[quiz.floor - 1].bossName} · ${SUBJECT_LABELS[quiz.q.subject]}` : `QUESTION SCROLL · ${SUBJECT_LABELS[quiz.q.subject]}`,
+            title: `${quiz.kind === "boss" ? `VS ${FLOOR_INFO[quiz.floor - 1].bossName}` : "QUESTION SCROLL"} · ${runTag ?? SUBJECT_LABELS[quiz.q.subject]}`,
             prompt: quiz.q.prompt,
             choices: quiz.q.choices,
             picked: quiz.picked,
@@ -158,7 +194,7 @@ export default function DojoTower() {
     );
     // Playtest hook: the open question (with its answer) for automated tests.
     if (debug) (window as unknown as { __dtQuiz: Quiz | null }).__dtQuiz = quiz;
-  }, [quiz]);
+  }, [quiz, runTag]);
 
   useEffect(() => {
     const mq = window.matchMedia("(pointer: coarse)");
@@ -171,6 +207,10 @@ export default function DojoTower() {
   const chooseGrade = useCallback((g: Grade) => {
     setGrade(g);
     rememberGrade(g);
+    // Re-check the focus for the new grade: a topic it can't offer falls back to the subject's first one, or MIX.
+    setFocus((f) => validateFocus(f, g, focusCatalog));
+    refocusSavedForGrade(g, focusCatalog);
+    setFocusNote(null);
     setReadAloud(readAloudPref(isEarlyReader(g)));
     engineRef.current?.showDemo(bandOf(g));
   }, []);
@@ -179,16 +219,26 @@ export default function DojoTower() {
     audio.unlock();
     audio.startMusic();
     rememberGrade(grade);
-    decksRef.current = new TopicDecks(grade, GAME_ID);
+    const f = validateFocus(focus, grade, focusCatalog);
+    setRunFocus(f);
+    engineRef.current?.setFocusTag(focusTag(f));
+    decksRef.current = new TopicDecks(grade, GAME_ID, f);
     setLog([]);
     setQuiz(null);
     setPaused(false);
     setHud(EMPTY_HUD);
     setScreen("playing");
     engineRef.current?.newGame(bandOf(grade));
-  }, [audio, grade]);
+  }, [audio, grade, focus]);
+
+  const chooseFocus = useCallback((f: FocusChoice) => {
+    setFocus(f);
+    saveFocus(f);
+    setFocusNote(null);
+  }, []);
 
   const toMenu = useCallback(() => {
+    engineRef.current?.setFocusTag(null);
     engineRef.current?.showDemo(bandOf(grade));
     setScreen("title");
   }, [grade]);
@@ -374,7 +424,9 @@ export default function DojoTower() {
           <div className="dt-screen" style={screenWidth ? { width: screenWidth } : undefined}>
             <canvas ref={canvasRef} aria-label="Dojo Tower game screen" />
 
-            {screen === "title" && <TitleScreen grade={grade} onGrade={chooseGrade} onStart={startGame} highScore={highScore} />}
+            {screen === "title" && (
+              <TitleScreen grade={grade} onGrade={chooseGrade} focus={focus} focusNote={focusNote} onFocus={chooseFocus} onStart={startGame} highScore={highScore} />
+            )}
 
             {playing && paused && !quiz && (
               <div className="dt-overlay">
@@ -396,6 +448,7 @@ export default function DojoTower() {
                 score={hud.score}
                 floor={hud.floor}
                 highScore={highScore}
+                focus={runFocus}
                 onAgain={startGame}
                 onMenu={toMenu}
               />
@@ -403,7 +456,7 @@ export default function DojoTower() {
           </div>
         </div>
 
-        {playing && quiz && <QuizPanel quiz={quiz} onAnswer={answer} onNext={next} onSpeak={replay} />}
+        {playing && quiz && <QuizPanel quiz={quiz} tag={runTag} onAnswer={answer} onNext={next} onSpeak={replay} />}
 
         <div className={`dt-controls ${showPad ? "show" : ""}`}>
           <div className="dt-pad move">
@@ -434,7 +487,7 @@ function SpeakerIcon() {
   );
 }
 
-function QuizPanel({ quiz, onAnswer, onNext, onSpeak }: { quiz: Quiz; onAnswer: (i: number) => void; onNext: () => void; onSpeak: () => void }) {
+function QuizPanel({ quiz, tag, onAnswer, onNext, onSpeak }: { quiz: Quiz; tag: string | null; onAnswer: (i: number) => void; onNext: () => void; onSpeak: () => void }) {
   const { q, picked, result } = quiz;
   const f = FLOOR_INFO[quiz.floor - 1];
   const done = picked !== null;
@@ -453,7 +506,7 @@ function QuizPanel({ quiz, onAnswer, onNext, onSpeak }: { quiz: Quiz; onAnswer: 
       <div className="head dt-pixel">
         <span>{quiz.kind === "boss" ? `VS ${f.bossName}` : "QUESTION SCROLL"}</span>
         <span className="std">
-          {SUBJECT_LABELS[q.subject]} · {q.standard}
+          {tag ?? SUBJECT_LABELS[q.subject]} · {q.standard}
           {speechSupported() && (
             <button type="button" className="dt-speak" onClick={onSpeak} aria-label="Read the question aloud" title="Read aloud (R)">
               <SpeakerIcon />
@@ -503,9 +556,87 @@ function HowToPlay() {
   );
 }
 
-function TitleScreen({ grade, onGrade, onStart, highScore }: { grade: Grade; onGrade: (g: Grade) => void; onStart: () => void; highScore: number }) {
+/** Arrow keys move between (and pick) the buttons of a radio group; Home/End jump to the ends. */
+function radioKeys(e: React.KeyboardEvent<HTMLElement>) {
+  const keys = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"];
+  if (!keys.includes(e.key)) return;
+  const btns = [...e.currentTarget.querySelectorAll<HTMLButtonElement>("button[role=radio]:not(:disabled)")];
+  if (btns.length === 0) return;
+  e.preventDefault();
+  const i = btns.indexOf(document.activeElement as HTMLButtonElement);
+  let j = e.key === "Home" ? 0 : e.key === "End" ? btns.length - 1 : i + (e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 1);
+  j = (j + btns.length) % btns.length;
+  btns[j].focus();
+  btns[j].click();
+}
+
+/** Subject row (MATH · SCIENCE · ELA · SOCIAL STUDIES · MIXED), then, for one subject, its topics. */
+function FocusPicker({ grade, focus, note, onFocus }: { grade: Grade; focus: FocusChoice; note: string | null; onFocus: (f: FocusChoice) => void }) {
+  const avail = focusCatalog.available(grade);
+  const subj = focus.subject === "mixed" ? null : focus.subject;
+  const pickSubject = (s: DojoSubject) => {
+    if (s === "mixed") onFocus(MIXED);
+    else if (s !== focus.subject) onFocus({ subject: s, topic: topicForSubject(s, grade, focusCatalog) });
+  };
+  const topics: { id: TopicChoice; label: string; ok: boolean; note?: string }[] = subj
+    ? [
+        { id: "all", label: allLabel(subj), ok: true },
+        ...topicsOf(subj).map((t) => ({ id: t.id, label: t.label, ok: avail.includes(t.id), note: focusCatalog.gradesNote(t.id) })),
+      ]
+    : [];
+  return (
+    <div className="dt-focus">
+      <div className="dt-h dt-pixel" style={{ marginTop: 14 }}>PICK A SUBJECT</div>
+      <div className="dt-subjects" role="radiogroup" aria-label="Subject" onKeyDown={radioKeys}>
+        {SUBJECT_CHOICES.map((s) => {
+          const on = focus.subject === s.id;
+          return (
+            <button key={s.id} role="radio" aria-checked={on} tabIndex={on ? 0 : -1} data-subject={s.id} className={`dt-subject ${on ? "on" : ""}`} onClick={() => pickSubject(s.id)}>
+              <span className="dt-pixel">{s.label}</span>
+              <small>{s.note}</small>
+            </button>
+          );
+        })}
+      </div>
+      {note && <div className="dt-help dt-focusnote">{note}</div>}
+      {subj && (
+        <div className="dt-chips topics" role="radiogroup" aria-label="Topic" onKeyDown={radioKeys}>
+          {topics.map((t) => {
+            const on = t.ok && focus.subject !== "mixed" && focus.topic === t.id;
+            return (
+              <button
+                key={t.id}
+                role="radio"
+                aria-checked={on}
+                tabIndex={on ? 0 : -1}
+                disabled={!t.ok}
+                className={`dt-chip ${t.id === "all" ? "all" : ""} ${on ? "on" : ""}`}
+                data-topic={t.id}
+                onClick={() => onFocus({ subject: subj, topic: t.id })}
+                title={t.ok ? t.label : `${t.label}: ${t.note}`}
+              >
+                {t.label}
+                {!t.ok && <small>{t.note}</small>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TitleScreen({
+  grade, onGrade, focus, focusNote, onFocus, onStart, highScore,
+}: {
+  grade: Grade; onGrade: (g: Grade) => void; focus: FocusChoice; focusNote: string | null; onFocus: (f: FocusChoice) => void; onStart: () => void; highScore: number;
+}) {
   const fromArcade = gradeFromArcade();
   const band = bandOf(grade);
+  const one = focus.subject === "mixed" ? null : focus.topic === "all" ? `${FOCUS_SUBJECTS.find((x) => x.id === focus.subject)!.label} (any topic)` : focusTopic(focus.topic).label;
+  // Focus the start button without scrolling the panel down past the title and subject picker.
+  const startRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => { startRef.current?.focus({ preventScroll: true }); }, []);
   return (
     <div className="dt-overlay title">
       <div className="dt-panel title">
@@ -519,9 +650,9 @@ function TitleScreen({ grade, onGrade, onStart, highScore }: { grade: Grade; onG
         ) : (
           <>
             <div className="dt-h dt-pixel" style={{ marginTop: 14 }}>PICK YOUR GRADE</div>
-            <div className="dt-grades" role="radiogroup" aria-label="Grade">
+            <div className="dt-grades" role="radiogroup" aria-label="Grade" onKeyDown={radioKeys}>
               {GRADES.map((g) => (
-                <button key={g} role="radio" aria-checked={g === grade} className={`dt-grade dt-pixel ${g === grade ? "on" : ""}`} onClick={() => onGrade(g)} title={gradeLabel(g)}>
+                <button key={g} role="radio" aria-checked={g === grade} tabIndex={g === grade ? 0 : -1} className={`dt-grade dt-pixel ${g === grade ? "on" : ""}`} onClick={() => onGrade(g)} title={gradeLabel(g)}>
                   {g}
                 </button>
               ))}
@@ -529,19 +660,26 @@ function TitleScreen({ grade, onGrade, onStart, highScore }: { grade: Grade; onG
           </>
         )}
 
-        <div className="dt-floors">
+        <FocusPicker grade={grade} focus={focus} note={focusNote} onFocus={onFocus} />
+
+        {one && (
+          <div className="dt-help dt-focusline">
+            All 5 floor masters and every gold scroll ask: <b className="c">{one}</b>
+          </div>
+        )}
+        <div className={`dt-floors ${one ? "compact" : ""}`}>
           {[...FLOOR_INFO].reverse().map((f) => (
             <div key={f.n} className="dt-floorrow">
               <span className="n dt-pixel">{f.n}F</span>
-              <span className="hall">{f.hall} <span className="dim">· {TOPIC_LABEL[f.topic]}</span></span>
-              <span className="topic">{TOPIC_NOTES[band][f.topic]}</span>
+              <span className="hall">{f.hall}{!one && <span className="dim"> · {TOPIC_LABEL[f.topic]}</span>}</span>
+              {!one && <span className="topic">{TOPIC_NOTES[band][f.topic]}</span>}
               <span className="boss">{f.bossName}</span>
             </div>
           ))}
         </div>
 
         <div style={{ textAlign: "center", margin: "12px 0 4px" }}>
-          <button className="dt-cta big" autoFocus onClick={onStart}>Enter the tower ▶</button>
+          <button ref={startRef} className="dt-cta big" onClick={onStart}>Enter the tower ▶</button>
         </div>
         <div className="dt-h dt-pixel" style={{ marginTop: 10 }}>HOW TO PLAY</div>
         <HowToPlay />
@@ -552,10 +690,12 @@ function TitleScreen({ grade, onGrade, onStart, highScore }: { grade: Grade; onG
 }
 
 function Report({
-  won, log, grade, score, floor, highScore, onAgain, onMenu,
+  won, log, grade, score, floor, highScore, focus, onAgain, onMenu,
 }: {
-  won: boolean; log: LogEntry[]; grade: Grade; score: number; floor: number; highScore: number; onAgain: () => void; onMenu: () => void;
+  won: boolean; log: LogEntry[]; grade: Grade; score: number; floor: number; highScore: number; focus: FocusChoice; onAgain: () => void; onMenu: () => void;
 }) {
+  const one = focus.subject !== "mixed";
+  const wholeSubject = focus.subject !== "mixed" && focus.topic === "all";
   const byStd = new Map<string, { skill: string; subject: Subject; n: number; c: number }>();
   for (const l of log) {
     const cur = byStd.get(l.standard) ?? { skill: l.skill, subject: l.subject, n: 0, c: 0 };
@@ -570,6 +710,17 @@ function Report({
       <div className={`dt-panel ${won ? "won" : ""}`}>
         <div className="dt-h dt-pixel" style={{ color: won ? "var(--dt-yellow)" : "var(--dt-red)" }}>
           {won ? "TOWER CLEARED! YOU ARE A DOJO MASTER" : "OUT OF LIVES — TRAINING REPORT"} · {gradeLabel(grade).toUpperCase()}
+        </div>
+        <div className="dt-help dt-reportmode">
+          {one ? (
+            <>
+              <span className="y">FOCUS:</span> {focusLabel(focus)} — every question was {wholeSubject ? "in this subject" : "on this topic"}.
+            </>
+          ) : (
+            <>
+              <span className="y">MIXED:</span> ELA, math, civics, forces and a mixed roof.
+            </>
+          )}
         </div>
         <div className="dt-help big">
           Score <b className="y">{score}</b>

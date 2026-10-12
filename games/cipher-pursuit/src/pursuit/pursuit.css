@@ -213,3 +213,33 @@
   .cp-radio .head { display: none; }
   .cp-radio .opt { min-height: 26px; padding: 1px 5px; }
 }
+
+/* Title: subject row (MATH · ELA · MIXED) and the topic row under MATH / ELA */
+.cp-focus { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.cp-subjects, .cp-topics { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; width: 100%; }
+.cp-subject, .cp-topic {
+  font-family: "VT323", ui-monospace, monospace; font-size: 20px; line-height: 1.05;
+  min-height: 40px; padding: 5px 10px; cursor: pointer; text-align: center;
+  background: #0c1450; color: var(--cp-white); border: 2px solid var(--cp-dim); box-shadow: 3px 3px 0 #000;
+  max-width: 100%; box-sizing: border-box; overflow-wrap: anywhere;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+}
+.cp-subject { flex: 0 1 180px; }
+.cp-subject .cp-pixel { font-size: clamp(10px, 1.5vw, 13px); }
+.cp-subject small, .cp-topic small { font-size: 15px; color: var(--cp-dim); }
+.cp-topic { flex: 0 1 172px; }
+.cp-topic.all .cp-pixel { font-size: clamp(9px, 1.3vw, 11px); }
+.cp-subject:hover, .cp-subject:focus-visible, .cp-topic:hover, .cp-topic:focus-visible { border-color: var(--cp-cyan); outline: none; }
+.cp-subject.on, .cp-topic.on { background: var(--cp-red); border-color: var(--cp-yellow); color: #fff; }
+.cp-subject.on small { color: #ffd9db; }
+.cp-topic:disabled { cursor: not-allowed; opacity: 0.55; box-shadow: none; border-style: dashed; }
+.cp-topic:disabled:hover { border-color: var(--cp-dim); }
+.cp-notice { margin: 0 0 8px; }
+.cp-focustag { color: var(--cp-yellow); }
+.cp-reportfocus { margin: -2px 0 6px; }
+
+@media (max-width: 560px) {
+  .cp-subject { flex: 1 1 96px; padding: 6px 6px; }
+  .cp-subject small { font-size: 14px; }
+  .cp-topic { flex: 1 1 140px; font-size: 18px; }
+}
