@@ -1,0 +1,190 @@
+/* Key Comets: arcade presentation layer (SpiderBen10 red & blue on deep space) */
+
+.kc-root {
+  --kc-bg: #0a0f2e;
+  --kc-deep: #050818;
+  --kc-red: #e3262f;
+  --kc-blue: #2456e8;
+  --kc-cyan: #6ea0ff;
+  --kc-yellow: #ffd23f;
+  --kc-green: #5fff8a;
+  --kc-white: #f2f4ff;
+  --kc-dim: #8090cc;
+  height: 100vh;
+  height: 100dvh;
+  box-sizing: border-box;
+  background: var(--kc-bg);
+  color: var(--kc-white);
+  font-family: "VT323", ui-monospace, monospace;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 16px 10px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  overflow: hidden;
+}
+.kc-root *, .kc-root *::before, .kc-root *::after { box-sizing: border-box; }
+
+.kc-pixel { font-family: "Press Start 2P", ui-monospace, monospace; letter-spacing: 0.02em; }
+.kc-root .y { color: var(--kc-yellow); }
+.kc-root .c { color: var(--kc-cyan); }
+.kc-root .g { color: var(--kc-green); }
+.kc-root .dim { color: var(--kc-dim); }
+
+.kc-toolbar { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; gap: 8px; flex: none; }
+.kc-tools { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
+.kc-toolbar a, .kc-toolbar button {
+  font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--kc-dim);
+  background: none; border: 0; cursor: pointer; text-decoration: none; padding: 6px 0;
+}
+.kc-toolbar a:hover, .kc-toolbar button:hover, .kc-toolbar button:focus-visible { color: var(--kc-cyan); }
+
+.kc-cabinet { position: relative; width: 100%; max-width: 960px; flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; }
+
+/* HUD */
+.kc-hud {
+  flex: none; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;
+  gap: 4px 10px; font-size: clamp(7px, 1.4vw, 11px); padding: 5px 2px; text-transform: uppercase;
+}
+.kc-hud .lbl { color: var(--kc-dim); margin-right: 5px; }
+.kc-shield { display: inline-flex; gap: 2px; vertical-align: middle; }
+.kc-shield i { width: 9px; height: 9px; border: 1px solid var(--kc-cyan); background: #111a48; }
+.kc-shield i.on { background: var(--kc-cyan); }
+.kc-shield.low i { border-color: var(--kc-red); }
+.kc-shield.low i.on { background: var(--kc-red); }
+
+.kc-stage { flex: none; display: flex; justify-content: center; }
+.kc-screen { position: relative; max-width: 100%; aspect-ratio: 16 / 10; border: 3px solid var(--kc-blue); box-shadow: 0 0 0 3px var(--kc-red), 0 0 24px rgba(36, 86, 232, 0.5); background: var(--kc-deep); }
+.kc-screen canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+
+.kc-tip {
+  flex: none; display: flex; gap: 10px; align-items: baseline; padding: 4px 4px 0; min-height: 1.6em;
+  font-size: clamp(16px, 2.2vw, 21px); line-height: 1.1; color: #cfd6ff;
+}
+.kc-lesson { font-size: clamp(6px, 1vw, 8px); color: var(--kc-yellow); white-space: nowrap; }
+
+/* Finger hint + hands + keyboard */
+.kc-kbwrap { flex: none; width: 100%; max-width: 760px; align-self: center; padding-top: 4px; }
+.kc-kbwrap.idle { opacity: 0.55; }
+.kc-hint { display: flex; align-items: center; gap: 10px; min-height: 26px; font-size: clamp(16px, 2.2vw, 22px); line-height: 1; padding: 0 2px 4px; }
+.kc-hint .txt { flex: 1; }
+.kc-hands { display: inline-flex; gap: 10px; flex: none; }
+.kc-hand { display: inline-flex; align-items: flex-end; gap: 2px; height: 20px; }
+.kc-hand i { display: block; width: 6px; border: 2px solid; border-bottom: 0; background: #111a48; border-radius: 3px 3px 0 0; }
+.kc-hand i.thumb { width: 8px; }
+.kc-hand i.on { box-shadow: 0 0 8px currentColor; }
+
+.kc-keyboard { display: flex; flex-direction: column; gap: 3px; }
+.kc-krow { display: flex; gap: 3px; justify-content: center; }
+.kc-krow.r1 { padding: 0 3%; }
+.kc-krow.r2 { padding: 0 1% 0 5%; }
+.kc-krow.r4 { padding: 0 18%; }
+.kc-key {
+  position: relative; flex: 1 1 0; min-width: 0; height: clamp(26px, 5.2vh, 42px);
+  display: flex; align-items: center; justify-content: center;
+  font-family: "Press Start 2P", monospace; font-size: clamp(7px, 1.5vw, 12px); color: var(--kc-white);
+  background: #121a4e; border: 1px solid #2a3678; border-bottom: 4px solid; border-radius: 4px; padding: 0;
+}
+.kc-key small { position: absolute; top: 2px; left: 3px; font-size: 0.6em; color: var(--kc-dim); }
+.kc-key.bump::after { content: ""; position: absolute; bottom: 4px; left: 50%; width: 30%; transform: translateX(-50%); height: 2px; background: var(--kc-dim); }
+.kc-key.space { font-size: clamp(6px, 1.1vw, 9px); color: var(--kc-dim); }
+.kc-key.glow {
+  background: var(--fc); color: #050818; border-color: #fff; box-shadow: 0 0 14px var(--fc), 0 0 2px #fff;
+  animation: kc-pulse 0.8s ease-in-out infinite alternate;
+}
+.kc-key.glow small { color: #050818; }
+.kc-key.latched { background: #2f3b86; }
+@keyframes kc-pulse { from { transform: translateY(0); } to { transform: translateY(-2px); } }
+.kc-keyboard.tap .kc-key { cursor: pointer; }
+.kc-keyboard.tap .kc-key:active { filter: brightness(1.4); }
+
+/* Overlays */
+.kc-overlay {
+  position: absolute; inset: 0; z-index: 5; overflow-y: auto; overflow-x: hidden;
+  background: rgba(5, 8, 24, 0.9); display: flex; justify-content: center; align-items: flex-start; padding: 8px 0 16px;
+}
+.kc-panel {
+  width: 100%; max-width: 760px; background: #0c1440; border: 3px solid var(--kc-blue); box-shadow: 0 0 0 3px var(--kc-red);
+  padding: 14px 16px; margin: auto 0;
+}
+.kc-pause {
+  position: absolute; inset: 0; background: rgba(5, 8, 24, 0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px; padding: 10px;
+}
+.kc-title { font-size: clamp(20px, 5vw, 40px); text-align: center; color: var(--kc-yellow); text-shadow: 3px 3px 0 var(--kc-red), 6px 6px 0 var(--kc-blue); margin: 4px 0 10px; }
+.kc-title.small { font-size: clamp(14px, 3vw, 24px); }
+.kc-sub { text-align: center; font-size: clamp(6px, 1.2vw, 9px); color: var(--kc-cyan); margin-bottom: 8px; line-height: 1.6; }
+.kc-sub a { color: var(--kc-yellow); }
+.kc-h { font-size: clamp(8px, 1.4vw, 11px); color: var(--kc-cyan); margin: 12px 0 6px; text-align: center; line-height: 1.5; }
+.kc-h.big { font-size: clamp(12px, 2.6vw, 20px); margin-top: 2px; }
+.kc-help { font-size: clamp(17px, 2.2vw, 21px); line-height: 1.15; margin-top: 6px; }
+.kc-help.center { text-align: center; }
+.kc-help ul { margin: 6px 0; padding-left: 20px; }
+.kc-help li { margin-bottom: 4px; }
+.kc-root kbd { font-family: "Press Start 2P", monospace; font-size: 0.5em; border: 1px solid var(--kc-dim); border-bottom-width: 3px; border-radius: 3px; padding: 2px 4px; color: var(--kc-white); background: #121a4e; }
+
+.kc-note { border: 2px dashed var(--kc-yellow); padding: 8px 10px; font-size: 19px; line-height: 1.15; margin: 6px 0; color: #ffeaa0; }
+.kc-check { display: inline-flex; gap: 6px; align-items: center; font-size: 19px; cursor: pointer; margin: 6px 10px 0 0; }
+.kc-check input { width: 18px; height: 18px; accent-color: var(--kc-green); }
+
+.kc-grades { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
+.kc-grade { min-width: 34px; height: 32px; font-size: 10px; color: var(--kc-white); background: #121a4e; border: 2px solid #2a3678; cursor: pointer; }
+.kc-grade.on { background: var(--kc-red); border-color: var(--kc-yellow); }
+
+.kc-lessons { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px; }
+.kc-lessoncard {
+  display: flex; gap: 8px; align-items: center; text-align: left; padding: 6px 8px; min-height: 52px;
+  background: #121a4e; border: 2px solid #2a3678; color: var(--kc-white); cursor: pointer; font-family: inherit;
+}
+.kc-lessoncard .num { font-size: 12px; color: var(--kc-yellow); width: 22px; text-align: center; flex: none; }
+.kc-lessoncard .body { display: flex; flex-direction: column; min-width: 0; }
+.kc-lessoncard .name { font-size: 20px; line-height: 1; }
+.kc-lessoncard small { font-size: 16px; line-height: 1; color: var(--kc-dim); overflow-wrap: anywhere; }
+.kc-lessoncard .best { color: var(--kc-cyan); }
+.kc-lessoncard.on { border-color: var(--kc-yellow); background: #1d2a78; box-shadow: 0 0 10px rgba(255, 210, 63, 0.4); }
+.kc-lessoncard.passed .name { color: var(--kc-green); }
+.kc-lessoncard.free .num { color: var(--kc-green); }
+.kc-lessoncard:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.kc-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+.kc-row.center { justify-content: center; }
+.kc-cta {
+  font-family: "Press Start 2P", monospace; font-size: clamp(9px, 1.4vw, 11px); padding: 10px 14px; cursor: pointer;
+  color: #050818; background: var(--kc-yellow); border: 0; box-shadow: 3px 3px 0 var(--kc-red);
+}
+.kc-cta.big { font-size: clamp(10px, 1.7vw, 13px); padding: 12px 16px; }
+.kc-cta.ghost { background: transparent; color: var(--kc-cyan); border: 2px solid var(--kc-blue); box-shadow: none; }
+.kc-cta small { font-size: 0.7em; opacity: 0.7; }
+.kc-cta:focus-visible, .kc-grade:focus-visible, .kc-lessoncard:focus-visible { outline: 3px solid var(--kc-green); outline-offset: 2px; }
+
+.kc-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 6px; margin: 10px 0; }
+.kc-stats > div { background: #121a4e; border: 2px solid #2a3678; padding: 6px; text-align: center; display: flex; flex-direction: column; gap: 4px; }
+.kc-stats .lbl { font-size: 8px; color: var(--kc-dim); }
+.kc-stats b { font-size: 34px; line-height: 1; font-weight: normal; }
+.kc-stars { color: var(--kc-yellow); letter-spacing: 2px; }
+.kc-missed { margin: 0 6px; white-space: nowrap; }
+.kc-standards { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; font-size: 17px; }
+.kc-passmsg { font-size: 22px; }
+
+.kc-root.early .kc-help, .kc-root.early .kc-tip { font-size: clamp(19px, 2.6vw, 24px); }
+
+@media (max-width: 560px) {
+  .kc-root { padding: 4px 8px 8px; }
+  .kc-hud .hide-sm { display: none; }
+  .kc-tools { gap: 8px; }
+  .kc-toolbar a, .kc-toolbar button { font-size: 7px; }
+  .kc-hands { display: none; }
+  .kc-lessons { grid-template-columns: 1fr 1fr; }
+  .kc-lessoncard { padding: 5px; gap: 4px; }
+  .kc-lessoncard .name { font-size: 17px; }
+  .kc-lessoncard small { font-size: 14px; }
+  .kc-panel { padding: 10px 8px; }
+  .kc-krow { gap: 2px; }
+  .kc-keyboard { gap: 2px; }
+  .kc-krow.r1, .kc-krow.r2 { padding: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kc-key.glow { animation: none; }
+}
