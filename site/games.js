@@ -293,7 +293,7 @@ window.GAMES = [
     id: "dojo-tower",
     focus: true,
     title: "Dojo Tower",
-    tagline: "Climb a 5-floor dojo, poof the Ink Ninjas and beat each floor master with right answers. Civics, math, forces and words.",
+    tagline: "Climb a 10-floor dojo, poof the Ink Ninjas, earn ink stars and beat 10 different floor masters with right answers. Pick one subject or mix them all.",
     subjects: ["Social Studies", "Math", "Science", "ELA"],
     topics: ["civics", "history", "geography", "economics", "numbers", "factors", "ratios", "fractions", "algebra", "geometry", "life", "earth", "physical", "reading", "phonics", "grammar"],
     url: "/dojo-tower/",
