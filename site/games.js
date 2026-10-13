@@ -291,6 +291,7 @@ window.GAMES = [
   },
   {
     id: "dojo-tower",
+    prod: true,
     focus: true,
     title: "Dojo Tower",
     tagline: "Climb a 10-floor dojo, poof the Ink Ninjas, earn ink stars and beat 10 different floor masters with right answers. Pick one subject or mix them all.",
@@ -303,6 +304,7 @@ window.GAMES = [
   },
   {
     id: "cipher-pursuit",
+    prod: true,
     focus: true,
     title: "Cipher Pursuit",
     tagline: "Splat the Smudge Gang with foam, then crack coded checkpoints by steering your gadget car into the right lane.",
@@ -315,6 +317,7 @@ window.GAMES = [
   },
   {
     id: "word-hopper",
+    prod: true,
     title: "Word Hopper",
     tagline: "Hop through Tadwin the frog's word garden: match letters, build words, find rhymes and sort sounds, all read aloud, with stickers to collect.",
     subjects: ["ELA"],
@@ -327,6 +330,7 @@ window.GAMES = [
   },
   {
     id: "count-carnival",
+    prod: true,
     title: "Count Carnival",
     tagline: "Join Tally Hop on the carnival midway: count balloons, balance the tightrope, compare ducks, find shapes, tell time and count coins, then trade tickets for prizes. Every word is read aloud.",
     subjects: ["Math"],
@@ -339,6 +343,7 @@ window.GAMES = [
   },
   {
     id: "key-comets",
+    prod: true,
     title: "Key Comets",
     tagline: "Type the letters and words on falling comets to zap them and save the space station, from the home row to full sentences.",
     subjects: ["ELA"],
@@ -350,6 +355,7 @@ window.GAMES = [
   },
   {
     id: "silly-story",
+    prod: true,
     title: "Silly Story Studio",
     tagline: "Fill in nouns, verbs and adjectives without peeking, then watch your silly story come alive as a pixel cartoon.",
     subjects: ["ELA"],
