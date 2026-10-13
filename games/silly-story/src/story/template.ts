@@ -154,10 +154,10 @@ export function fill(p: Parsed, words: string[]): FilledPiece[] {
     const next = raw.slice(i + 1).map((r) => r.text).join("").trimStart();
     raw[i] = { text: article(next, raw[i].text === "A"), blank: -1 };
   }
-  // Capitalize a player's word at the start of a sentence.
+  // Capitalize a player's word at the start of a sentence, a paragraph or a quotation (he said, "Boing!").
   let soFar = "";
   for (const piece of raw) {
-    if (piece.blank >= 0 && (soFar.trim() === "" || /[.!?]["”']?\s*$/.test(soFar) || /\n\s*$/.test(soFar) || /(^|[.!?]\s*)["“]\s*$/.test(soFar))) {
+    if (piece.blank >= 0 && (soFar.trim() === "" || /[.!?]["”']?\s*$/.test(soFar) || /\n\s*$/.test(soFar) || /(^|[.!?]\s*)["“]\s*$/.test(soFar) || /(^|[\s(])["“]$/.test(soFar))) {
       piece.text = piece.text.charAt(0).toUpperCase() + piece.text.slice(1);
     }
     soFar += piece.text;

@@ -47,10 +47,14 @@ export interface CastSpec {
   count?: string;
 }
 
+export type StoryLength = "short" | "medium" | "long";
+
 export interface Story {
   id: string;
   title: string;
   band: Band;
+  /** Short (about 6-9 blanks), Medium (10-14) or Long (15-22, several paragraphs); limits per band are in length.ts. */
+  length: StoryLength;
   bg: string;
   blurb: string;
   template: string;
