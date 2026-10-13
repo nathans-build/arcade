@@ -1,7 +1,7 @@
 /*
  * Automated playtest (dev only). Needs the built game served at /cipher-pursuit/ with the
  * arcade fonts at /fonts/, and a global Playwright:
- *   npm run build && (serve dist at http://127.0.0.1:8772/cipher-pursuit/) &
+ *   npm run build && (serve dist at http://127.0.0.1:8782/cipher-pursuit/) &
  *   node scripts/playtest.cjs        (SHOT=../../site/img/cipher-pursuit.png saves the cabinet picture)
  *
  * For each grade (default 2 and 7), on a 1280x800 keyboard screen:
@@ -17,6 +17,12 @@
  *   mission report names it; ?grade=5&topic=codes starts on MATH · Secret codes with an easy cipher;
  *   ?grade=1&topic=ratios falls back to ALL MATH with a note; the picker has no sideways scroll at
  *   390 and 360 px.
+ * Timing: RELAXED is the default; at grade 2 drive to a checkpoint, wait 60 s without answering
+ *   and check the car is still waiting at the gates (no result, no car lost, "take your time"
+ *   shown), then answer. At grade 7 pick NORMAL: the time bar shows, the timer is at least the
+ *   floor (25 s ciphers / story problems, 15 s facts) and the gate doesn't come before it runs out.
+ *   SPEEDY can be picked, is remembered (arcade.cipher-pursuit.timing) and has a shorter timer.
+ *   The timing picker and time bar have no sideways scroll on a 390 px phone.
  * Fails on any console error or page error.
  */
 const path = require("path");
@@ -24,7 +30,7 @@ const fs = require("fs");
 const { execSync } = require("child_process");
 const { chromium } = require(path.join(execSync("npm root -g").toString().trim(), "playwright"));
 
-const BASE = process.env.BASE || "http://127.0.0.1:8772/cipher-pursuit/";
+const BASE = process.env.BASE || "http://127.0.0.1:8782/cipher-pursuit/";
 const GRADES = (process.env.GRADES || "2,7").split(",");
 const SHOT = process.env.SHOT;
 
@@ -291,6 +297,12 @@ async function phone(browser, grade) {
     if (m.sw > m.iw || m.bw > m.iw) note(grade, `phone: sideways scroll on ${where} (${m.sw}/${m.bw} > ${m.iw})`);
   };
   await noSideScroll("title");
+  const timingOver = await page.evaluate(() => [...document.querySelectorAll(".cp-timings button")].filter((b) => {
+    const r = b.getBoundingClientRect();
+    return r.left < -0.5 || r.right > window.innerWidth + 0.5;
+  }).length);
+  if ((await page.locator(".cp-timings button").count()) !== 3 || timingOver) note(grade, `phone: timing picker overflows (${timingOver})`);
+  await page.locator('.cp-timing[data-timing="normal"]').tap();
   await page.locator(".cp-cta", { hasText: "Start mission" }).tap();
   await page.waitForTimeout(400);
   await noSideScroll("driving");
@@ -318,6 +330,9 @@ async function phone(browser, grade) {
   await waitPhase(page, "approach", 5000);
   await page.waitForTimeout(200);
   await noSideScroll("checkpoint");
+  if (!(await page.locator(".cp-timebar.timed").isVisible())) note(grade, "phone: NORMAL time bar not visible at a checkpoint");
+  const tb = await page.locator(".cp-timebar").boundingBox();
+  if (!tb || tb.x < 0 || tb.x + tb.width > 390.5) note(grade, `phone: time bar box ${JSON.stringify(tb)}`);
   const s = await sim(page);
   await page.locator(".cp-radio .opt").nth(s.answer).tap();
   await page.waitForTimeout(150);
@@ -337,6 +352,148 @@ async function phone(browser, grade) {
   await page.dispatchEvent("canvas", "pointerup", { pointerId: 7 });
   if (!((await sim(page)).x > x1 + 5)) note(grade, "phone: dragging on the road didn't steer");
   console.log(`grade ${grade} phone: ok checks done`);
+  await ctx.close();
+  return errors;
+}
+
+const WORDY = ["drt", "rate", "ratio", "pctof", "pctchange", "fracrate", "mpg", "slope", "rateTable", "chase", "lineq", "lineParam", "avgRate", "multWord", "bigMult", "addSub"];
+const clock = (page) =>
+  page.evaluate(() => {
+    const s = window.__cp();
+    const c = s.cp;
+    return {
+      phase: s.phase, timing: s.timing, total: c.timeTotal === Infinity ? "inf" : c.timeTotal, left: c.timeLeft === Infinity ? "inf" : c.timeLeft,
+      voice: c.voiceWait, waiting: s.waiting, released: c.released, gateIn: c.gateWy - s.dist, speed: s.speed, lives: s.lives,
+      cleared: s.cleared, correct: s.correctCount, answer: c.q ? c.q.answer : null, family: c.q ? c.q.family : null, prompt: c.q ? c.q.prompt : null,
+      live: s.enemies.filter((e) => e.state === "live").length,
+    };
+  });
+
+/** Grade 2, RELAXED (the default): the gate waits a whole minute for an answer, then the answer drives on. */
+async function relaxedWait(browser) {
+  const g = "2";
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const page = await ctx.newPage();
+  const errors = [];
+  watchErrors(page, errors);
+  await page.goto(`${BASE}?grade=${g}&debug&god`, { waitUntil: "load" });
+  await page.waitForFunction(() => !!window.__cp && !!window.__cp());
+  const log = [];
+  const picks = await page.locator(".cp-timing").allInnerTexts();
+  if (picks.length !== 3 || !/RELAXED/.test(picks[0]) || !/NORMAL/.test(picks[1]) || !/SPEEDY/.test(picks[2])) note(g, `timing picker ${JSON.stringify(picks)}`);
+  if ((await page.locator('.cp-timing[data-timing="relaxed"]').getAttribute("aria-checked")) !== "true") note(g, "timing: RELAXED isn't the default");
+  await page.locator(".cp-cta.big").click();
+  await page.waitForTimeout(300);
+  // Drive (for real, a few seconds) then hop to the checkpoint.
+  await page.waitForTimeout(2000);
+  await page.evaluate(() => window.__cp().skipToCheckpoint());
+  await waitPhase(page, "approach", 5000);
+  let c = await clock(page);
+  if (c.timing !== "relaxed" || c.total !== "inf") note(g, `relaxed: sim timing ${c.timing} total ${c.total}`);
+  log.push(`checkpoint: [${c.family}] "${c.prompt}"`);
+  const t0 = Date.now();
+  const lives = c.lives;
+  const cleared = c.cleared;
+  // Hands off for 60 s, checking along the way.
+  let minGate = Infinity;
+  let hazards = 0;
+  while (Date.now() - t0 < 60000) {
+    await page.waitForTimeout(5000);
+    c = await clock(page);
+    minGate = Math.min(minGate, c.gateIn);
+    hazards = Math.max(hazards, c.live);
+    if (c.phase !== "approach") break;
+  }
+  const waited = ((Date.now() - t0) / 1000).toFixed(1);
+  if (c.phase !== "approach" || !c.waiting || c.released) note(g, `relaxed: after ${waited}s phase ${c.phase}, waiting ${c.waiting}`);
+  if (c.cleared !== cleared || c.lives !== lives) note(g, "relaxed: waiting changed cars / cleared");
+  if (hazards) note(g, `relaxed: ${hazards} hazards while waiting`);
+  if (!(Math.abs(c.gateIn - 56) < 1 && c.speed === 0)) note(g, `relaxed: car not stopped before the gate (gap ${c.gateIn}, speed ${c.speed})`);
+  const bar = await page.locator(".cp-timebar").innerText();
+  if (!/TAKE YOUR TIME/.test(bar)) note(g, `relaxed: no "take your time" note ("${bar}")`);
+  const head = await page.locator(".cp-radio .head").innerText();
+  if (!/TAKE YOUR TIME/.test(head)) note(g, `relaxed: radio head "${head}"`);
+  if (await page.locator(".cp-timebar.timed").count()) note(g, "relaxed: a countdown bar is showing");
+  log.push(`waited ${waited}s hands-off: still ${c.phase}, stopped ${c.gateIn.toFixed(0)}px before the gate, "${bar}"`);
+  await page.screenshot({ path: path.join(process.env.OUT || "/tmp", "cp-relaxed-wait.png") });
+  // Now answer (key) and drive on.
+  await page.keyboard.press(String(c.answer + 1));
+  await waitPhase(page, "debrief", 8000).catch(() => note(g, "relaxed: answering didn't reach the gate"));
+  c = await clock(page);
+  if (c.correct !== 1) note(g, `relaxed: answer after waiting not counted (correct=${c.correct})`);
+  log.push(`answered after the wait → ${c.phase}, codes cracked ${c.correct}`);
+  console.log("relaxed grade 2:\n  " + log.join("\n  "));
+  await ctx.close();
+  return errors;
+}
+
+/** Grade 7: NORMAL shows a time bar with at least the floor; SPEEDY is remembered and quicker. */
+async function timedModes(browser) {
+  const g = "7";
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const page = await ctx.newPage();
+  const errors = [];
+  watchErrors(page, errors);
+  await page.goto(`${BASE}?grade=${g}&debug&god`, { waitUntil: "load" });
+  await page.waitForFunction(() => !!window.__cp && !!window.__cp());
+  const log = [];
+  await page.locator('.cp-timing[data-timing="normal"]').click();
+  if ((await page.evaluate(() => localStorage.getItem("arcade.cipher-pursuit.timing"))) !== "normal") note(g, "timing: NORMAL not saved");
+  await page.locator(".cp-cta.big").click();
+  await page.waitForTimeout(300);
+  const normals = [];
+  for (let k = 0; k < 2; k++) {
+    await page.evaluate(() => window.__cp().skipToCheckpoint());
+    await waitPhase(page, "approach", 5000);
+    await page.waitForTimeout(300);
+    let c = await clock(page);
+    const floor = c.family.startsWith("cipher") || WORDY.includes(c.family) ? 25 : 15;
+    if (c.timing !== "normal" || !(c.total >= floor)) note(g, `normal: [${c.family}] timer ${c.total}s < ${floor}s`);
+    const bar = page.locator(".cp-timebar.timed");
+    if (!(await bar.isVisible())) note(g, "normal: time bar not visible");
+    const w0 = await bar.locator(".bar i").evaluate((el) => el.getBoundingClientRect().width);
+    const label = await bar.locator(".lbl").innerText();
+    await page.waitForTimeout(2500);
+    const w1 = await bar.locator(".bar i").evaluate((el) => el.getBoundingClientRect().width);
+    if (!(w1 < w0)) note(g, `normal: time bar didn't shrink (${w0} → ${w1})`);
+    // Hands off: the gate must not come before the timer runs out.
+    const t0 = Date.now();
+    const left0 = (await clock(page)).left;
+    await waitPhase(page, "debrief", (c.total + 15) * 1000).catch(() => note(g, "normal: the gate never came after the timer"));
+    const took = (Date.now() - t0) / 1000;
+    if (took < left0 - 1) note(g, `normal: gate came after ${took.toFixed(1)}s with ${left0.toFixed(1)}s left`);
+    c = await clock(page);
+    if (c.lives !== 3) note(g, "normal: time running out cost a car");
+    normals.push(c.total);
+    log.push(`NORMAL checkpoint ${k + 1}: [${c.family}] "${c.prompt}" timer ${c.total}s (floor ${floor}s), bar "${label}" ${w0.toFixed(0)}→${w1.toFixed(0)}px, ${left0.toFixed(1)}s left after 2.8s → gate ${took.toFixed(1)}s later`);
+    await page.waitForTimeout(1300);
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(150);
+  }
+  // SPEEDY: pick it on the title, reload: still picked.
+  await page.goto(`${BASE}?grade=${g}&debug&god`, { waitUntil: "load" });
+  await page.waitForFunction(() => !!window.__cp && !!window.__cp());
+  if ((await page.locator('.cp-timing[data-timing="normal"]').getAttribute("aria-checked")) !== "true") note(g, "timing: NORMAL not remembered");
+  await page.locator('.cp-timing[data-timing="speedy"]').click();
+  await page.reload({ waitUntil: "load" });
+  await page.waitForFunction(() => !!window.__cp && !!window.__cp());
+  if ((await page.locator('.cp-timing[data-timing="speedy"]').getAttribute("aria-checked")) !== "true") note(g, "timing: SPEEDY not remembered after reload");
+  await page.locator(".cp-cta.big").click();
+  await page.waitForTimeout(300);
+  await page.evaluate(() => window.__cp().skipToCheckpoint());
+  await waitPhase(page, "approach", 5000);
+  await page.waitForTimeout(300);
+  const c = await clock(page);
+  if (c.timing !== "speedy" || !(c.total >= 8)) note(g, `speedy: timer ${c.total}s`);
+  // Faster than NORMAL: under NORMAL's floor for the same kind of question.
+  const nFloor = c.family.startsWith("cipher") || WORDY.includes(c.family) ? 25 : 15;
+  if (!(c.total < nFloor)) note(g, `speedy: [${c.family}] timer ${c.total}s not under NORMAL's ${nFloor}s floor`);
+  if (!(await page.locator(".cp-timebar.timed").isVisible())) note(g, "speedy: time bar not visible");
+  log.push(`SPEEDY checkpoint: [${c.family}] "${c.prompt}" timer ${c.total}s (NORMAL timers seen: ${normals.join(", ")}s)`);
+  const t0 = Date.now();
+  await waitPhase(page, "debrief", (c.total + 15) * 1000).catch(() => note(g, "speedy: the gate never came"));
+  log.push(`SPEEDY gate after ${((Date.now() - t0) / 1000 + 0.3).toFixed(1)}s`);
+  console.log("timing grade 7:\n  " + log.join("\n  "));
   await ctx.close();
   return errors;
 }
@@ -563,7 +720,12 @@ async function focusLinks(browser) {
     for (const e of errs) note(g, `console/page error: ${e}`);
   }
   }
-  for (const e of [...(await focusDesktop(browser)), ...(await focusLinks(browser))]) note("focus", `console/page error: ${e}`);
+  if (process.env.FOCUS_ONLY !== "1") {
+    for (const e of [...(await relaxedWait(browser)), ...(await timedModes(browser))]) note("timing", `console/page error: ${e}`);
+  }
+  if (process.env.TIMING_ONLY !== "1") {
+    for (const e of [...(await focusDesktop(browser)), ...(await focusLinks(browser))]) note("focus", `console/page error: ${e}`);
+  }
   // No ?grade=: the game shows its own grade picker.
   const page = await browser.newPage();
   await page.goto(BASE, { waitUntil: "load" });

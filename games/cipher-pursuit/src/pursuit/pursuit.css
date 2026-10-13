@@ -243,3 +243,35 @@
   .cp-subject small { font-size: 14px; }
   .cp-topic { flex: 1 1 140px; font-size: 18px; }
 }
+
+/* Checkpoint timing: picker on the title, countdown bar / "take your time" note under the radio */
+.cp-timings { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; width: 100%; }
+.cp-timing {
+  font-family: "VT323", ui-monospace, monospace; font-size: 20px; line-height: 1.05;
+  min-height: 40px; padding: 5px 10px; cursor: pointer; text-align: center; flex: 0 1 180px;
+  background: #0c1450; color: var(--cp-white); border: 2px solid var(--cp-dim); box-shadow: 3px 3px 0 #000;
+  max-width: 100%; box-sizing: border-box; overflow-wrap: anywhere;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+}
+.cp-timing .cp-pixel { font-size: clamp(10px, 1.5vw, 13px); }
+.cp-timing small { font-size: 15px; color: var(--cp-dim); }
+.cp-timing:hover, .cp-timing:focus-visible { border-color: var(--cp-cyan); outline: none; }
+.cp-timing.on { background: var(--cp-red); border-color: var(--cp-yellow); color: #fff; }
+.cp-timing.on small { color: #ffd9db; }
+.cp-timebar {
+  flex: none; height: 14px; margin: 0 2px 4px; box-sizing: border-box;
+  display: flex; align-items: center; gap: 8px; font-size: clamp(6px, 1vw, 8px); line-height: 1; overflow: hidden;
+}
+.cp-timebar.idle { visibility: hidden; }
+.cp-timebar.relaxed { justify-content: center; color: var(--cp-green); white-space: nowrap; text-overflow: ellipsis; }
+.cp-timebar .lbl { color: var(--cp-cyan); white-space: nowrap; min-width: 8.5em; }
+.cp-timebar .bar { flex: 1; height: 10px; background: #0c1440; border: 2px solid var(--cp-blue); box-sizing: border-box; }
+.cp-timebar .bar i { display: block; height: 100%; background: var(--cp-green); transition: width 0.1s linear; }
+.cp-timebar.mid .bar i { background: var(--cp-yellow); }
+.cp-timebar.low .bar i { background: var(--cp-red); }
+.cp-timebar.low .lbl { color: #ff8a8f; }
+@media (max-width: 560px) {
+  .cp-timing { flex: 1 1 96px; padding: 6px 6px; }
+  .cp-timing small { font-size: 14px; }
+  .cp-timebar.relaxed { font-size: 6px; }
+}
