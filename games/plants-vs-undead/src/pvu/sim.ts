@@ -193,6 +193,8 @@ export class Sim {
     this.hearts = this.tune.hearts;
     this.stats = Sim.emptyStats();
     this.events = [];
+    // Plants unlocked by a question stay unlocked for the whole game, not just one level.
+    this.learned = new Set();
     this.startLevel(1);
   }
 
@@ -221,7 +223,6 @@ export class Sim {
     this.store = { light: 1, water: 2, co2: 2 };
     this.react = -1;
     this.available = availableOn(n);
-    this.learned = new Set();
     this.discount = new Set();
     this.cooldown = {};
     this.carts = this.lanes.map((row) => ({ row, state: "ready" as const, x: 16 }));

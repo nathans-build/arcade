@@ -274,7 +274,10 @@
   var selectedKey = null; // "shelf:gameId", so the highlight survives re-renders
 
   function gameHref(game) {
-    return game.url + (game.url.indexOf("?") >= 0 ? "&" : "?") + "grade=" + encodeURIComponent(grade);
+    var href = game.url + (game.url.indexOf("?") >= 0 ? "&" : "?") + "grade=" + encodeURIComponent(grade);
+    // Games with a Focus mode (focus: true) open focused on the topic picked in the menu.
+    if (game.focus && topic && inTopic(game, topic)) href += "&topic=" + encodeURIComponent(topic);
+    return href;
   }
   function updateGradeLinks() {
     var links = document.querySelectorAll("a[data-keep-grade]");

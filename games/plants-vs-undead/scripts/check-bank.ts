@@ -328,6 +328,21 @@ for (const band of BANDS) {
   ok(s.hearts === hearts - 1 && u2.dead, "an undead past the cart costs a greenhouse heart");
 }
 
+// A plant unlocked by a question stays unlocked on later levels (a new time of day), but a new
+// game starts fresh.
+{
+  const s = new Sim();
+  s.newGame(2, 11);
+  for (const k of s.available) s.learn(k, true);
+  const first = [...s.available];
+  s.startLevel(2);
+  ok(first.every((k) => s.learned.has(k)), "level 1 plants stay unlocked on level 2");
+  ok(s.available.some((k) => !s.learned.has(k)), "level 2's new plants still need a question");
+  ok(first.every((k) => !s.discount.has(k)), "the half-price bonus doesn't carry over to the next level");
+  s.newGame(2, 12);
+  ok(s.learned.size === 0, "a new game starts with every plant locked");
+}
+
 // Every grade gets a full deck of card questions.
 for (const g of GRADES as Grade[]) {
   for (const k of PLANT_KINDS) ok(cardItems(bandOfGrade(g), k).length > 0, `grade ${g}: ${k} has questions`);

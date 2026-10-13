@@ -8,6 +8,8 @@
 // 30 days after that date.
 // `prod: true` sends a game to the real arcade (nzdogames.com). Only mark a game once it is
 // fully tested; without it the game is on the dev (test) site only.
+// `focus: true` means the game has a Focus mode: when a topic is picked in the menu, the game
+// opens focused on it (?topic=<id>). Its `topics` should list every topic it can focus on.
 // Topic chips shown under each subject tab, in this order. Ids are unique across subjects.
 window.TOPICS = {
   Math: [
@@ -32,12 +34,14 @@ window.TOPICS = {
     { id: "writing", label: "Writing" },
     { id: "phonics", label: "Phonics & spelling" },
     { id: "grammar", label: "Grammar & words" },
+    { id: "typing", label: "Typing & keyboard" },
     { id: "ela-mix", label: "Quiz mix" },
   ],
   "Social Studies": [
     { id: "geography", label: "Geography & maps" },
     { id: "history", label: "History" },
     { id: "economics", label: "Economics" },
+    { id: "civics", label: "Civics & government" },
     { id: "social-mix", label: "Quiz mix" },
   ],
 };
@@ -284,6 +288,82 @@ window.GAMES = [
     image: "img/sidewalk-stand.png",
     year: 2026,
     added: "2026-10-04",
+  },
+  {
+    id: "dojo-tower",
+    prod: true,
+    focus: true,
+    title: "Dojo Tower",
+    tagline: "Climb a 10-floor dojo, poof the Ink Ninjas, earn ink stars and beat 10 different floor masters with right answers. Pick one subject or mix them all.",
+    subjects: ["Social Studies", "Math", "Science", "ELA"],
+    topics: ["civics", "history", "geography", "economics", "numbers", "factors", "ratios", "fractions", "algebra", "geometry", "life", "earth", "physical", "reading", "phonics", "grammar"],
+    url: "/dojo-tower/",
+    image: "img/dojo-tower.png",
+    year: 2026,
+    added: "2026-10-11",
+  },
+  {
+    id: "cipher-pursuit",
+    prod: true,
+    focus: true,
+    title: "Cipher Pursuit",
+    tagline: "Splat the Smudge Gang with foam, then crack coded checkpoints by steering your gadget car into the right lane.",
+    subjects: ["Math", "ELA"],
+    topics: ["numbers", "factors", "ratios", "fractions", "algebra", "geometry", "phonics", "grammar"],
+    url: "/cipher-pursuit/",
+    image: "img/cipher-pursuit.png",
+    year: 2026,
+    added: "2026-10-11",
+  },
+  {
+    id: "word-hopper",
+    prod: true,
+    title: "Word Hopper",
+    tagline: "Hop through Tadwin the frog's word garden: match letters, build words, find rhymes and sort sounds, all read aloud, with stickers to collect.",
+    subjects: ["ELA"],
+    topics: ["phonics", "reading"],
+    grades: ["K", "1", "2"],
+    url: "/word-hopper/",
+    image: "img/word-hopper.png",
+    year: 2026,
+    added: "2026-10-12",
+  },
+  {
+    id: "count-carnival",
+    prod: true,
+    title: "Count Carnival",
+    tagline: "Join Tally Hop on the carnival midway: count balloons, balance the tightrope, compare ducks, find shapes, tell time and count coins, then trade tickets for prizes. Every word is read aloud.",
+    subjects: ["Math"],
+    topics: ["numbers", "geometry", "money", "fractions"],
+    grades: ["K", "1", "2"],
+    url: "/count-carnival/",
+    image: "img/count-carnival.png",
+    year: 2026,
+    added: "2026-10-12",
+  },
+  {
+    id: "key-comets",
+    prod: true,
+    title: "Key Comets",
+    tagline: "Type the letters and words on falling comets to zap them and save the space station, from the home row to full sentences.",
+    subjects: ["ELA"],
+    topics: ["typing", "phonics", "writing"],
+    url: "/key-comets/",
+    image: "img/key-comets.png",
+    year: 2026,
+    added: "2026-10-12",
+  },
+  {
+    id: "silly-story",
+    prod: true,
+    title: "Silly Story Studio",
+    tagline: "Fill in nouns, verbs and adjectives without peeking, then watch your silly story come alive as a pixel cartoon.",
+    subjects: ["ELA"],
+    topics: ["grammar", "writing"],
+    url: "/silly-story/",
+    image: "img/silly-story.png",
+    year: 2026,
+    added: "2026-10-12",
   },
 ];
 

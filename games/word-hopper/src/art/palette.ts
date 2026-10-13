@@ -1,0 +1,28 @@
+// Word Hopper's pixel palette. One character per colour in the sprite grids ("." = clear).
+export const PALETTE: Record<string, string> = {
+  k: "#1d1b33", // outline
+  w: "#ffffff",
+  r: "#e63946",
+  R: "#a4161a",
+  o: "#ff9f1c",
+  O: "#c96a00",
+  y: "#ffd23f",
+  Y: "#d4a017",
+  g: "#52c41a",
+  G: "#237a1b",
+  l: "#a6e35a",
+  b: "#3a86ff",
+  B: "#1d4ed8",
+  c: "#8fd3ff",
+  p: "#ff9ec7",
+  P: "#e0559b",
+  m: "#9b5de5",
+  M: "#5f2fa8",
+  n: "#a0612a",
+  N: "#6b3e1d",
+  s: "#f7c59f",
+  S: "#d99a6c",
+  t: "#f5e6c4",
+  e: "#c0c4cf",
+  E: "#6c7080",
+};
