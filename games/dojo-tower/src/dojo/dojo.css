@@ -48,7 +48,7 @@
 
 .dt-hud {
   display: grid;
-  grid-template-columns: repeat(5, auto);
+  grid-template-columns: repeat(6, auto);
   justify-content: space-between;
   gap: 4px 12px;
   font-size: clamp(8px, 1.6vw, 12px);
@@ -59,6 +59,10 @@
 .dt-hud .val { color: var(--dt-white); }
 .dt-hud .lives { color: var(--dt-red); letter-spacing: 2px; font-family: ui-monospace, monospace; }
 .dt-hud .ready { color: var(--dt-yellow); }
+.dt-starhud .val { white-space: nowrap; color: #9ae8ff; }
+.dt-starhud .val.ready { color: var(--dt-yellow); }
+.dt-burstbar { display: inline-block; vertical-align: middle; width: 4.5em; height: 0.6em; margin-left: 4px; background: #1c2450; border: 1px solid var(--dt-yellow); }
+.dt-burstbar i { display: block; height: 100%; background: var(--dt-yellow); transition: width 0.1s linear; }
 
 .dt-screen {
   position: relative;
@@ -142,8 +146,6 @@
 }
 .dt-chip.all { text-transform: uppercase; letter-spacing: 0.04em; }
 .dt-focusline { text-align: center; margin-top: 6px; }
-.dt-floors.compact .dt-floorrow { grid-template-columns: 34px 1fr 1fr; }
-@media (max-width: 640px) { .dt-floors.compact .dt-floorrow .boss { grid-column: auto; text-align: right; } }
 .dt-chip.on { background: var(--dt-blue); border: 2px solid var(--dt-yellow); color: #fff; }
 .dt-chip:disabled { cursor: not-allowed; color: #59639a; border-color: #2a3470; background: #090f38; box-shadow: none; }
 .dt-chip small { font-size: 0.75em; color: #8a94c8; margin-top: 2px; }
@@ -152,21 +154,32 @@
 .dt-focusnote { text-align: center; color: var(--dt-yellow); margin: 2px 0 4px; }
 .dt-reportmode { margin-top: 4px; }
 
-/* Tower floor list on the title screen (top floor first) */
-.dt-floors { margin: 12px 0 4px; border: 2px solid #1f2d7a; background: #0a1240; }
+/* Tower floor list on the title screen: ten floors, two compact columns (one on phones), scrolls inside */
+.dt-floorshead { margin-bottom: 4px; }
+.dt-floors {
+  list-style: none; margin: 0 0 4px; padding: 0;
+  display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: column; grid-template-rows: repeat(5, auto);
+  border: 2px solid #1f2d7a; background: #0a1240;
+  max-height: 11.5em; overflow-y: auto; overscroll-behavior: contain;
+}
 .dt-floorrow {
-  display: grid; grid-template-columns: 34px 1.2fr 1.4fr 1.2fr; gap: 2px 10px; align-items: baseline;
-  padding: 4px 8px; border-top: 1px solid #1c2450; font-size: clamp(16px, 2.1vw, 20px); line-height: 1.05;
+  display: grid; grid-template-columns: 30px 1fr; gap: 0 8px; align-items: baseline;
+  padding: 3px 8px; border-top: 1px solid #1c2450; font-size: clamp(15px, 1.9vw, 18px); line-height: 1.05; min-width: 0;
 }
+.dt-floorrow:nth-child(6) { border-top: 0; }
+.dt-floorrow:nth-child(n + 6) { border-left: 1px solid #1c2450; }
 .dt-floorrow:first-child { border-top: 0; }
-.dt-floorrow .n { font-size: 10px; color: var(--dt-yellow); }
-.dt-floorrow .hall { color: var(--dt-white); }
-.dt-floorrow .topic { color: var(--dt-cyan); }
-.dt-floorrow .boss { color: #ff8a8a; text-align: right; }
+.dt-floorrow .n { font-size: 9px; color: var(--dt-yellow); grid-row: 1 / span 2; }
+.dt-floorrow .boss { color: #ff8a8a; font-size: 1.05em; }
+.dt-floorrow .hall { color: var(--dt-white); font-size: 0.85em; grid-column: 2; overflow-wrap: anywhere; }
+.dt-floorrow .hall .dim { color: var(--dt-cyan); }
 @media (max-width: 640px) {
-  .dt-floorrow { grid-template-columns: 30px 1fr; }
-  .dt-floorrow .topic, .dt-floorrow .boss { grid-column: 2; text-align: left; }
+  .dt-floors { grid-template-columns: 1fr; grid-auto-flow: row; grid-template-rows: none; max-height: 10.5em; }
+  .dt-floorrow:nth-child(6) { border-top: 1px solid #1c2450; }
+  .dt-floorrow:nth-child(n + 6) { border-left: 0; }
 }
+.dt-beaten, .dt-continue { margin-top: 6px; }
+.dt-continue { color: var(--dt-yellow); }
 
 /* Question panel (floor masters and scrolls), under the game screen */
 .dt-quiz {
@@ -235,6 +248,8 @@
 .dt-touch.kick { border-color: var(--dt-cyan); color: var(--dt-cyan); }
 .dt-touch.thunder { width: 44px; height: 44px; font-size: 20px; color: var(--dt-dim); }
 .dt-touch.thunder.ready { color: var(--dt-yellow); border-color: var(--dt-yellow); background: #2a2a10; }
+.dt-touch.star { width: 44px; height: 44px; font-size: 20px; color: var(--dt-dim); }
+.dt-touch.star.ready { color: #fff; border-color: var(--dt-yellow); background: #1c5a6a; }
 .dt-touch:active { background: #1c2a90; }
 
 .dt-help { font-size: clamp(16px, 2.2vw, 20px); color: #b8c0f0; line-height: 1.15; }
@@ -295,4 +310,8 @@
   .dt-tools { gap: 10px; }
   .dt-touch { width: 50px; height: 46px; }
   .dt-touch.word { width: 62px; height: 62px; font-size: 8px; }
+}
+@media (max-width: 370px) {
+  .dt-touch { width: 46px; }
+  .dt-touch.word { width: 58px; height: 58px; }
 }

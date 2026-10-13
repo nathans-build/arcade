@@ -2,12 +2,19 @@
  * Automated playtest (dev only). Needs the built game served at /dojo-tower/ with the arcade's
  * /fonts/ next to it, and a global Playwright (Chromium):
  *   npm run build
- *   (serve a folder holding dojo-tower -> dist and fonts -> ../../site/fonts on port 8771, or set BASE)
- *   node scripts/playtest.cjs          (SHOT=../../site/img/dojo-tower.png saves a 640x400 boss-fight picture)
+ *   (serve a folder holding dojo-tower -> dist and fonts -> ../../site/fonts on port 8811, or set BASE)
+ *   node scripts/playtest.cjs          (SHOT=../../site/img/dojo-tower.png saves a 640x400 floor-10 boss-fight picture)
  * For each grade: keyboard on a 1280x800 desktop, then touch on a 390x844 phone. It checks the grade
  * badge, starts the game, walks, punches a ninja, ducks, jumps, reaches the floor master, answers wrong
  * (blocked: boss HP, lives and energy unchanged) and right (combo hits) until the master is beaten,
- * climbs to floor 2, checks there is no sideways scrolling and no console errors.
+ * climbs to floor 2, checks there is no sideways scrolling and no console errors; on the desktop it skips to
+ * floor 10 (debug hook), beats the final master and checks the tower-cleared report.
+ * Floor masters: MATH at grade 5 and SCIENCE at grade 8 show that subject's ten masters on the title list and
+ * meet that subject's master on floor 1; MIXED keeps its order; Math floor 10 is Empress Infinity and the
+ * tower-cleared screen follows; a game over on floor 7 offers "Continue from floor 6".
+ * Ink stars: five star-throwers earn the burst (HUD ★ n/5, then a timer bar), S throws, a ninja far ahead
+ * poofs, the burst runs out and the counter resets; on a 390px phone the ★ button does the same.
+ * The title screen opens scrolled to the top on a desktop and on phones.
  * Then the subject / topic picker: at grade 7 pick MATH -> Ratios & rates with the keyboard and check the
  * scroll and floor-master questions are ratio/rate ones (and the choice is remembered); ?grade=4&topic=civics
  * starts on Social Studies -> Civics; ?grade=2&topic=ratios is ignored with a note; ALL SCIENCE asks only
@@ -18,7 +25,7 @@ const fs = require("fs");
 const { execSync } = require("child_process");
 const { chromium } = require(path.join(execSync("npm root -g").toString().trim(), "playwright"));
 
-const BASE = process.env.BASE || "http://127.0.0.1:8771/dojo-tower/";
+const BASE = process.env.BASE || "http://127.0.0.1:8811/dojo-tower/";
 const ORIGIN = new URL(BASE).origin + "/";
 const GRADES = (process.env.GRADES || "3,8").split(",");
 const SHOT = process.env.SHOT;
@@ -206,7 +213,6 @@ async function run(browser, grade, mode) {
 
   // Right answers until the master is beaten
   let rounds = 0;
-  let shotSaved = false;
   while (rounds < 12) {
     if (touch) await tap(page.locator(".dt-quiz .dt-cta"));
     else await page.keyboard.press("Enter");
@@ -214,12 +220,6 @@ async function run(browser, grade, mode) {
     qz = await quiz(page);
     if (!qz) break;
     if (qz.picked !== null) continue;
-    if (SHOT && !touch && !shotSaved && rounds === 1) {
-      await page.waitForTimeout(300);
-      const data = await page.evaluate(() => document.querySelector(".dt-screen canvas").toDataURL("image/png"));
-      fs.writeFileSync(SHOT, Buffer.from(data.split(",")[1], "base64"));
-      shotSaved = true;
-    }
     const hpBefore = (await sim(page)).hp;
     if (touch) await tap(page.locator(".dt-quiz .opt").nth(qz.answer));
     else await page.keyboard.press(String(qz.answer + 1));
@@ -238,7 +238,7 @@ async function run(browser, grade, mode) {
   const f2 = await sim(page);
   if (f2.dir !== -1) problems.push("floor 2 should run right-to-left");
   const hudFloor = await page.locator(".dt-hud").innerText();
-  if (!hudFloor.includes("2/5")) problems.push(`HUD floor: ${hudFloor.replace(/\s+/g, " ")}`);
+  if (!hudFloor.includes("2/10")) problems.push(`HUD floor: ${hudFloor.replace(/\s+/g, " ")}`);
 
   // Floor 2 boss uses math; floor 3 civics questions are for this grade band
   for (const [floor, subj] of [[2, "math"], [3, "social"]]) {
@@ -276,13 +276,16 @@ async function run(browser, grade, mode) {
   }
 
   if (!touch) {
-    // Tower cleared: jump to floor 5 and beat the Grand Inkmaster
-    await page.evaluate(() => { const s = window.__dt.sim; s.startFloor(5); });
+    // Tower cleared: jump to floor 10 (debug hook) and beat the MIXED grand final
+    await page.evaluate(() => { const s = window.__dt.sim; s.startFloor(10); });
     await page.waitForFunction(() => window.__dt.sim.mode === "run", null, { timeout: 5000 });
     await page.evaluate(() => { const s = window.__dt.sim; s.warpToBoss(); s.held[s.dir > 0 ? "right" : "left"] = true; });
     await page.waitForSelector(".dt-quiz.boss", { timeout: 8000 }).catch(() => problems.push("floor 5 boss question missing"));
     await page.evaluate(() => { const s = window.__dt.sim; s.held.left = s.held.right = false; });
-    for (let i = 0; i < 12; i++) {
+    const head10 = await page.locator(".dt-quiz .head").innerText().catch(() => "");
+    if (!head10.includes("GRANDMASTER SKYBRUSH")) problems.push(`floor 10 master: "${head10}"`);
+    if (!(await page.locator(".dt-hud").innerText()).includes("10/10")) problems.push("HUD should say floor 10/10");
+    for (let i = 0; i < 14; i++) {
       const q = await quiz(page);
       if (!q) break;
       if (q.picked === null) await page.keyboard.press(String(q.answer + 1));
@@ -291,6 +294,8 @@ async function run(browser, grade, mode) {
       await page.waitForTimeout(200);
     }
     await page.waitForSelector(".dt-panel.won", { timeout: 6000 }).catch(() => problems.push("tower-cleared screen missing"));
+    const wonText = await page.locator(".dt-panel.won").innerText().catch(() => "");
+    if (!wonText.includes("All 10 floors")) problems.push(`won report: "${wonText.slice(0, 200)}"`);
     const rows = await page.locator(".dt-report-table tbody tr").count();
     if (rows < 2) problems.push(`report shows ${rows} standards`);
     // Game over: play again, then lose every life
@@ -486,6 +491,234 @@ async function focusTests(browser) {
   return problems;
 }
 
+/* ------------------------------------------------------------ floor masters, ten floors, ink stars */
+
+const MIXED_ORDER = [
+  "MADAME WORDWHIRL", "ABACUS OX", "JUDGE GAVEL-FIST", "DOCTOR MOMENTUM", "THE GRAND INKMASTER",
+  "SIR SPELLSALOT", "PROFESSOR PROTRACTOR", "SENATOR SCROLL", "MAJOR MAGNET", "GRANDMASTER SKYBRUSH",
+];
+
+/** The title screen's floor list: [{n, boss, subject, hall}] */
+const floorList = (page) =>
+  page.locator(".dt-floors .dt-floorrow").evaluateAll((rows) =>
+    rows.map((r) => ({ n: r.querySelector(".n").textContent, boss: r.querySelector(".boss").textContent, subject: r.dataset.bossSubject, hall: r.querySelector(".hall").textContent })),
+  );
+
+/** The title opens scrolled to the top: title visible, nothing scrolled. */
+async function titleAtTop(page) {
+  return page.evaluate(() => {
+    const ov = document.querySelector(".dt-overlay.title");
+    const panel = document.querySelector(".dt-panel.title");
+    const title = document.querySelector(".dt-panel.title .dt-title");
+    if (!ov || !panel || !title) return "no title screen";
+    if (ov.scrollTop !== 0 || panel.scrollTop !== 0 || window.scrollY !== 0) return `scrolled: overlay ${ov.scrollTop}, panel ${panel.scrollTop}, window ${window.scrollY}`;
+    const r = title.getBoundingClientRect();
+    if (r.top < 0 || r.bottom > window.innerHeight) return `title off screen (top ${r.top})`;
+    return "";
+  });
+}
+
+/** Warp to this floor's master (desktop keys) and return the quiz header text. */
+async function toBoss(page) {
+  await page.waitForFunction(() => window.__dt.sim.mode === "run", null, { timeout: 6000 });
+  await page.evaluate(() => { const s = window.__dt.sim; s.invincible = true; s.warpToBoss(); s.held[s.dir > 0 ? "right" : "left"] = true; });
+  await page.waitForSelector(".dt-quiz.boss", { timeout: 8000 });
+  await page.evaluate(() => { const s = window.__dt.sim; s.held.left = s.held.right = false; });
+  return page.locator(".dt-quiz .head").innerText();
+}
+
+async function bossTests(browser) {
+  const problems = [];
+  const subjects = [
+    { grade: "5", subject: "math", first: "ABACUS OX", last: "EMPRESS INFINITY", qs: "math" },
+    { grade: "8", subject: "science", first: "DOCTOR MOMENTUM", last: "PROFESSOR QUARK", qs: "science" },
+  ];
+  for (const t of subjects) {
+    const { ctx, page, errors } = await newPage(browser, { viewport: { width: 1280, height: 800 } });
+    await page.goto(`${BASE}?grade=${t.grade}&debug`, { waitUntil: "load" });
+    await page.waitForFunction(() => !!window.__dt);
+    const at = await titleAtTop(page);
+    if (at) problems.push(`grade ${t.grade} title: ${at}`);
+    await page.locator(`[data-subject="${t.subject}"]`).click();
+    const rows = await floorList(page);
+    if (rows.length !== 10) problems.push(`${t.subject}: title lists ${rows.length} floors`);
+    if (rows.some((r) => r.subject !== t.subject)) problems.push(`${t.subject}: title lists other subjects' masters: ${rows.filter((r) => r.subject !== t.subject).map((r) => r.boss)}`);
+    if (new Set(rows.map((r) => r.boss)).size !== 10) problems.push(`${t.subject}: masters repeat on the title list`);
+    if (rows[0] && rows[0].boss !== t.first) problems.push(`${t.subject}: 1F is ${rows[0] && rows[0].boss}`);
+    if (rows[9] && rows[9].boss !== t.last) problems.push(`${t.subject}: 10F is ${rows[9] && rows[9].boss}`);
+    if (rows.some((r) => MIXED_ORDER.slice(1, 5).includes(r.boss) && r.subject !== t.subject)) problems.push(`${t.subject}: MIXED masters leak into the list`);
+    const line = await page.locator(".dt-focusline").innerText().catch(() => "");
+    if (!line.includes("All 10 floor masters")) problems.push(`${t.subject}: focus line "${line}"`);
+    // The picker stays visible above the list.
+    const pickerTop = await page.locator(".dt-subjects").boundingBox();
+    if (!pickerTop || pickerTop.y < 0 || pickerTop.y > 800) problems.push(`${t.subject}: subject picker not visible`);
+    console.log(`  ${t.subject} @ grade ${t.grade}: ${rows.map((r) => r.boss).join(", ")}`);
+    await page.locator(".dt-cta.big").click();
+    await page.waitForFunction(() => window.__dt.sim.mode === "intro" || window.__dt.sim.mode === "run");
+    const info = await page.evaluate(() => ({ name: window.__dt.sim.info.boss.name, subject: window.__dt.sim.info.boss.subject, hall: window.__dt.sim.info.hall }));
+    if (info.name !== t.first || info.subject !== t.subject) problems.push(`${t.subject}: floor 1 master in the game is ${info.name} (${info.subject})`);
+    const head = await toBoss(page).catch(() => "");
+    if (!head.includes(`VS ${t.first}`)) problems.push(`${t.subject}: boss header "${head}"`);
+    const q = await quiz(page);
+    if (!q || q.subject !== t.qs) problems.push(`${t.subject}: floor 1 question was ${q && q.subject}`);
+    // Debug skip to floor 10: the grand master, then the tower-cleared screen.
+    await page.evaluate(() => { const s = window.__dt.sim; s.fight = null; s.startFloor(10); });
+    const head10 = await toBoss(page).catch(() => "");
+    if (!head10.includes(`VS ${t.last}`)) problems.push(`${t.subject}: floor 10 header "${head10}"`);
+    if (SHOT && t.subject === "math") {
+      await page.waitForTimeout(500);
+      const data = await page.evaluate(() => document.querySelector(".dt-screen canvas").toDataURL("image/png"));
+      fs.writeFileSync(SHOT, Buffer.from(data.split(",")[1], "base64"));
+    }
+    if (process.env.PAGESHOT) await page.screenshot({ path: `${process.env.PAGESHOT}-${t.subject}-floor10.png` });
+    const seen = [];
+    await beatBoss(page, seen);
+    if (seen.some((x) => x.subject !== t.qs)) problems.push(`${t.subject}: floor 10 asked ${seen.map((x) => x.subject)}`);
+    await page.waitForSelector(".dt-panel.won", { timeout: 6000 }).catch(() => problems.push(`${t.subject}: tower-cleared screen missing`));
+    const won = await page.locator(".dt-panel.won").innerText().catch(() => "");
+    if (!/TOWER CLEARED/.test(won) || !won.includes("All 10 floors") || !won.includes(t.last)) problems.push(`${t.subject}: won report "${won.slice(0, 240).replace(/\s+/g, " ")}"`);
+    if (errors.length) problems.push(`console errors (${t.subject}): ${errors.join(" | ")}`);
+    await ctx.close();
+  }
+
+  // MIXED keeps its order (and the title lists each floor's subject).
+  {
+    const { ctx, page, errors } = await newPage(browser, { viewport: { width: 1280, height: 800 } });
+    await page.goto(`${BASE}?grade=3&subject=mixed&debug`, { waitUntil: "load" });
+    await page.waitForFunction(() => !!window.__dt);
+    const rows = await floorList(page);
+    if (rows.map((r) => r.boss).join() !== MIXED_ORDER.join()) problems.push(`MIXED list: ${rows.map((r) => r.boss)}`);
+    if (!rows[0] || !rows[0].hall.startsWith("WORD DOJO")) problems.push(`MIXED 1F hall: ${rows[0] && rows[0].hall}`);
+    // Game over on floor 7 offers "Continue from floor 6" (score starts over, same masters).
+    await page.locator(".dt-cta.big").click();
+    await page.waitForFunction(() => window.__dt.sim.mode === "intro" || window.__dt.sim.mode === "run");
+    await page.evaluate(() => window.__dt.sim.startFloor(7));
+    await page.waitForFunction(() => window.__dt.sim.mode === "run", null, { timeout: 6000 });
+    await page.evaluate(() => { const s = window.__dt.sim; s.lives = 1; s.energy = 1; s.enemies = []; const e = s.spawn("ninja", true); e.x = s.player.x + 3; e.speed = 0; });
+    await page.locator(".dt-panel", { hasText: "OUT OF LIVES" }).waitFor({ timeout: 6000 }).catch(() => problems.push("game-over report missing on floor 7"));
+    const cont = page.locator(".dt-cta", { hasText: "Continue from floor 6" });
+    if (!(await cont.count())) problems.push("no Continue from floor 6 button after a game over on floor 7");
+    else {
+      await cont.click();
+      await page.waitForFunction(() => window.__dt.sim.floor === 6, null, { timeout: 4000 }).catch(() => problems.push("Continue did not start floor 6"));
+      const c = await page.evaluate(() => ({ lives: window.__dt.sim.lives, boss: window.__dt.sim.info.boss.name, score: window.__dt.sim.score }));
+      if (c.lives !== 3 || c.boss !== MIXED_ORDER[5]) problems.push(`continue: ${JSON.stringify(c)}`);
+      if (!(await page.locator(".dt-hud").innerText()).includes("6/10")) problems.push("HUD should say 6/10 after continuing");
+    }
+    if (errors.length) problems.push(`console errors (MIXED): ${errors.join(" | ")}`);
+    await ctx.close();
+  }
+  return problems;
+}
+
+/** Puts a star-throwing ninja in front of the student and poofs it with a punch (key Z or the PUNCH button). */
+async function poofThrower(page, touch) {
+  await page.evaluate(() => {
+    const s = window.__dt.sim;
+    s.enemies = [];
+    s.shots = [];
+    s.player.facing = s.dir;
+    const e = s.spawn("thrower", true);
+    e.x = s.player.x + s.dir * 15;
+    e.speed = 0;
+    e.throwT = 99;
+  });
+  if (touch) await page.locator(".dt-touch.punch").tap();
+  else await page.keyboard.press("z");
+  await page.waitForTimeout(350);
+}
+
+async function starTests(browser) {
+  const problems = [];
+  // Desktop: keyboard S
+  {
+    const { ctx, page, errors } = await newPage(browser, { viewport: { width: 1280, height: 800 } });
+    await page.goto(`${BASE}?grade=4&debug`, { waitUntil: "load" });
+    await page.waitForFunction(() => !!window.__dt);
+    await page.locator(".dt-cta.big").click();
+    await page.waitForFunction(() => window.__dt.sim.mode === "run", null, { timeout: 6000 });
+    await page.evaluate(() => { const s = window.__dt.sim; s.invincible = true; s.spawnT = 1e9; s.scrollsLeft = []; s.enemies = []; });
+    const hudStars = () => page.locator(".dt-starhud").innerText();
+    if (!(await hudStars()).includes("0/5")) problems.push(`star HUD at start: "${await hudStars()}"`);
+    // A plain ninja does not count
+    await page.evaluate(() => { const s = window.__dt.sim; s.player.facing = s.dir; const e = s.spawn("ninja", true); e.x = s.player.x + s.dir * 15; e.speed = 0; });
+    await page.keyboard.press("z");
+    await page.waitForTimeout(350);
+    if ((await page.evaluate(() => window.__dt.sim.starCount)) !== 0) problems.push("a plain ninja counted toward the ink stars");
+    // S before the burst throws nothing
+    await page.keyboard.press("s");
+    if ((await page.evaluate(() => window.__dt.sim.stars.length)) !== 0) problems.push("S threw a star before the burst");
+    for (let i = 1; i <= 5; i++) {
+      await poofThrower(page, false);
+      const n = await page.evaluate(() => window.__dt.sim.starCount);
+      if (n !== i) problems.push(`after ${i} throwers the count is ${n}`);
+      if (i === 3 && !(await hudStars()).includes("3/5")) problems.push(`HUD after 3: "${await hudStars()}"`);
+    }
+    const burst = await page.evaluate(() => window.__dt.sim.burstT);
+    if (!(burst > 6)) problems.push(`no burst after five throwers (${burst})`);
+    await page.waitForTimeout(250);
+    if (!(await page.locator(".dt-starhud .dt-burstbar").count())) problems.push("no burst timer bar in the HUD");
+    // Throw at a ninja far ahead
+    const far = await page.evaluate(() => { const s = window.__dt.sim; s.enemies = []; s.player.facing = s.dir; const e = s.spawn("ninja", true); e.x = s.player.x + s.dir * 100; e.speed = 0; return e.id; });
+    await page.keyboard.press("s");
+    const thrown = await page.evaluate(() => window.__dt.sim.stars.length);
+    if (thrown < 1) problems.push("S did not throw an ink star during the burst");
+    await page.waitForTimeout(800);
+    const alive = await page.evaluate((id) => window.__dt.sim.enemies.some((e) => e.id === id), far);
+    if (alive) problems.push("the ink star did not poof the ninja 100px ahead");
+    if (process.env.PAGESHOT) await page.screenshot({ path: `${process.env.PAGESHOT}-stars.png` });
+    // The burst runs out and the counter resets
+    await page.waitForFunction(() => window.__dt.sim.burstT === 0, null, { timeout: 12000 }).catch(() => problems.push("the burst never ran out"));
+    await page.waitForTimeout(250);
+    if ((await page.evaluate(() => window.__dt.sim.starCount)) !== 0 || !(await hudStars()).includes("0/5")) problems.push(`counter did not reset: "${await hudStars()}"`);
+    // S never touches a floor master
+    await page.evaluate(() => { const s = window.__dt.sim; s.starCount = 5; s.burstT = 8; });
+    await toBoss(page).catch(() => problems.push("boss fight did not start (stars)"));
+    const hp0 = await page.evaluate(() => window.__dt.sim.fight.hp);
+    await page.keyboard.press("s");
+    await page.evaluate(() => window.__dt.press("star"));
+    await page.waitForTimeout(500);
+    const after = await page.evaluate(() => ({ hp: window.__dt.sim.fight.hp, stars: window.__dt.sim.stars.length }));
+    if (after.hp !== hp0 || after.stars !== 0) problems.push(`ink stars touched the floor master: ${JSON.stringify(after)}`);
+    if (errors.length) problems.push(`console errors (stars, desktop): ${errors.join(" | ")}`);
+    await ctx.close();
+  }
+  // Phone: the ★ button
+  for (const width of [390, 360]) {
+    const { ctx, page, errors } = await newPage(browser, { viewport: { width, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+    await page.goto(`${BASE}?grade=2&debug`, { waitUntil: "load" });
+    await page.waitForFunction(() => !!window.__dt);
+    const at = await titleAtTop(page);
+    if (at) problems.push(`${width}px title: ${at}`);
+    if (!(await noSideways(page))) problems.push(`${width}px: sideways scroll on the title`);
+    const listBox = await page.locator(".dt-floors").boundingBox();
+    if (!listBox || listBox.height > 260) problems.push(`${width}px: floor list too tall (${listBox && listBox.height}px)`);
+    await page.locator(".dt-cta.big").tap();
+    await page.waitForFunction(() => window.__dt.sim.mode === "run", null, { timeout: 6000 });
+    await page.evaluate(() => { const s = window.__dt.sim; s.invincible = true; s.spawnT = 1e9; s.scrollsLeft = []; s.enemies = []; s.starCount = 4; });
+    const star = page.locator(".dt-touch.star");
+    if (!(await star.isVisible())) problems.push(`${width}px: no ★ button`);
+    const sb = await star.boundingBox();
+    if (!sb || sb.x < 0 || sb.x + sb.width > width) problems.push(`${width}px: ★ button off screen ${JSON.stringify(sb)}`);
+    if (await star.evaluate((b) => b.classList.contains("ready"))) problems.push(`${width}px: ★ lit before the burst`);
+    await poofThrower(page, true);
+    if (!((await page.evaluate(() => window.__dt.sim.burstT)) > 0)) problems.push(`${width}px: the fifth thrower did not start the burst`);
+    await page.waitForTimeout(200);
+    if (!(await star.evaluate((b) => b.classList.contains("ready")))) problems.push(`${width}px: ★ not lit during the burst`);
+    const far = await page.evaluate(() => { const s = window.__dt.sim; s.enemies = []; s.player.facing = s.dir; const e = s.spawn("blob", true); e.x = s.player.x + s.dir * 80; e.speed = 0; return e.id; });
+    await star.tap();
+    await page.waitForTimeout(800);
+    if (await page.evaluate((id) => window.__dt.sim.enemies.some((e) => e.id === id), far)) problems.push(`${width}px: tapping ★ did not poof the ink blob ahead`);
+    if (!(await noSideways(page))) problems.push(`${width}px: sideways scroll while playing`);
+    const w = await page.evaluate(() => document.documentElement.scrollWidth);
+    if (w > width) problems.push(`${width}px: page is ${w}px wide`);
+    if (process.env.PAGESHOT) await page.screenshot({ path: `${process.env.PAGESHOT}-stars-${width}.png` });
+    if (errors.length) problems.push(`console errors (${width}px stars): ${errors.join(" | ")}`);
+    await ctx.close();
+  }
+  return problems;
+}
+
 (async () => {
   const browser = await chromium.launch();
   let bad = 0;
@@ -495,6 +728,11 @@ async function focusTests(browser) {
       console.log(`grade ${g} ${mode}: ${p.length ? "PROBLEMS\n  - " + p.join("\n  - ") : "ok"}`);
       bad += p.length;
     }
+  }
+  for (const [name, fn] of [["floor masters / ten floors", bossTests], ["ink stars", starTests]]) {
+    const p = await fn(browser);
+    console.log(`${name}: ${p.length ? "PROBLEMS\n  - " + p.join("\n  - ") : "ok"}`);
+    bad += p.length;
   }
   if (process.env.FOCUS !== "0") {
     const p = await focusTests(browser);

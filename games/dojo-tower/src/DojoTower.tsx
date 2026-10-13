@@ -22,9 +22,10 @@ import {
   type Subject,
 } from "@/kit";
 import { DojoEngine } from "@/dojo/engine";
-import { FLOOR_INFO, TOPIC_LABEL, TOPIC_NOTES } from "@/dojo/floors";
+import { towerPlan, type FloorPlan } from "@/dojo/bosses";
+import { TOPIC_LABEL, TOPIC_NOTES } from "@/dojo/floors";
 import { bandOf } from "@/dojo/qmake";
-import { METER_MAX, type BossResult } from "@/dojo/rules";
+import { CHECKPOINT, FLOORS, METER_MAX, STAR_BURST, STAR_GOAL, type BossResult } from "@/dojo/rules";
 import { START_LIVES, MAX_ENERGY, type Hud } from "@/dojo/sim";
 import { TopicDecks, focusCatalog } from "@/dojo/topics";
 import {
@@ -75,6 +76,7 @@ const SUBJECT_LABELS: Record<Subject, string> = { math: "MATH", science: "SCIENC
 
 const EMPTY_HUD: Hud = {
   score: 0, lives: START_LIVES, energy: MAX_ENERGY, floor: 1, meter: 0, streak: 0, mode: "intro", bossHp: 0, bossMaxHp: 0, progress: 0,
+  stars: 0, burst: 0,
 };
 
 const HELD_KEYS: Record<string, "left" | "right" | "down"> = { ArrowLeft: "left", ArrowRight: "right", ArrowDown: "down" };
@@ -104,6 +106,10 @@ export default function DojoTower() {
   const [focusNote, setFocusNote] = useState<string | null>(focusInit.note);
   /** The focus the current run was started with (the report and question headers use it). */
   const [runFocus, setRunFocus] = useState<FocusChoice>(MIXED);
+  /** The run's ten floors and floor masters (they follow the run's subject). */
+  const [runPlan, setRunPlan] = useState<FloorPlan[]>(() => towerPlan(MIXED));
+  const runPlanRef = useRef(runPlan);
+  runPlanRef.current = runPlan;
   const [screen, setScreen] = useState<Screen>("title");
   const [hud, setHud] = useState<Hud>(EMPTY_HUD);
   const [quiz, setQuiz] = useState<Quiz | null>(null);
@@ -138,7 +144,7 @@ export default function DojoTower() {
   const ask = useCallback((kind: Quiz["kind"], floor: number) => {
     const decks = decksRef.current;
     if (!decks) return;
-    const topic = FLOOR_INFO[floor - 1].topic;
+    const topic = runPlanRef.current[floor - 1].topic;
     const q = decks.draw(topic, kind === "scroll");
     engineRef.current?.releaseAll();
     setQuiz({ kind, floor, q, picked: null, result: null });
@@ -184,7 +190,7 @@ export default function DojoTower() {
     engineRef.current?.setCard(
       quiz
         ? {
-            title: `${quiz.kind === "boss" ? `VS ${FLOOR_INFO[quiz.floor - 1].bossName}` : "QUESTION SCROLL"} · ${runTag ?? SUBJECT_LABELS[quiz.q.subject]}`,
+            title: `${quiz.kind === "boss" ? `VS ${runPlan[quiz.floor - 1].boss.name}` : "QUESTION SCROLL"} · ${runTag ?? SUBJECT_LABELS[quiz.q.subject]}`,
             prompt: quiz.q.prompt,
             choices: quiz.q.choices,
             picked: quiz.picked,
@@ -194,7 +200,7 @@ export default function DojoTower() {
     );
     // Playtest hook: the open question (with its answer) for automated tests.
     if (debug) (window as unknown as { __dtQuiz: Quiz | null }).__dtQuiz = quiz;
-  }, [quiz, runTag]);
+  }, [quiz, runTag, runPlan]);
 
   useEffect(() => {
     const mq = window.matchMedia("(pointer: coarse)");
@@ -212,24 +218,34 @@ export default function DojoTower() {
     refocusSavedForGrade(g, focusCatalog);
     setFocusNote(null);
     setReadAloud(readAloudPref(isEarlyReader(g)));
-    engineRef.current?.showDemo(bandOf(g));
   }, []);
 
-  const startGame = useCallback(() => {
+  // The title screen's floor list and attract demo follow the chosen subject.
+  const titlePlan = useMemo(() => towerPlan(validateFocus(focus, grade, focusCatalog)), [focus, grade]);
+  useEffect(() => {
+    if (screen === "title") engineRef.current?.showDemo(bandOf(grade), titlePlan);
+  }, [screen, grade, titlePlan]);
+
+  /** Starts a climb; `fromFloor` > 1 continues from the checkpoint (same subject, score starts over). */
+  const startGame = useCallback((fromFloor = 1) => {
     audio.unlock();
     audio.startMusic();
     rememberGrade(grade);
-    const f = validateFocus(focus, grade, focusCatalog);
+    const cont = fromFloor > 1;
+    const f = cont ? runFocus : validateFocus(focus, grade, focusCatalog);
+    const plan = cont ? runPlan : towerPlan(f);
     setRunFocus(f);
+    setRunPlan(plan);
+    runPlanRef.current = plan;
     engineRef.current?.setFocusTag(focusTag(f));
-    decksRef.current = new TopicDecks(grade, GAME_ID, f);
-    setLog([]);
+    if (!cont || !decksRef.current) decksRef.current = new TopicDecks(grade, GAME_ID, f);
+    if (!cont) setLog([]);
     setQuiz(null);
     setPaused(false);
-    setHud(EMPTY_HUD);
+    setHud({ ...EMPTY_HUD, floor: fromFloor });
     setScreen("playing");
-    engineRef.current?.newGame(bandOf(grade));
-  }, [audio, grade, focus]);
+    engineRef.current?.newGame(bandOf(grade), plan, fromFloor);
+  }, [audio, grade, focus, runFocus, runPlan]);
 
   const chooseFocus = useCallback((f: FocusChoice) => {
     setFocus(f);
@@ -239,9 +255,8 @@ export default function DojoTower() {
 
   const toMenu = useCallback(() => {
     engineRef.current?.setFocusTag(null);
-    engineRef.current?.showDemo(bandOf(grade));
     setScreen("title");
-  }, [grade]);
+  }, []);
 
   const answer = useCallback(
     (i: number) => {
@@ -347,6 +362,7 @@ export default function DojoTower() {
       } else if (k === "z") e.press("punch");
       else if (k === "x") e.press("kick");
       else if (k === "t") e.press("thunder");
+      else if (k === "s") e.press("star");
     };
     const up = (ev: KeyboardEvent) => {
       const held = HELD_KEYS[ev.key];
@@ -383,7 +399,7 @@ export default function DojoTower() {
     onLostPointerCapture: () => engineRef.current?.setHeld(k, false),
     onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
   });
-  const pressProps = (a: "jump" | "punch" | "kick" | "thunder") => ({
+  const pressProps = (a: "jump" | "punch" | "kick" | "thunder" | "star") => ({
     onPointerDown: (e: React.PointerEvent) => {
       e.preventDefault();
       audio.unlock();
@@ -395,6 +411,7 @@ export default function DojoTower() {
   const playing = screen === "playing";
   const showPad = touch && playing && !quiz;
   const thunderReady = hud.meter >= METER_MAX;
+  const starsOn = hud.burst > 0;
 
   return (
     <div className={`dt-root ${early ? "early" : ""}`}>
@@ -415,9 +432,17 @@ export default function DojoTower() {
         <div className="dt-hud dt-pixel">
           <div><span className="lbl">Score</span><span className="val">{String(hud.score).padStart(6, "0")}</span></div>
           <div><span className="lbl">Hi</span><span className="val">{String(Math.max(highScore, hud.score)).padStart(6, "0")}</span></div>
-          <div><span className="lbl">Floor</span><span className="val">{hud.floor}/5</span></div>
+          <div><span className="lbl">Floor</span><span className="val">{hud.floor}/{FLOORS}</span></div>
           <div><span className="lbl">Lives</span><span className="val lives">{"♥".repeat(Math.max(0, hud.lives))}</span></div>
           <div><span className="lbl">Streak</span><span className={`val ${thunderReady ? "ready" : ""}`}>{hud.streak}{thunderReady ? " ⚡" : ""}</span></div>
+          <div className="dt-starhud" title="Poof 5 star-throwing ninjas for an ink-star burst (S)">
+            <span className="lbl">Stars</span>
+            {starsOn ? (
+              <span className="val ready">★ S! <span className="dt-burstbar" aria-label={`${Math.ceil(hud.burst)} seconds of ink stars left`}><i style={{ width: `${Math.round((hud.burst / STAR_BURST) * 100)}%` }} /></span></span>
+            ) : (
+              <span className="val">★ {hud.stars}/{STAR_GOAL}</span>
+            )}
+          </div>
         </div>
 
         <div className="dt-stage" ref={stageRef}>
@@ -425,7 +450,7 @@ export default function DojoTower() {
             <canvas ref={canvasRef} aria-label="Dojo Tower game screen" />
 
             {screen === "title" && (
-              <TitleScreen grade={grade} onGrade={chooseGrade} focus={focus} focusNote={focusNote} onFocus={chooseFocus} onStart={startGame} highScore={highScore} />
+              <TitleScreen grade={grade} onGrade={chooseGrade} focus={focus} focusNote={focusNote} onFocus={chooseFocus} onStart={() => startGame()} highScore={highScore} plan={titlePlan} />
             )}
 
             {playing && paused && !quiz && (
@@ -449,14 +474,16 @@ export default function DojoTower() {
                 floor={hud.floor}
                 highScore={highScore}
                 focus={runFocus}
-                onAgain={startGame}
+                plan={runPlan}
+                onAgain={() => startGame()}
+                onContinue={screen === "over" && hud.floor >= CHECKPOINT ? () => startGame(CHECKPOINT) : null}
                 onMenu={toMenu}
               />
             )}
           </div>
         </div>
 
-        {playing && quiz && <QuizPanel quiz={quiz} tag={runTag} onAnswer={answer} onNext={next} onSpeak={replay} />}
+        {playing && quiz && <QuizPanel quiz={quiz} plan={runPlan} tag={runTag} onAnswer={answer} onNext={next} onSpeak={replay} />}
 
         <div className={`dt-controls ${showPad ? "show" : ""}`}>
           <div className="dt-pad move">
@@ -468,7 +495,10 @@ export default function DojoTower() {
             <button className="dt-touch" {...holdProps("right")} aria-label="Move right">▶</button>
           </div>
           <div className="dt-pad act">
-            <button className={`dt-touch thunder ${thunderReady ? "ready" : ""}`} {...pressProps("thunder")} aria-label="Thunder Kick">⚡</button>
+            <div className="dt-col">
+              <button className={`dt-touch thunder ${thunderReady ? "ready" : ""}`} {...pressProps("thunder")} aria-label="Thunder Kick">⚡</button>
+              <button className={`dt-touch star ${starsOn ? "ready" : ""}`} {...pressProps("star")} aria-label="Throw an ink star">★</button>
+            </div>
             <button className="dt-touch word punch" {...pressProps("punch")} aria-label="Punch">PUNCH</button>
             <button className="dt-touch word kick" {...pressProps("kick")} aria-label="Kick">KICK</button>
           </div>
@@ -487,24 +517,24 @@ function SpeakerIcon() {
   );
 }
 
-function QuizPanel({ quiz, tag, onAnswer, onNext, onSpeak }: { quiz: Quiz; tag: string | null; onAnswer: (i: number) => void; onNext: () => void; onSpeak: () => void }) {
+function QuizPanel({ quiz, plan, tag, onAnswer, onNext, onSpeak }: { quiz: Quiz; plan: FloorPlan[]; tag: string | null; onAnswer: (i: number) => void; onNext: () => void; onSpeak: () => void }) {
   const { q, picked, result } = quiz;
-  const f = FLOOR_INFO[quiz.floor - 1];
+  const bossName = plan[quiz.floor - 1].boss.name;
   const done = picked !== null;
   const correct = done && picked === q.answer;
   let verdict = "";
   if (done && quiz.kind === "scroll") verdict = correct ? "✔ CORRECT! +ENERGY" : `✘ NOT QUITE — THE ANSWER IS ${"ABCD"[q.answer]}`;
   if (done && quiz.kind === "boss") {
     if (!correct) verdict = `✘ BLOCKED! THE ANSWER IS ${"ABCD"[q.answer]}`;
-    else if (result?.defeated) verdict = `✔ ${result.thunder ? "THUNDER KICK! " : ""}${f.bossName} IS BEATEN!`;
+    else if (result?.defeated) verdict = `✔ ${result.thunder ? "THUNDER KICK! " : ""}${bossName} IS BEATEN!`;
     else if (result?.thunder) verdict = "✔ THUNDER KICK! DOUBLE HIT!";
     else verdict = "✔ RIGHT! COMBO HIT!";
   }
-  const nextLabel = quiz.kind === "scroll" ? "Back to the fight ▶" : result?.defeated ? (quiz.floor >= 5 ? "Claim the tower ▶" : "Climb to the next floor ▶") : "Next question ▶";
+  const nextLabel = quiz.kind === "scroll" ? "Back to the fight ▶" : result?.defeated ? (quiz.floor >= FLOORS ? "Claim the tower ▶" : "Climb to the next floor ▶") : "Next question ▶";
   return (
     <div className={`dt-quiz ${quiz.kind} ${done ? (correct ? "correct" : "wrong") : ""}`} role="dialog" aria-label={quiz.kind === "boss" ? "Floor master question" : "Question scroll"}>
       <div className="head dt-pixel">
-        <span>{quiz.kind === "boss" ? `VS ${f.bossName}` : "QUESTION SCROLL"}</span>
+        <span>{quiz.kind === "boss" ? `VS ${bossName}` : "QUESTION SCROLL"}</span>
         <span className="std">
           {tag ?? SUBJECT_LABELS[q.subject]} · {q.standard}
           {speechSupported() && (
@@ -546,12 +576,16 @@ function HowToPlay() {
   return (
     <div className="dt-help" style={{ marginTop: 10, textAlign: "left" }}>
       <kbd>◀</kbd> <kbd>▶</kbd> walk · <kbd>▼</kbd> duck · <kbd>▲</kbd> or <kbd>SPACE</kbd> jump · <kbd>Z</kbd> punch · <kbd>X</kbd> kick ·{" "}
-      <kbd>T</kbd> Thunder Kick · <kbd>1</kbd>–<kbd>4</kbd> or <kbd>A</kbd>–<kbd>D</kbd> answer · <kbd>P</kbd> pause · <kbd>M</kbd> mute · <kbd>R</kbd> read aloud
+      <kbd>T</kbd> Thunder Kick · <kbd>S</kbd> throw ink stars · <kbd>1</kbd>–<kbd>4</kbd> or <kbd>A</kbd>–<kbd>D</kbd> answer · <kbd>P</kbd> pause · <kbd>M</kbd> mute ·{" "}
+      <kbd>R</kbd> read aloud. On a phone or tablet: ◀ ▶ ▲ ▼, PUNCH, KICK, ⚡ and ★.
       <br />
       Poof the <span className="c">Ink Ninjas</span> into confetti. <span className="y">Duck</span> under high ink stars, <span className="y">jump</span> over low
       ones, and <span className="y">duck + punch</span> the little ink blobs. Beat a ninja carrying a <span className="y">gold scroll</span> to answer a bonus
       question for energy. At the end of each floor a <span className="r">floor master</span> fights with questions: every right answer lands a combo hit,
       and a wrong answer is only blocked. Get <span className="g">{METER_MAX} right in a row</span> to charge the <span className="y">THUNDER KICK</span>!
+      Poof <span className="c">{STAR_GOAL} star-throwing ninjas</span> (the teal belts) to earn a short <span className="y">ink-star burst</span>: press{" "}
+      <kbd>S</kbd> or ★ to throw foam stars that poof ninjas and blobs ahead (floor masters only fall to right answers). Climb all{" "}
+      {FLOORS} floors — from floor {CHECKPOINT} up, a game over lets you continue from floor {CHECKPOINT}.
     </div>
   );
 }
@@ -627,9 +661,9 @@ function FocusPicker({ grade, focus, note, onFocus }: { grade: Grade; focus: Foc
 }
 
 function TitleScreen({
-  grade, onGrade, focus, focusNote, onFocus, onStart, highScore,
+  grade, onGrade, focus, focusNote, onFocus, onStart, highScore, plan,
 }: {
-  grade: Grade; onGrade: (g: Grade) => void; focus: FocusChoice; focusNote: string | null; onFocus: (f: FocusChoice) => void; onStart: () => void; highScore: number;
+  grade: Grade; onGrade: (g: Grade) => void; focus: FocusChoice; focusNote: string | null; onFocus: (f: FocusChoice) => void; onStart: () => void; highScore: number; plan: FloorPlan[];
 }) {
   const fromArcade = gradeFromArcade();
   const band = bandOf(grade);
@@ -664,19 +698,22 @@ function TitleScreen({
 
         {one && (
           <div className="dt-help dt-focusline">
-            All 5 floor masters and every gold scroll ask: <b className="c">{one}</b>
+            All {FLOORS} floor masters and every gold scroll ask: <b className="c">{one}</b>
           </div>
         )}
-        <div className={`dt-floors ${one ? "compact" : ""}`}>
-          {[...FLOOR_INFO].reverse().map((f) => (
-            <div key={f.n} className="dt-floorrow">
+        <div className="dt-h dt-pixel dt-floorshead" style={{ marginTop: 12 }}>THE {FLOORS} FLOOR MASTERS</div>
+        <ol className={`dt-floors ${one ? "compact" : ""}`} aria-label="Tower floors and their masters">
+          {plan.map((f) => (
+            <li key={f.n} className="dt-floorrow" data-boss={f.boss.id} data-boss-subject={f.boss.subject}>
               <span className="n dt-pixel">{f.n}F</span>
-              <span className="hall">{f.hall}{!one && <span className="dim"> · {TOPIC_LABEL[f.topic]}</span>}</span>
-              {!one && <span className="topic">{TOPIC_NOTES[band][f.topic]}</span>}
-              <span className="boss">{f.bossName}</span>
-            </div>
+              <span className="boss">{f.boss.name}</span>
+              <span className="hall">
+                {f.hall}
+                {!one && <span className="dim"> · {TOPIC_LABEL[f.topic]}: {TOPIC_NOTES[band][f.topic]}</span>}
+              </span>
+            </li>
           ))}
-        </div>
+        </ol>
 
         <div style={{ textAlign: "center", margin: "12px 0 4px" }}>
           <button ref={startRef} className="dt-cta big" onClick={onStart}>Enter the tower ▶</button>
@@ -690,10 +727,12 @@ function TitleScreen({
 }
 
 function Report({
-  won, log, grade, score, floor, highScore, focus, onAgain, onMenu,
+  won, log, grade, score, floor, highScore, focus, plan, onAgain, onContinue, onMenu,
 }: {
-  won: boolean; log: LogEntry[]; grade: Grade; score: number; floor: number; highScore: number; focus: FocusChoice; onAgain: () => void; onMenu: () => void;
+  won: boolean; log: LogEntry[]; grade: Grade; score: number; floor: number; highScore: number; focus: FocusChoice; plan: FloorPlan[];
+  onAgain: () => void; onContinue: (() => void) | null; onMenu: () => void;
 }) {
+  const beaten = plan.slice(0, won ? FLOORS : Math.max(0, floor - 1));
   const one = focus.subject !== "mixed";
   const wholeSubject = focus.subject !== "mixed" && focus.topic === "all";
   const byStd = new Map<string, { skill: string; subject: Subject; n: number; c: number }>();
@@ -718,15 +757,25 @@ function Report({
             </>
           ) : (
             <>
-              <span className="y">MIXED:</span> ELA, math, civics, forces and a mixed roof.
+              <span className="y">MIXED:</span> ELA, math, civics and forces in turn, with mixed questions from the masters of floors 5 and 10.
             </>
           )}
         </div>
         <div className="dt-help big">
           Score <b className="y">{score}</b>
-          {score >= highScore && score > 0 ? " — NEW HIGH SCORE!" : ""} · {won ? "All 5 floors" : <>Reached floor <b className="c">{floor}</b></>} · Questions{" "}
+          {score >= highScore && score > 0 ? " — NEW HIGH SCORE!" : ""} · {won ? `All ${FLOORS} floors` : <>Reached floor <b className="c">{floor}</b> of {FLOORS}</>} · Questions{" "}
           <b className="g">{right}/{log.length}</b>
         </div>
+        {beaten.length > 0 && (
+          <div className="dt-help dt-beaten">
+            <span className="y">Masters beaten:</span> {beaten.map((f) => f.boss.name).join(" · ")}
+          </div>
+        )}
+        {onContinue && (
+          <div className="dt-help dt-continue">
+            You reached floor {floor}! Continue from floor {CHECKPOINT} with 3 new lives (your score starts over).
+          </div>
+        )}
         {byStd.size > 0 ? (
           <div className="dt-tablewrap">
             <table className="dt-report-table">
@@ -754,7 +803,8 @@ function Report({
         )}
         <div style={{ display: "flex", gap: 12, marginTop: 16, justifyContent: "flex-end", flexWrap: "wrap" }}>
           <button className="dt-cta ghost" onClick={onMenu}>Title screen</button>
-          <button className="dt-cta" autoFocus onClick={onAgain}>Play again ▶</button>
+          <button className={`dt-cta ${onContinue ? "ghost" : ""}`} autoFocus={!onContinue} onClick={onAgain}>{onContinue ? "Start over from floor 1" : "Play again ▶"}</button>
+          {onContinue && <button className="dt-cta" autoFocus onClick={onContinue}>Continue from floor {CHECKPOINT} ▶</button>}
         </div>
       </div>
     </div>

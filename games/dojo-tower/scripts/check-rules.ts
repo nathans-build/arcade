@@ -8,7 +8,13 @@
  *    never deal damage, cost energy or lives, and every fight is eventually won.
  * 3. The simulation, played headlessly: punches and kicks poof ninjas, ducking/jumping dodge ink
  *    stars, blobs need a low attack, scroll ninjas open a question, the Thunder Kick clears the
- *    screen, losing all energy costs a life, and the whole tower can be climbed.
+ *    screen, losing all energy costs a life, and the whole tower (10 floors) can be climbed in every band,
+ *    both with warps and by walking every floor; higher floors are a bit harder (gentler for K-2); the
+ *    ink-star burst (counter, burst, cooldown, expiry, reset, poofs, never touches a floor master); and
+ *    the floor-6 checkpoint.
+ * 5. Floor masters: every subject's roster and MIXED give ten different masters in a run, each matching
+ *    the run's subject (MIXED: each floor's subject; one topic: that topic's masters first), each with a
+ *    name, hall, look and lines, and visibly different looks; floors 6-10 have their own scenery.
  * 4. One subject / one topic: for every grade K-12, every topic offered there and every "ALL <SUBJECT>",
  *    60 drawn questions all belong to it, are well formed and varied; topics not offered really lack
  *    questions; topic classification; ?topic= / ?subject= parsing; the saved choice falls back when the
@@ -18,11 +24,13 @@
 import { GRADES } from "../src/kit/grades";
 import type { Grade, Question } from "../src/kit/types";
 import { CIVICS } from "../src/dojo/civics";
-import { FLOOR_INFO } from "../src/dojo/floors";
+import { ALL_BOSSES, MIXED_ROSTER, ROSTERS, lineOf, topicSubject, towerPlan, type Boss } from "../src/dojo/bosses";
+import { FLOOR_THEMES } from "../src/dojo/floors";
 import { FORCES, FORCE_SKILL } from "../src/dojo/forces";
 import { QUICK_CHOICE, QUICK_PROMPT, bandOf, type Band } from "../src/dojo/qmake";
 import {
-  FLOORS, METER_MAX, applyAnswer, bossHpFor, newFight, newStreak, resolveBossAnswer, spendThunder,
+  CHECKPOINT, FLOORS, METER_MAX, STAR_BURST, STAR_COOLDOWN, STAR_GOAL, applyAnswer, bossHpFor, newFight, newStreak,
+  onThrowerDefeated, resolveBossAnswer, spendThunder,
 } from "../src/dojo/rules";
 import { DojoSim, GROUND, MAX_ENERGY, START_LIVES, type SimEvent } from "../src/dojo/sim";
 import { MATH_GENERATORS, mathQuestion } from "../src/kit/math";
@@ -140,9 +148,8 @@ for (const [band, start, want, unique = true] of NUMERIC) {
 
 // Every band gets a grade for each K-12 grade
 for (const g of GRADES as Grade[]) check(BANDS.includes(bandOf(g)), () => `grade ${g} has no band`);
-check(FLOOR_INFO.length === FLOORS, () => "five floors expected");
-check(new Set(FLOOR_INFO.map((f) => f.bossName)).size === FLOORS, () => "boss names must be unique");
-check(FLOOR_INFO.map((f) => f.topic).join() === "ela,math,civics,forces,mixed", () => "floor topics out of order");
+check(FLOORS === 10 && FLOOR_THEMES.length === FLOORS, () => "ten floors expected");
+check(FLOOR_THEMES.map((f) => f.mixedTopic).join() === "ela,math,civics,forces,mixed,ela,math,civics,forces,mixed", () => "MIXED floor topics out of order");
 
 /* ------------------------------------------------------------ 2. rules */
 
@@ -187,7 +194,7 @@ check(FLOOR_INFO.map((f) => f.topic).join() === "ela,math,civics,forces,mixed", 
   const rand = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
   for (let trial = 0; trial < 2000; trial++) {
     const band = BANDS[trial % 4];
-    const floor = 1 + (trial % 5);
+    const floor = 1 + (trial % FLOORS);
     let f = newFight(band, floor);
     let s = newStreak();
     const p = 0.1 + rand() * 0.9;
@@ -397,7 +404,8 @@ function placeEnemy(sim: DojoSim, kind: "ninja" | "blob" | "thrower" | "scroll",
       const after = run(sim, 3, () => sim.mode === "intro" || sim.mode === "won");
       if (after.some((e) => e.type === "towerCleared")) towerEv = true;
     }
-    check(sim.mode === "won" && towerEv, () => `${band}: the tower should be cleared after floor 5 (mode ${sim.mode})`);
+    check(sim.mode === "won" && towerEv, () => `${band}: the tower should be cleared after floor ${FLOORS} (mode ${sim.mode})`);
+    check(sim.floor === FLOORS, () => `${band}: the climb should end on floor ${FLOORS}`);
     check(sim.lives === START_LIVES, () => `${band}: boss quizzes never cost lives`);
   }
 }
@@ -424,6 +432,317 @@ function placeEnemy(sim: DojoSim, kind: "ninja" | "blob" | "thrower" | "scroll",
   check(sawEnemy, () => "enemies should spawn on a floor");
   check(sawScroll || sim.mode === "boss", () => "the run should reach the floor master");
   check(sim.player.y >= 0 && GROUND > 0, () => "student stays on or above the floor");
+}
+
+{
+  // Walk every floor for real (no warps) in every band: a simple bot punches, kicks, ducks, throws ink stars,
+  // answers scrolls and floor masters right, and climbs all ten floors.
+  for (const band of BANDS) {
+    let seed = 11;
+    const rand = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+    const sim = new DojoSim(band, { rng: rand });
+    sim.invincible = true;
+    const floorsSeen = new Set<number>();
+    let bursts = 0;
+    let starsThrown = 0;
+    let t = 0;
+    for (; t < 1500 && sim.mode !== "won"; t += 1 / 60) {
+      floorsSeen.add(sim.floor);
+      if (sim.mode === "run") {
+        sim.held.right = sim.dir > 0;
+        sim.held.left = sim.dir < 0;
+        const near = sim.enemies.find((e) => Math.abs(e.x - sim.player.x) < 24);
+        sim.held.down = !!near && near.kind === "blob";
+        if (near) {
+          sim.player.facing = (near.x > sim.player.x ? 1 : -1) as 1 | -1;
+          sim.press(near.kind === "blob" ? "punch" : t % 2 < 1 ? "punch" : "kick");
+        }
+        if (sim.burstT > 0 && sim.enemies.some((e) => (e.x - sim.player.x) * sim.dir > 0)) {
+          const n = sim.stars.length;
+          sim.press("star");
+          if (sim.stars.length > n) starsThrown++;
+        }
+      }
+      if (sim.mode === "scroll") sim.answerScroll(true);
+      if (sim.mode === "boss" && !sim.bossAnim) sim.answerBoss(true);
+      if (sim.mode === "bossDown") sim.finishFloor();
+      sim.update(1 / 60);
+      if (sim.events.some((e) => e.type === "starBurst")) bursts++;
+      sim.events = [];
+    }
+    check(sim.mode === "won", () => `${band}: the bot should walk and clear all ${FLOORS} floors (stuck on floor ${sim.floor}, mode ${sim.mode}, ${t.toFixed(0)} s)`);
+    check(floorsSeen.size === FLOORS, () => `${band}: visited floors ${[...floorsSeen]}`);
+    console.log(`  ${band}: walked all ${FLOORS} floors in ${t.toFixed(0)} s of game time, score ${sim.score}, ${bursts} ink-star bursts, ${starsThrown} stars thrown`);
+  }
+}
+
+{
+  // Floors 1-5 play as before; 6-10 a little harder each floor, and gentler for K-2.
+  const OLD_LEN = { k2: 960, g35: 1120, g68: 1220, hs: 1300 };
+  const OLD_SPEED = { k2: 30, g35: 38, g68: 44, hs: 48 };
+  const rise: Record<string, number> = {};
+  for (const band of BANDS) {
+    const at = (n: number) => new DojoSim(band, { floor: n, rng: () => 0.5 });
+    for (let n = 1; n <= 5; n++) {
+      const s = at(n);
+      check(s.len === OLD_LEN[band] + (n - 1) * 40, () => `${band} floor ${n}: length ${s.len} changed`);
+      check(s.enemySpeed === OLD_SPEED[band] + (n - 1) * 3, () => `${band} floor ${n}: speed ${s.enemySpeed} changed`);
+    }
+    for (let n = 6; n <= FLOORS; n++) {
+      const a = at(n - 1);
+      const b = at(n);
+      check(b.enemySpeed > a.enemySpeed, () => `${band}: floor ${n} should be a bit quicker`);
+      check(b.spawnGap(0.5) <= a.spawnGap(0.5), () => `${band}: floor ${n} should not send ninjas less often`);
+      check(b.maxOn >= a.maxOn && b.len >= a.len, () => `${band}: floor ${n} should not get easier`);
+      check(b.spawnGap(0) >= (band === "k2" ? 1.4 : 0.6), () => `${band}: floor ${n} spawn gap too short`);
+    }
+    const top = at(FLOORS);
+    rise[band] = top.enemySpeed - at(5).enemySpeed;
+    if (band === "k2") check(top.maxOn === at(1).maxOn, () => "K-2 keeps the same number of ninjas on screen");
+  }
+  check(rise.k2 < rise.g35 && rise.k2 < rise.hs, () => `K-2 speed-up should be gentler: ${JSON.stringify(rise)}`);
+  // Boss HP: floors 1-4 as before; then a little more, most at the top; K-2 lower.
+  for (const band of BANDS) {
+    const base = band === "k2" ? 3 : 4;
+    for (let n = 1; n <= 4; n++) check(bossHpFor(band, n) === base, () => `${band} floor ${n} boss HP changed`);
+    check(bossHpFor(band, 6) > bossHpFor(band, 1) && bossHpFor(band, FLOORS) > bossHpFor(band, 9), () => `${band}: boss HP should rise toward the top`);
+    check(bossHpFor(band, FLOORS) <= 6, () => `${band}: final boss HP ${bossHpFor(band, FLOORS)} too high`);
+    if (band !== "k2") for (let n = 1; n <= FLOORS; n++) check(bossHpFor("k2", n) < bossHpFor(band, n), () => `K-2 boss HP should be lower on floor ${n}`);
+  }
+  // Checkpoint: a run can start at floor 6 (Continue after a game over on 6+).
+  check(CHECKPOINT === 6, () => "checkpoint is floor 6");
+  const c = new DojoSim("g35", { floor: CHECKPOINT });
+  check(c.floor === 6 && c.dir === -1 && c.lives === START_LIVES && c.score === 0 && c.mode === "intro", () => `continue from floor 6: floor ${c.floor} dir ${c.dir}`);
+  check(c.events.some((e) => e.type === "floorStart" && e.floor === 6), () => "continue emits floorStart 6");
+}
+
+{
+  // Ink stars (rules): only throwers count, the burst comes at STAR_GOAL, nothing counts during a burst.
+  let n = 0;
+  for (let i = 1; i < STAR_GOAL; i++) {
+    const r = onThrowerDefeated(n, false);
+    check(r.count === i && !r.burst, () => `thrower ${i}: ${JSON.stringify(r)}`);
+    n = r.count;
+  }
+  const r5 = onThrowerDefeated(n, false);
+  check(r5.count === STAR_GOAL && r5.burst, () => "the fifth thrower grants the burst");
+  check(onThrowerDefeated(STAR_GOAL, true).burst === false && onThrowerDefeated(2, true).count === 2, () => "no counting during a burst");
+  check(STAR_GOAL === 5 && STAR_BURST >= 6 && STAR_BURST <= 10 && STAR_COOLDOWN > 0 && STAR_COOLDOWN < 1, () => "star constants");
+}
+
+{
+  // Ink stars (simulation)
+  const sim = new DojoSim("g35", { rng: () => 0.5 });
+  toRun(sim);
+  quiet(sim);
+  sim.invincible = true;
+  sim.player.facing = 1;
+  const poke = (kind: "ninja" | "blob" | "thrower", dx = 16) => {
+    const e = placeEnemy(sim, kind, dx);
+    if (kind === "blob") {
+      sim.held.down = true;
+      run(sim, 1 / 60);
+    }
+    sim.press("punch");
+    run(sim, 0.3);
+    sim.held.down = false;
+    run(sim, 0.1);
+    return !sim.enemies.includes(e);
+  };
+  check(poke("ninja") && poke("blob"), () => "set-up: punches poof ninjas and blobs");
+  check(sim.starCount === 0, () => `ninjas and blobs must not count toward the burst (${sim.starCount})`);
+  // Without a burst, S does nothing but a hint.
+  sim.press("star");
+  run(sim, 1 / 60);
+  check(sim.stars.length === 0, () => "no ink stars before the burst");
+  // A gold-scroll ninja does not count either.
+  placeEnemy(sim, "scroll", 16);
+  sim.press("punch");
+  run(sim, 0.3, () => sim.mode === "scroll");
+  sim.answerScroll(true);
+  check(sim.starCount === 0, () => "scroll ninjas do not count");
+  let burstEv = false;
+  for (let i = 1; i <= STAR_GOAL; i++) {
+    sim.enemies = [];
+    check(poke("thrower"), () => `thrower ${i} should poof`);
+    const evs = sim.events;
+    if (i < STAR_GOAL) check(sim.starCount === i && sim.burstT === 0, () => `after ${i} throwers: count ${sim.starCount}, burst ${sim.burstT}`);
+    void evs;
+  }
+  check(sim.starCount === STAR_GOAL && sim.burstT > STAR_BURST - 0.6, () => `five throwers grant the burst (count ${sim.starCount}, burst ${sim.burstT})`);
+  // Thunder-kicked throwers count too, but nothing counts during the burst.
+  check(poke("thrower") && sim.starCount === STAR_GOAL, () => "no counting during the burst");
+  // Throw: one star, then a cooldown.
+  sim.enemies = [];
+  sim.shots = [];
+  sim.player.facing = 1;
+  const evs1 = run(sim, 0);
+  void evs1;
+  sim.press("star");
+  sim.press("star");
+  check(sim.stars.length === 1, () => `cooldown: ${sim.stars.length} stars from two quick presses`);
+  check(sim.stars[0].vx > 0, () => "stars fly the way the student faces");
+  run(sim, STAR_COOLDOWN + 0.05);
+  sim.press("star");
+  check(sim.stars.length >= 1, () => "a second star after the cooldown");
+  sim.stars = [];
+  // Stars poof a ninja and a blob far ahead (out of punch reach), and knock down an incoming ink star.
+  const far = placeEnemy(sim, "ninja", 90);
+  run(sim, STAR_COOLDOWN + 0.05);
+  sim.press("star");
+  run(sim, 0.6);
+  check(!sim.enemies.includes(far), () => "an ink star should poof a ninja 90px ahead");
+  const blob = placeEnemy(sim, "blob", 70);
+  run(sim, STAR_COOLDOWN + 0.05);
+  sim.press("star");
+  run(sim, 0.6);
+  check(!sim.enemies.includes(blob), () => "an ink star should poof an ink blob ahead");
+  sim.shots.push({ id: 777, x: sim.player.x + 80, y: 4, vx: -60, high: false });
+  run(sim, STAR_COOLDOWN + 0.05);
+  sim.press("star");
+  run(sim, 0.3);
+  check(!sim.shots.some((x) => x.id === 777), () => "an ink star should knock a low ink star out of the air");
+  // The burst does not drain while a question is open.
+  placeEnemy(sim, "scroll", 16);
+  sim.press("punch");
+  run(sim, 0.3, () => sim.mode === "scroll");
+  const frozen = sim.burstT;
+  run(sim, 2);
+  check(sim.mode === "scroll" && sim.burstT === frozen, () => `burst should pause during a question (${frozen} -> ${sim.burstT})`);
+  sim.answerScroll(true);
+  // The burst runs out; the counter resets; S does nothing again.
+  const evs = run(sim, STAR_BURST + 0.5);
+  check(sim.burstT === 0 && sim.starCount === 0 && evs.some((e) => e.type === "burstEnd"), () => `burst should expire and reset (burst ${sim.burstT}, count ${sim.starCount})`);
+  run(sim, 1);
+  sim.press("star");
+  check(sim.stars.length === 0, () => "no stars after the burst");
+  poke("thrower");
+  check(sim.starCount === 1, () => `the count starts again from zero (${sim.starCount})`);
+}
+
+{
+  // Ink stars never touch a floor master: they vanish when the master arrives, and S does nothing in a boss fight.
+  const sim = new DojoSim("g68", { rng: () => 0.5 });
+  toRun(sim);
+  sim.starCount = STAR_GOAL;
+  sim.burstT = STAR_BURST;
+  sim.warpToBoss();
+  quiet(sim);
+  sim.press("star");
+  check(sim.stars.length === 1, () => "a star thrown just before the arena");
+  sim.held.right = true;
+  run(sim, 8, () => sim.mode === "boss");
+  sim.held.right = false;
+  check(sim.mode === "boss" && sim.stars.length === 0, () => `stars are cleared when the master arrives (mode ${sim.mode}, ${sim.stars.length} stars)`);
+  const hp = sim.fight!.hp;
+  const burstAtBoss = sim.burstT;
+  check(burstAtBoss > 0, () => "the burst is still on when the fight starts");
+  for (let i = 0; i < 10; i++) {
+    sim.press("star");
+    run(sim, 0.4);
+  }
+  check(sim.stars.length === 0 && sim.fight!.hp === hp, () => "S in a boss fight throws nothing and deals no damage");
+  check(sim.burstT === burstAtBoss, () => "the burst waits (it only drains while running a floor)");
+  // Only right answers beat the master.
+  let k = 0;
+  while (sim.fight!.hp > 0 && k++ < 20) {
+    sim.answerBoss(true);
+    run(sim, 1.6);
+  }
+  check(sim.fight!.hp === 0, () => "right answers still beat the master");
+}
+
+/* ------------------------------------------------------------ 5. floor masters */
+
+{
+  const HEX = /^#[0-9a-f]{6}$/i;
+  const ids = new Set<string>();
+  const names = new Set<string>();
+  const lines = (b: Boss) => [b.intro, ...b.block, ...b.hit, ...b.defeat];
+  const BAD_WORDS = /\b(blood|kill|die|dead|hurt|injur|stab|punch you|smash you)\b/i;
+  for (const b of ALL_BOSSES) {
+    check(!ids.has(b.id), () => `duplicate boss id ${b.id}`);
+    ids.add(b.id);
+    check(!names.has(b.name), () => `duplicate boss name ${b.name}`);
+    names.add(b.name);
+    check(/^[A-Z][A-Z .'-]{3,24}$/.test(b.name), () => `${b.id}: name "${b.name}" should be upper case and ≤ 25 characters`);
+    check(b.hall.length >= 4 && b.hall === b.hall.toUpperCase() && b.hall.length <= 22, () => `${b.id}: hall "${b.hall}"`);
+    check(["math", "science", "ela", "social", "mixed"].includes(b.subject), () => `${b.id}: subject ${b.subject}`);
+    check(b.intro.length > 8 && b.block.length >= 2 && b.hit.length >= 2 && b.defeat.length >= 2, () => `${b.id}: needs an intro and ≥ 2 block / hit / defeat lines`);
+    for (const l of lines(b)) {
+      check(l.trim() === l && l.length >= 6 && l.length <= 48, () => `${b.id}: line "${l}" should be 6-48 characters`);
+      check(!BAD_WORDS.test(l), () => `${b.id}: line "${l}" is not kid-friendly`);
+    }
+    check(new Set(lines(b)).size === lines(b).length, () => `${b.id}: repeated line`);
+    const L = b.look;
+    check([L.robe, L.robe2, L.trim, L.skin, L.hair].every((c) => HEX.test(c)), () => `${b.id}: look colours`);
+    check(L.size >= 1.25 && L.size <= 1.85, () => `${b.id}: size ${L.size}`);
+    for (const t of b.topics) check(FOCUS_TOPICS.find((x) => x.id === t)?.subject === b.subject, () => `${b.id}: topic ${t} is not ${b.subject}`);
+  }
+  check(ALL_BOSSES.length === 42, () => `${ALL_BOSSES.length} masters (want 4 × 10 + Grand Inkmaster + the MIXED final)`);
+  // Looks: every two masters differ clearly (at least 3 of body / head / hat / prop / outfit colour / size / sprite).
+  const sig = (b: Boss) => [b.look.sprite ?? "-", b.look.body, b.look.head, b.look.hat, b.look.prop, b.look.robe, b.look.size.toFixed(2)];
+  for (let i = 0; i < ALL_BOSSES.length; i++) {
+    for (let j = i + 1; j < ALL_BOSSES.length; j++) {
+      const a = sig(ALL_BOSSES[i]);
+      const c = sig(ALL_BOSSES[j]);
+      const diff = a.filter((x, k) => x !== c[k]).length;
+      check(diff >= 3, () => `${ALL_BOSSES[i].name} and ${ALL_BOSSES[j].name} look too alike (${a} vs ${c})`);
+    }
+  }
+  // Rosters
+  for (const [subj, roster] of Object.entries(ROSTERS)) {
+    check(roster.length === FLOORS && new Set(roster).size === FLOORS, () => `${subj}: ten different masters`);
+    check(roster.every((b) => b.subject === subj), () => `${subj}: a master from another subject`);
+    check(new Set(roster.map((b) => b.look.prop)).size === FLOORS, () => `${subj}: every master holds a different prop`);
+    check(new Set(roster.map((b) => b.hall)).size === FLOORS, () => `${subj}: hall names repeat`);
+    check(roster[FLOORS - 1].look.size >= Math.max(...roster.slice(0, -1).map((b) => b.look.size)), () => `${subj}: the grand master should be the biggest`);
+  }
+  check(MIXED_ROSTER.length === FLOORS && new Set(MIXED_ROSTER).size === FLOORS, () => "MIXED: ten different masters");
+  // Plans: MIXED keeps the classic five in order, then five new masters cycling the subjects.
+  const mix = towerPlan(MIXED);
+  check(mix.slice(0, 5).map((f) => f.boss.name).join() === "MADAME WORDWHIRL,ABACUS OX,JUDGE GAVEL-FIST,DOCTOR MOMENTUM,THE GRAND INKMASTER", () => `MIXED floors 1-5: ${mix.slice(0, 5).map((f) => f.boss.name)}`);
+  check(mix.slice(0, 4).map((f) => f.hall).join() === "WORD DOJO,NUMBER DOJO,CIVICS DOJO,MOTION DOJO", () => "MIXED halls 1-4 unchanged");
+  for (const f of mix) {
+    const want = topicSubject(f.topic) ?? "mixed";
+    check(f.boss.subject === want, () => `MIXED floor ${f.n}: ${f.boss.name} is ${f.boss.subject}, floor asks ${want}`);
+  }
+  check(mix[FLOORS - 1].boss.subject === "mixed" && mix[FLOORS - 1].boss !== mix[4].boss, () => "MIXED has a new grand final");
+  // Every subject, every ALL and every topic: ten different masters of that subject; topic masters first.
+  for (const sub of FOCUS_SUBJECTS) {
+    const choices: FocusChoice[] = [{ subject: sub.id, topic: "all" }, ...topicsOf(sub.id).map((t) => ({ subject: sub.id, topic: t.id }) as FocusChoice)];
+    for (const ch of choices) {
+      const plan = towerPlan(ch);
+      const label = JSON.stringify(ch);
+      check(plan.length === FLOORS && plan.map((f) => f.n).join() === "1,2,3,4,5,6,7,8,9,10", () => `${label}: ten floors`);
+      check(new Set(plan.map((f) => f.boss.id)).size === FLOORS, () => `${label}: masters repeat`);
+      check(plan.every((f) => f.boss.subject === sub.id), () => `${label}: ${plan.filter((f) => f.boss.subject !== sub.id).map((f) => f.boss.name)} not ${sub.id}`);
+      check(plan.every((f) => !MIXED_ROSTER.slice(4, 5).includes(f.boss) && f.boss.id !== "skybrush"), () => `${label}: a MIXED-only master leaked in`);
+      check(plan[FLOORS - 1].boss === ROSTERS[sub.id][FLOORS - 1], () => `${label}: floor 10 should be the grand master`);
+      check(plan.every((f) => f.hall === f.boss.hall), () => `${label}: floor names should follow the masters`);
+      if (ch.subject !== "mixed" && ch.topic !== "all") {
+        const t = ch.topic;
+        const fit = ROSTERS[sub.id].slice(0, -1).filter((b) => b.topics.includes(t)).length;
+        check(plan.slice(0, fit).every((f) => f.boss.topics.includes(t)), () => `${label}: topic masters should come first`);
+        check(fit >= 1, () => `${label}: no master knows ${t}`);
+      }
+    }
+  }
+  check(towerPlan({ subject: "math", topic: "ratios" })[0].boss.name === "RANGER RATIO", () => "Ratios & rates opens with Ranger Ratio");
+  check(towerPlan({ subject: "math", topic: "all" })[0].boss.name === "ABACUS OX", () => "ALL MATH opens with Abacus Ox");
+  check(towerPlan({ subject: "science", topic: "all" })[0].boss.name === "DOCTOR MOMENTUM", () => "ALL SCIENCE opens with Doctor Momentum");
+  // The sim uses the plan it is given (and MIXED by default).
+  const ms = new DojoSim("g35", { plan: towerPlan({ subject: "math", topic: "all" }) });
+  check(ms.info.boss.subject === "math" && ms.info.hall === "NUMBER DOJO", () => "sim uses the given plan");
+  check(new DojoSim("g35").info.boss.id === "wordwhirl", () => "sim defaults to MIXED");
+  // Lines cycle.
+  check(lineOf(["a", "b"], 3) === "b" && lineOf(["a", "b"], -1) === "b", () => "lineOf cycles");
+  // Floors 6-10: their own scenery.
+  const upper = FLOOR_THEMES.slice(5);
+  check(new Set(upper.map((f) => f.kind)).size === 5 && upper.every((f) => !["hall", "roof"].includes(f.kind)), () => `floors 6-10 kinds ${upper.map((f) => f.kind)}`);
+  check(upper.map((f) => f.kind).join() === "bamboo,lanterns,waterfall,snow,sky", () => "floors 6-10: bamboo garden, lantern hall, waterfall bridge, snowy temple, cloud peak");
+  check(new Set(FLOOR_THEMES.map((f) => f.scene)).size === FLOORS && new Set(FLOOR_THEMES.map((f) => f.belt)).size === FLOORS, () => "every floor has its own scene name and belt");
+  check(new Set(FLOOR_THEMES.map((f) => f.wall + f.floor + f.trim)).size === FLOORS, () => "every floor has its own colours");
 }
 
 /* ------------------------------------------------------------ 4. FOCUS mode */
@@ -656,11 +975,12 @@ check(gradeRangeNote(["4"]) === "Grade 4" && gradeRangeNote([]) === "Not availab
         const f = mix.draw("forces", quick);
         check(f.subject === "science", () => `MIX ${g} floor 4 drew ${f.subject}`);
       }
-      for (let i = 0; i < 6; i++) {
-        const f = FLOOR_INFO[i % 4];
+      for (const f of towerPlan(MIXED)) {
+        if (f.topic === "mixed") continue;
         const q = mixed.draw(f.topic, false);
         const want = { ela: "ela", math: "math", civics: "social", forces: "science", mixed: "" }[f.topic];
         check(q.subject === want, () => `MIXED ${g} floor ${f.n} drew ${q.subject}`);
+        check(f.boss.subject === want, () => `MIXED ${g} floor ${f.n}: master ${f.boss.name} is ${f.boss.subject}, questions ${want}`);
       }
       const roof = new Set(Array.from({ length: 8 }, () => mix.draw("mixed", false).subject));
       check(roof.size === 4, () => `MIX ${g} roof should rotate through 4 subjects, got ${[...roof]}`);
@@ -671,7 +991,7 @@ check(gradeRangeNote(["4"]) === "Grade 4" && gradeRangeNote([]) === "Not availab
     const runs: [Grade, Subject, TopicChoice][] = [["7", "math", "ratios"], ["4", "social", "civics"], ["1", "ela", "phonics"], ["10", "science", "life"], ["5", "science", "all"], ["8", "math", "all"], ["3", "social", "all"]];
     for (const [g, subject, topic] of runs) {
       const decks = new mod.TopicDecks(g, "dojo-tower-test", { subject, topic });
-      for (const floor of FLOOR_INFO) {
+      for (const floor of towerPlan({ subject, topic })) {
         for (const quick of [false, true]) {
           const q = decks.draw(floor.topic, quick);
           if (topic === "all") check(q.subject === subject, () => `ALL ${subject} ${g} floor ${floor.n} drew ${q.subject}`);
