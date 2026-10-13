@@ -562,7 +562,7 @@ function QuestionPanel({
               ) : (
                 <div className="pvu-job">What does this plant part do?</div>
               )}
-              <div className="pvu-help dim">Answer to unlock it for this level. Right answer = the first one is half price ({half} glucose).</div>
+              <div className="pvu-help dim">Answer once to unlock it for the rest of the game. Right answer = the first one is half price ({half} glucose).</div>
             </div>
           </div>
         )}
