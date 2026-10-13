@@ -83,6 +83,21 @@ export const VOCAB: Record<string, VocabSet> = {
     words: ["enormous", "gigantic", "colossal", "massive", "immense", "gargantuan", "mammoth", "towering", "vast", "humongous"],
     plain: "big", note: "“Towering” is big and tall; “vast” is big and wide.",
   },
+  tasty: {
+    pos: "adjective", prompt: "a precise adjective meaning VERY tasty",
+    words: ["scrumptious", "delicious", "savory", "mouthwatering", "delectable", "flavorful", "luscious"],
+    plain: "good", note: "“Savory” sounds rich and salty; “luscious” sounds sweet and juicy. Both beat plain old “good”!",
+  },
+  "smell-bad": {
+    pos: "noun", prompt: "a noun for an UNPLEASANT smell",
+    words: ["stench", "odor", "stink", "whiff"],
+    plain: "smell", note: "“Stench” is strong and awful; a “whiff” is only a faint hint. Compare “aroma,” which is pleasant.",
+  },
+  "run-fast": {
+    pos: "verb-past", prompt: "a past-tense verb for moving FAST",
+    words: ["dashed", "sprinted", "bolted", "raced", "scurried", "darted", "zipped", "hurried", "scampered"],
+    plain: "ran", note: "“Bolted” sounds sudden and startled; “scurried” sounds small and nervous, like a mouse.",
+  },
 };
 
 export interface SimileTopic {
@@ -96,5 +111,6 @@ export const SIMILES: Record<string, SimileTopic> = {
   big: { prompt: "a simile for being HUGE", examples: ["as big as a bus", "like a mountain", "as large as a whale", "like a parade float"] },
   dance: { prompt: "a simile for dancing", examples: ["like wobbly jelly", "like a spinning top", "like popcorn in a pan", "like a happy noodle"] },
   team: { prompt: "a simile for being a good TEAM", examples: ["like two peas in a pod", "like peanut butter and jelly", "like socks and shoes", "as close as twins"] },
+  loud: { prompt: "a simile for being very LOUD", examples: ["like a marching band", "as loud as thunder", "like a herd of tubas", "like a rooster with a megaphone"] },
   bright: { prompt: "a simile for being BRIGHT", examples: ["like a disco ball", "as bright as the sun", "like a thousand fireflies", "like a lighthouse"] },
 };

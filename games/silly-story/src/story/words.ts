@@ -83,6 +83,7 @@ export const NOUNS = new Set(list(`
   merperson slice plantain icecream gelato flapjack crepe veggie cauliflower cheddar sub taxi jeep vehicle shuttle trolley locomotive
   yacht plane tricycle unicycle bathysphere saucer beanie sombrero slipper stocking parasol ukulele bongo kazoo pot tiara package
   teddy tulip home cottage crescent heart valentine love lightbulb phone tablet tv rubber_ducky lock timer
+  teepee campsite lighthouse referee mascot goalie stench whiff stink
 `));
 
 export const VERBS = new Set(list(`
@@ -112,6 +113,7 @@ export const VERBS = new Set(list(`
   splatter sputter squat stammer stride stutter sulk swagger swallow swerve teeter thunder toddle topple trample tremble trickle twitch
   vroom waltz warble wade weave whiz whoop wince wolf wriggle yap yelp zipline inhale scarf gulp wolf devour gobble breathe bawl boom
   hush exclaim rule wonder tango salsa twerk jitterbug breakdance tap-dance hip-hop limbo conga cha-cha disco moonwalk headbang
+  dart sprint scamper scurry zip bolt hurry
 `));
 
 export const ADJECTIVES = new Set(list(`
@@ -158,6 +160,7 @@ export const ADJECTIVES = new Set(list(`
   powerful mighty curious nosy old new ancient young modern fresh rotten stale moldy dusty dirty clean muddy sticky slippery
   joyful enraged outraged mad sleek confident
   greasy oily juicy tasty yummy delicious disgusting gross icky slimy
+  terrified petrified panicked spooked scrumptious savory mouthwatering delectable flavorful luscious
 `));
 
 /** Words that are usually adverbs without an -ly ending (plus a few common -ly ones grammar.ts can't derive). */

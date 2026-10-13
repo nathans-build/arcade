@@ -487,6 +487,220 @@ export const BGS: Bg[] = [
       for (let x = 0; x < W; x += 30) r(c, "#ffd23f", x + ((t * 20) % 30), 175, 14, 2);
     },
   },
+  {
+    id: "bathroom", name: "Bubble bath time", ground: 172,
+    draw(c, t) {
+      r(c, "#8fd8e8", 0, 0, W, 150);
+      for (let y = 0; y < 150; y += 16) for (let x = 0; x < W; x += 16) {
+          r(c, "#7fc8d8", x, y, 16, 1);
+          r(c, "#7fc8d8", x, y, 1, 16);
+        }
+      // Mirror, towel rail and a little window.
+      r(c, "#f4f4ff", 30, 24, 50, 40);
+      r(c, "#c0eaff", 33, 27, 44, 34);
+      r(c, "#f4f4ff", 40, 32, 10, 3);
+      r(c, "#c8c8d8", 230, 40, 70, 3);
+      r(c, "#ff8fc8", 240, 43, 24, 34);
+      r(c, "#ffd23f", 268, 43, 22, 28);
+      // The tub with bubbles.
+      r(c, "#f4f4ff", 90, 110, 150, 46);
+      r(c, "#c8c8d8", 90, 152, 150, 4);
+      r(c, "#c8c8d8", 100, 156, 8, 10);
+      r(c, "#c8c8d8", 222, 156, 8, 10);
+      r(c, "#c8c8d8", 92, 86, 4, 24);
+      r(c, "#c8c8d8", 92, 86, 14, 4);
+      for (let k = 0; k < 14; k++) {
+        const bx = 96 + ((k * 23) % 140);
+        const by = 108 - ((k * 7) % 12) - Math.abs(Math.sin(t * 1.5 + k)) * 4;
+        disc(c, "#ffffff", bx, by, 4 + (k % 3));
+        r(c, "#c0f0ff", bx - 1, by - 2, 2, 2);
+      }
+      for (let k = 0; k < 6; k++) {
+        const y = (150 - ((t * 20 + k * 30) % 150));
+        disc(c, "#e8faff", 110 + k * 22 + Math.sin(t + k) * 6, y, 2);
+      }
+      floorTiles(c, 160, "#f4f4ff", "#c8e8f0", 16);
+    },
+  },
+  {
+    id: "campsite", name: "Campsite at night", ground: 172,
+    draw(c, t) {
+      bands(c, ["#0a1030", "#141c48", "#202a60"], 0, 140);
+      stars(c, t, 40, 90, 11);
+      disc(c, "#fff0a0", 60, 30, 10);
+      disc(c, "#0a1030", 65, 27, 9);
+      for (const [x, s] of [[20, 1.5], [70, 1.1], [255, 1.6], [300, 1.2]] as [number, number][]) pine(c, x, 150, s);
+      r(c, "#1f4f2f", 0, 145, W, 55);
+      r(c, "#2a5f3a", 0, 145, W, 3);
+      // Tent.
+      for (let k = 0; k < 40; k++) r(c, k < 20 ? "#ff8a1f" : "#d86a10", 190 + k, 150 - (20 - Math.abs(k - 20)) * 1.6, 1, (20 - Math.abs(k - 20)) * 1.6);
+      r(c, "#1b1230", 208, 138, 4, 12);
+      // Campfire.
+      for (const [x, y] of [[148, 166], [160, 168], [172, 166]]) r(c, "#6a4020", x - 6, y, 14, 4);
+      const f = Math.sin(t * 9) * 2;
+      for (let k = 0; k < 10; k++) r(c, k < 4 ? "#ffd23f" : "#ff6a1f", 152 + k * 1.6, 164 - (5 - Math.abs(k - 5)) * 3 - f, 2, (5 - Math.abs(k - 5)) * 3 + f);
+      c.globalAlpha = 0.12;
+      disc(c, "#ffb040", 162, 160, 34 + f);
+      c.globalAlpha = 1;
+    },
+  },
+  {
+    id: "island", name: "Treasure island", ground: 174,
+    draw(c, t) {
+      bands(c, ["#4fb0ff", "#7cc8ff", "#b0e4ff"], 0, 112);
+      sun(c, 280, 30, t);
+      cloud(c, 40 + Math.sin(t * 0.2) * 10, 30);
+      r(c, "#1f7fd0", 0, 110, W, 40);
+      for (let x = 0; x < W; x += 18) r(c, "#c0f0ff", (x + t * 12) % W, 116 + ((x / 18) % 3) * 9, 8, 1);
+      // A pirate ship on the horizon.
+      const sx = 40 + Math.sin(t * 0.4) * 6;
+      r(c, "#6a4020", sx, 100, 46, 10);
+      for (let k = 0; k < 6; k++) r(c, "#6a4020", sx + k, 100 + k, 46 - k * 2, 1);
+      r(c, "#3a2a1a", sx + 22, 66, 2, 34);
+      r(c, "#f4f4ff", sx + 8, 70, 14, 22);
+      r(c, "#f4f4ff", sx + 25, 72, 14, 18);
+      r(c, "#1b1230", sx + 22, 60, 10, 6);
+      // Island sand and a palm tree.
+      r(c, "#f0d890", 0, 148, W, 52);
+      disc(c, "#f0d890", 240, 160, 70);
+      r(c, "#f4f4ff", 0, 146 + Math.sin(t * 2) * 2, W, 3);
+      for (let k = 0; k < 10; k++) r(c, "#8a5a2b", 262 + k * 1.2, 150 - k * 8, 6, 9);
+      for (let k = -3; k <= 3; k++) for (let i = 0; i < 18; i++) r(c, "#2faf3f", 276 + k * i * 0.6, 70 + Math.abs(k) * i * 0.18 + i * 0.3, 3, 2);
+      // An X marks the spot.
+      r(c, "#e3262f", 60, 178, 10, 2);
+      r(c, "#e3262f", 64, 174, 2, 10);
+    },
+  },
+  {
+    id: "museum", name: "The museum at night", ground: 172,
+    draw(c, t) {
+      r(c, "#3a3a6a", 0, 0, W, 150);
+      for (const x of [10, 290]) {
+        r(c, "#c8c8d8", x, 20, 20, 130);
+        r(c, "#a8a8b8", x - 3, 16, 26, 6);
+      }
+      // Paintings.
+      r(c, "#ffd23f", 44, 30, 44, 34);
+      r(c, "#5fb8ff", 48, 34, 36, 26);
+      disc(c, "#3fbf4f", 66, 60, 12);
+      r(c, "#ffd23f", 232, 30, 40, 34);
+      r(c, "#ff8fc8", 236, 34, 32, 26);
+      disc(c, "#f4f4ff", 252, 46, 6);
+      // A dinosaur skeleton.
+      for (let k = 0; k < 9; k++) r(c, "#f4f0e0", 110 + k * 10, 70 + Math.abs(k - 4) * 3, 6, 3);
+      for (let k = 0; k < 6; k++) r(c, "#f4f0e0", 124 + k * 9, 74, 2, 22);
+      r(c, "#f4f0e0", 196, 54, 22, 12);
+      r(c, "#3a3a6a", 210, 57, 3, 3);
+      r(c, "#f4f0e0", 130, 96, 3, 40);
+      r(c, "#f4f0e0", 180, 96, 3, 40);
+      r(c, "#8a8aa0", 120, 136, 76, 8);
+      // Moonlight through a skylight.
+      c.globalAlpha = 0.12 + Math.sin(t) * 0.03;
+      c.fillStyle = "#c0e0ff";
+      c.beginPath();
+      c.moveTo(140, 0);
+      c.lineTo(180, 0);
+      c.lineTo(230, 150);
+      c.lineTo(90, 150);
+      c.fill();
+      c.globalAlpha = 1;
+      r(c, "#6a4a3a", 0, 150, W, 50);
+      floorTiles(c, 150, "#7a5a4a", "#6a4a3a", 24);
+    },
+  },
+  {
+    id: "stadium", name: "The soccer stadium", ground: 174,
+    draw(c, t) {
+      bands(c, ["#4fa8f0", "#78c0ff", "#a0d8ff"], 0, 70);
+      // Stands full of fans.
+      r(c, "#3a3a5a", 0, 40, W, 70);
+      const fan = ["#e3262f", "#2456e8", "#ffd23f", "#f4f4ff", "#3fbf4f", "#ff8fc8"];
+      for (let y = 46; y < 104; y += 8)
+        for (let x = 4; x < W; x += 8) {
+          const up = Math.sin(t * 6 + x * 0.3 + y) > 0.6 ? 2 : 0;
+          r(c, fan[(x * 3 + y) % fan.length], x, y - up, 4, 5);
+        }
+      // Floodlights.
+      for (const x of [16, 300]) {
+        r(c, "#8a8aa0", x, 0, 3, 40);
+        r(c, "#ffffe0", x - 6, 0, 15, 6);
+      }
+      r(c, "#3fa83f", 0, 110, W, 90);
+      for (let x = 0; x < W; x += 40) r(c, "#4fbf4f", x, 110, 20, 90);
+      r(c, "#f4f4ff", 0, 112, W, 2);
+      r(c, "#f4f4ff", 159, 112, 2, 88);
+      // Goal.
+      r(c, "#f4f4ff", 262, 120, 3, 40);
+      r(c, "#f4f4ff", 262, 120, 50, 3);
+      for (let x = 268; x < 312; x += 6) r(c, "#c8c8d8", x, 123, 1, 37);
+      for (let y = 126; y < 160; y += 6) r(c, "#c8c8d8", 265, y, 47, 1);
+    },
+  },
+  {
+    id: "market", name: "Food truck street", ground: 172,
+    draw(c, t) {
+      bands(c, ["#ffb070", "#ffc890", "#ffe0b0"], 0, 120);
+      sun(c, 50, 30, t);
+      for (let i = 0, x = 0; x < W; i++) {
+        const w = 40 + ((i * 17) % 20);
+        const h = 60 + ((i * 29) % 40);
+        r(c, ["#c05040", "#d08a4a", "#8a6ab0", "#4a8ab0"][i % 4], x, 130 - h, w, h);
+        for (let y = 130 - h + 8; y < 120; y += 14) for (let wx = x + 6; wx < x + w - 6; wx += 12) r(c, "#ffe8b0", wx, y, 6, 7);
+        x += w;
+      }
+      // Two food trucks with striped awnings.
+      for (const [x, col] of [[30, "#e3262f"], [190, "#2456e8"]] as [number, string][]) {
+        r(c, col, x, 104, 100, 44);
+        r(c, "#1b1230", x + 14, 112, 52, 18);
+        r(c, "#ffd23f", x + 16, 114, 48, 14);
+        for (let k = 0; k < 10; k++) r(c, k % 2 ? "#f4f4ff" : col, x + 10 + k * 6, 98, 6, 8);
+        disc(c, "#1b1230", x + 20, 150, 8);
+        disc(c, "#1b1230", x + 80, 150, 8);
+        disc(c, "#8a8aa0", x + 20, 150, 3);
+        disc(c, "#8a8aa0", x + 80, 150, 3);
+      }
+      r(c, "#7a7a8a", 0, 150, W, 50);
+      r(c, "#c8c8d8", 0, 150, W, 3);
+      for (let x = 0; x < W; x += 30) r(c, "#f4f4ff", x + 6, 180, 14, 2);
+      // A drifting smell cloud.
+      c.globalAlpha = 0.25;
+      cloud(c, 140 + Math.sin(t * 0.6) * 20, 80 + Math.sin(t) * 4, 0.7, "#9be35a");
+      c.globalAlpha = 1;
+    },
+  },
+  {
+    id: "lighthouse", name: "Gull Point Lighthouse", ground: 172,
+    draw(c, t) {
+      bands(c, ["#2a1f5e", "#5a3a8a", "#c0608a", "#ff9f70"], 0, 120);
+      stars(c, t, 14, 40, 13);
+      r(c, "#1f4f8f", 0, 112, W, 50);
+      for (let x = 0; x < W; x += 20) r(c, "#5fa0e0", (x + t * 10) % W, 120 + ((x / 20) % 3) * 10, 10, 1);
+      // Rocks and the lighthouse.
+      disc(c, "#5a5a6e", 250, 150, 50);
+      disc(c, "#4a4a5e", 290, 160, 40);
+      for (let y = 40; y < 120; y++) {
+        const w = 14 + (y - 40) * 0.12;
+        r(c, Math.floor((y - 40) / 16) % 2 ? "#f4f4ff" : "#e3262f", 250 - w, y, w * 2, 1);
+      }
+      r(c, "#1b1230", 236, 26, 28, 14);
+      r(c, "#ffd23f", 240, 29, 20, 8);
+      for (let k = 0; k < 5; k++) r(c, "#1b1230", 230 + k * 9, 22 - (2 - Math.abs(k - 2)) * 2, 6, 4);
+      // The sweeping beam.
+      c.globalAlpha = 0.25;
+      c.fillStyle = "#fff4a0";
+      const a = Math.sin(t * 0.8) * 0.9 + Math.PI;
+      c.beginPath();
+      c.moveTo(250, 33);
+      c.lineTo(250 + Math.cos(a - 0.12) * 260, 33 + Math.sin(a - 0.12) * 260);
+      c.lineTo(250 + Math.cos(a + 0.12) * 260, 33 + Math.sin(a + 0.12) * 260);
+      c.fill();
+      c.globalAlpha = 1;
+      // Beach and dock.
+      r(c, "#c8b080", 0, 158, W, 42);
+      r(c, "#8a5a2b", 0, 150, 120, 6);
+      for (let x = 6; x < 120; x += 24) r(c, "#6a4020", x, 156, 4, 14);
+    },
+  },
 ];
 
 export function bgById(id: string): Bg {

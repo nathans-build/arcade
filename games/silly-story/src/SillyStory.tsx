@@ -17,9 +17,12 @@ import {
   addToShelf, countStory, deleteCustom, loadCustom, loadShelf, MAX_TEMPLATE, MAX_TITLE, newId, removeFromShelf, saveCustom, storiesMade,
   type CustomStory, type ShelfItem,
 } from "@/story/storage";
+import {
+  effectiveLength, LENGTH_LABEL, lengthOfCount, lengthsFor, loadLength, MAX_STORY_BLANKS, pickStories, rangeText, saveLength, type LengthFilter,
+} from "@/story/length";
 import { STORIES, storyById } from "@/story/stories";
 import { fill, filledText, parseTemplate } from "@/story/template";
-import { BANDS, type Band, type BlankType, type CastSpec, type Parsed } from "@/story/types";
+import { BANDS, type Band, type BlankType, type CastSpec, type Parsed, type StoryLength } from "@/story/types";
 import { silly, SILLIES } from "@/sfx";
 import "@/silly.css";
 
@@ -43,8 +46,12 @@ interface Play {
 const DEBUG = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("debug");
 
 function playFor(title: string, storyId: string, bg: string, template: string, cast?: CastSpec[]): Play {
-  return { title, storyId, bg, template, cast, parsed: parseTemplate(template, { maxBlanks: MAX_CUSTOM_BLANKS }) };
+  // Built-in Long stories go up to 22 blanks; kids' own stories up to 20.
+  const maxBlanks = storyId === "custom" ? MAX_CUSTOM_BLANKS : MAX_STORY_BLANKS;
+  return { title, storyId, bg, template, cast, parsed: parseTemplate(template, { maxBlanks }) };
 }
+
+const bandName = (b: Band) => b.replace("-", "–");
 
 const typeClass = (t: BlankType) => `w-${t.replace(/[^a-z]/g, "")}`;
 
@@ -319,7 +326,7 @@ function TitleScreen({
       {help ? (
         <div className="ss-help">
           <ol>
-            <li><b>Pick a story.</b> Don't peek: the story stays hidden until the end!</li>
+            <li><b>Pick a story.</b> Choose <b>Short</b>, <b>Medium</b>{gradeNumber(grade) >= 3 ? <> or <b>Long</b></> : " or All"} to find one the right size. Don't peek: the story stays hidden until the end!</li>
             <li>
               <b>Fill in the words.</b> {early ? "Tap a picture card for each word. Tap 🔊 on a card to hear it." : "Type a word (or tap a card) for each blank: nouns, verbs, adjectives and more."} The{" "}
               <span className="y">Grammar Coach</span> helps if a word looks like a different part of speech, but you can always keep your word.
@@ -371,7 +378,15 @@ function PickScreen({
   band: Band; grade: Grade; custom: CustomStory[]; onBack: () => void; onStory: (id: string) => void; onCustom: (c: CustomStory) => void; onSpeak: (t: string) => void;
 }) {
   const [tab, setTab] = useState<Band>(band);
-  const list = STORIES.filter((s) => s.band === tab);
+  // The length choice is remembered per player; a length the band doesn't offer (Long for K-2) shows All.
+  const [saved, setSaved] = useState<string | null>(() => loadLength());
+  const length = effectiveLength(saved, tab);
+  const choices: LengthFilter[] = ["all", ...lengthsFor(tab)];
+  const { list, from } = pickStories(STORIES, tab, length);
+  const chooseLength = (f: LengthFilter) => {
+    setSaved(f);
+    saveLength(f);
+  };
   return (
     <div className="ss-panel">
       <div className="ss-head">
@@ -381,20 +396,48 @@ function PickScreen({
       <div className="ss-tabs" role="tablist" aria-label="Grade band">
         {BANDS.map((b) => (
           <button key={b} type="button" role="tab" aria-selected={tab === b} className={`ss-tab ss-pixel ${tab === b ? "on" : ""}`} onClick={() => setTab(b)}>
-            {b === "K-2" ? "K–2" : b.replace("-", "–")}{b === band ? " ★" : ""}
+            {bandName(b)}{b === band ? " ★" : ""}
           </button>
         ))}
       </div>
-      {tab !== band && <p className="ss-help dim">These stories are for grades {tab.replace("-", "–")}. You can still play them!</p>}
+      <div className="ss-lengths" role="radiogroup" aria-label="Story length">
+        <span className="ss-lenlabel ss-pixel">LENGTH</span>
+        {choices.map((f) => (
+          <button
+            key={f}
+            type="button"
+            role="radio"
+            aria-checked={length === f}
+            className={`ss-len ss-pixel ${length === f ? "on" : ""}`}
+            data-length={f}
+            onClick={() => chooseLength(f)}
+            title={f === "all" ? "Every story" : rangeText(tab, f)}
+          >
+            {LENGTH_LABEL[f].toUpperCase()}
+          </button>
+        ))}
+      </div>
+      {length !== "all" && (
+        <p className="ss-help dim ss-lenhelp">
+          {LENGTH_LABEL[length]} stories: {rangeText(tab, length)}{length === "long" ? ", a few paragraphs" : ""}.
+        </p>
+      )}
+      {from ? (
+        <p className="ss-help dim ss-borrow">No {LENGTH_LABEL[length as StoryLength]} stories for grades {bandName(tab)} yet. Here are some from grades {bandName(from)}. You can still play them!</p>
+      ) : (
+        tab !== band && <p className="ss-help dim">These stories are for grades {bandName(tab)}. You can still play them!</p>
+      )}
       <div className="ss-stories">
         {list.map((s) => {
-          const n = parseTemplate(s.template).blanks.length;
+          const n = parseTemplate(s.template, { maxBlanks: MAX_STORY_BLANKS }).blanks.length;
           return (
-            <button key={s.id} type="button" className="ss-story" data-story={s.id} onClick={() => onStory(s.id)}>
+            <button key={s.id} type="button" className="ss-story" data-story={s.id} data-length={s.length} onClick={() => onStory(s.id)}>
               <BgThumb bg={s.bg} />
               <span className="t ss-pixel">{s.title}</span>
               <span className="d">{s.blurb}</span>
-              <span className="n">{n} words to fill</span>
+              <span className="n">
+                <LengthBadge length={s.length} /> {n} words to fill
+              </span>
               {isEarlyReader(grade) && (
                 <span
                   role="button"
@@ -403,7 +446,7 @@ function PickScreen({
                   aria-label={`Hear ${s.title}`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    onSpeak(`${s.title}. ${s.blurb}`);
+                    onSpeak(`${s.title}. ${LENGTH_LABEL[s.length]} story. ${s.blurb}`);
                   }}
                 >
                   🔊
@@ -417,18 +460,27 @@ function PickScreen({
         <>
           <div className="ss-h ss-pixel">MY STORIES</div>
           <div className="ss-stories">
-            {custom.map((c) => (
-              <button key={c.id} type="button" className="ss-story mine" onClick={() => onCustom(c)}>
-                <BgThumb bg={c.bg} />
-                <span className="t ss-pixel">{c.title}</span>
-                <span className="n">{parseTemplate(c.template).blanks.length} words to fill</span>
-              </button>
-            ))}
+            {custom.map((c) => {
+              const n = parseTemplate(c.template).blanks.length;
+              return (
+                <button key={c.id} type="button" className="ss-story mine" onClick={() => onCustom(c)}>
+                  <BgThumb bg={c.bg} />
+                  <span className="t ss-pixel">{c.title}</span>
+                  <span className="n">
+                    <LengthBadge length={lengthOfCount(n)} /> {n} words to fill
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </>
       )}
     </div>
   );
+}
+
+function LengthBadge({ length }: { length: StoryLength }) {
+  return <span className={`ss-lenbadge ss-pixel ${length}`}>{LENGTH_LABEL[length].toUpperCase()}</span>;
 }
 
 function BgThumb({ bg }: { bg: string }) {
@@ -535,6 +587,17 @@ function FillScreen({
     accept(w);
   };
 
+  /** Long stories: let the player go back one blank instead of starting over. */
+  const undo = () => {
+    if (idx === 0) return;
+    setWords(words.slice(0, idx - 1));
+    setText("");
+    setCoachMsg(null);
+    setWrong(null);
+    setIdx(idx - 1);
+    audio.blip();
+  };
+
   const pickCard = (card: Card) => {
     if (!blank) return;
     if (cardFits(card, blank)) {
@@ -570,12 +633,19 @@ function FillScreen({
     <div className="ss-panel ss-fill" data-blank-type={blank.type}>
       <div className="ss-head">
         <button type="button" className="ss-btn ghost small" onClick={onQuit}>◀ Stories</button>
-        <div className="ss-progress ss-pixel" aria-label={`Word ${idx + 1} of ${blanks.length}`}>
-          WORD {idx + 1}/{blanks.length}
-          <span className="dots">{blanks.map((_, i) => <i key={i} className={i < idx ? "done" : i === idx ? "now" : ""} />)}</span>
+        <div className="ss-progress ss-pixel" role="progressbar" aria-valuemin={1} aria-valuemax={blanks.length} aria-valuenow={idx + 1} aria-label={`Blank ${idx + 1} of ${blanks.length}`}>
+          <span className="ss-count">BLANK {idx + 1} OF {blanks.length}</span>
+          {blanks.length > 12 ? (
+            <span className="bar" aria-hidden="true"><i style={{ width: `${Math.round((idx / blanks.length) * 100)}%` }} /></span>
+          ) : (
+            <span className="dots" aria-hidden="true">{blanks.map((_, i) => <i key={i} className={i < idx ? "done" : i === idx ? "now" : ""} />)}</span>
+          )}
         </div>
       </div>
-      <div className="ss-storyname ss-pixel">{play.title.toUpperCase()} · NO PEEKING!</div>
+      <div className="ss-storyname ss-pixel">
+        {play.title.toUpperCase()} · NO PEEKING!
+        {blanks.length > 12 && idx > 0 && idx < blanks.length - 1 && <span className="ss-left"> · {blanks.length - idx} TO GO</span>}
+      </div>
       <div className={`ss-prompt ${typeClass(blank.type)}`}>
         <div className="ss-promptrow">
           {speechSupported() && (
@@ -669,6 +739,13 @@ function FillScreen({
           <button type="button" className="ss-btn ghost" onClick={() => setWrong(null)}>OK, I'll pick again</button>
         </div>
       )}
+      {idx > 0 && (
+        <div className="ss-row">
+          <button type="button" className="ss-btn ghost small ss-undo" onClick={undo} title="Change the word you just picked">
+            ↶ Change my last word
+          </button>
+        </div>
+      )}
       {early && <p className="ss-help dim center">Tap a card to pick it. Tap 🔊 to hear it first.</p>}
     </div>
   );
@@ -733,6 +810,9 @@ function RevealScreen({
 }) {
   const scene = useMemo(() => buildScene(play.parsed, words, play.bg, play.cast), [play, words]);
   const pieces = useMemo(() => fill(play.parsed, words), [play, words]);
+  const long = play.parsed.blanks.length > 14 || play.template.length > 900;
+  // Long stories pop their words in faster, so the whole story is there in about 5 seconds.
+  const step = Math.min(0.26, 4.5 / Math.max(1, play.parsed.blanks.length));
   const [saved, setSaved] = useState<"no" | "yes" | "fail">(shelfId ? "yes" : "no");
   const [picture, setPicture] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -754,10 +834,10 @@ function RevealScreen({
     pieces.forEach((p) => {
       if (p.blank < 0) return;
       const i = k++;
-      timers.push(window.setTimeout(() => silly(audio, SILLIES[i % SILLIES.length]), 700 + i * 260));
+      timers.push(window.setTimeout(() => silly(audio, SILLIES[i % SILLIES.length]), 700 + i * step * 1000));
     });
     return () => timers.forEach((t) => window.clearTimeout(t));
-  }, [pieces, audio, shelfId]);
+  }, [pieces, audio, shelfId, step]);
 
   const savePicture = async () => {
     try {
@@ -765,8 +845,9 @@ function RevealScreen({
     } catch {
       // fonts are optional
     }
-    const url = downloadComic(scene, play.title, pieces);
-    setPicture(url.slice(0, 22));
+    const pic = downloadComic(scene, play.title, pieces);
+    if (DEBUG) (window as unknown as { __ssComic: unknown }).__ssComic = { width: pic.width, height: pic.height, fontPx: pic.fontPx, lineH: pic.lineH, lines: pic.lines, textTop: pic.textTop };
+    setPicture(pic.url.slice(0, 22));
     audio.correct();
   };
 
@@ -799,10 +880,16 @@ function RevealScreen({
         )}
       </div>
       {picture && <div className="ss-help center dim" role="status">Picture saved to your downloads (made on this device, never uploaded).</div>}
-      <div className="ss-storytext" aria-live="polite">
+      <div
+        className={`ss-storytext ${long ? "long" : ""}`}
+        aria-live="polite"
+        tabIndex={long ? 0 : undefined}
+        role={long ? "region" : undefined}
+        aria-label={long ? "Your story (scroll to read it all)" : undefined}
+      >
         {pieces.map((p, i) =>
           p.blank >= 0 ? (
-            <mark key={i} className={`ss-word ${typeClass(play.parsed.blanks[p.blank].type)}`} style={{ animationDelay: `${0.7 + k++ * 0.26}s` }} data-blank={p.blank}>
+            <mark key={i} className={`ss-word ${typeClass(play.parsed.blanks[p.blank].type)}`} style={{ animationDelay: `${(0.7 + k++ * step).toFixed(2)}s` }} data-blank={p.blank}>
               {p.text}
             </mark>
           ) : (
@@ -810,7 +897,8 @@ function RevealScreen({
           ),
         )}
       </div>
-      <details className="ss-legend" open>
+      {long && <div className="ss-help dim center ss-scrollnote">Long story! Scroll inside the box to read it all.</div>}
+      <details className="ss-legend" open={!long}>
         <summary className="ss-pixel">WHAT YOUR WORDS DID</summary>
         <ul>
           {scene.legend.map((l) => (
