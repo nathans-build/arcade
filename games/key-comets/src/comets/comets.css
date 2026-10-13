@@ -33,15 +33,21 @@
 .kc-root .g { color: var(--kc-green); }
 .kc-root .dim { color: var(--kc-dim); }
 
-.kc-toolbar { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; gap: 8px; flex: none; }
+/* Always on top and always tappable, even if the game area below runs out of room. */
+.kc-toolbar { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; gap: 8px; flex: none; position: relative; z-index: 20; background: var(--kc-bg); }
 .kc-tools { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
 .kc-toolbar a, .kc-toolbar button {
   font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--kc-dim);
   background: none; border: 0; cursor: pointer; text-decoration: none; padding: 6px 0;
 }
+.kc-toolbar a { display: inline-flex; align-items: center; min-height: 32px; padding: 6px 12px 6px 0; font-size: 10px; color: var(--kc-cyan); }
 .kc-toolbar a:hover, .kc-toolbar button:hover, .kc-toolbar button:focus-visible { color: var(--kc-cyan); }
 
-.kc-cabinet { position: relative; width: 100%; max-width: 960px; flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; }
+/* Centred with auto margins (not justify-content: center), so if the game is taller than the space
+   it grows downward and scrolls instead of sliding up under the ◀ ARCADE bar. */
+.kc-cabinet { position: relative; width: 100%; max-width: 960px; flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: flex-start; overflow-x: hidden; overflow-y: auto; }
+.kc-cabinet > .kc-hud { margin-top: auto; }
+.kc-cabinet::after { content: ""; flex: none; margin-bottom: auto; }
 
 /* HUD */
 .kc-hud {
@@ -174,6 +180,7 @@
   .kc-hud .hide-sm { display: none; }
   .kc-tools { gap: 8px; }
   .kc-toolbar a, .kc-toolbar button { font-size: 7px; }
+  .kc-toolbar a { font-size: 9px; }
   .kc-hands { display: none; }
   .kc-lessons { grid-template-columns: 1fr 1fr; }
   .kc-lessoncard { padding: 5px; gap: 4px; }
