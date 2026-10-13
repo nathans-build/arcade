@@ -4,7 +4,7 @@
  */
 import { forEachPixel, hasGlyphs, rowSpan, textWidth } from "./font";
 import {
-  GATE_LEFT, H, LANE_W, PLAYER_Y, W, ZONE_NAMES, laneCenter,
+  GATE_LEFT, H, LANE_W, PLAYER_Y, W, ZONE_NAMES, laneAt, laneCenter,
   type Checkpoint, type Enemy, type PursuitSim, type Surface,
 } from "./sim";
 import { getSprites, type SpriteSheet } from "./sprites";
@@ -436,6 +436,28 @@ export class Renderer {
         ctx.fillStyle = "rgba(5,8,24,0.75)";
         ctx.fillRect(W / 2 - 74, 3, 148, 11);
         this.text("CODE CHECKPOINT AHEAD", W / 2, 5, "#ffd23f", 1);
+      }
+      const c = sim.cp;
+      const bandH = lines && lines.length <= 3 ? 14 + lines.length * 8 : 15;
+      if (Number.isFinite(c.timeTotal) && !c.released) {
+        // Countdown bar (NORMAL / SPEEDY) under the message: full until any read-aloud ends.
+        const frac = Math.max(0, Math.min(1, c.timeLeft / c.timeTotal));
+        ctx.fillStyle = "rgba(5,8,24,0.86)";
+        ctx.fillRect(0, bandH, W, 4);
+        ctx.fillStyle = frac > 0.5 ? "#5fff8a" : frac > 0.2 ? "#ffd23f" : "#ff5a5a";
+        ctx.fillRect(1, bandH + 1, Math.round((W - 2) * frac), 2);
+      }
+      if (sim.waiting && c.lock === null) {
+        const settling = c.settle > 0;
+        const msg = settling ? `GOING THROUGH LANE ${laneAt(sim.x) + 1}…` : Number.isFinite(c.timeTotal) ? "PICK A LANE: 1-4, TAP OR STEER" : "TAKE YOUR TIME!";
+        ctx.fillStyle = "rgba(5,8,24,0.78)";
+        const w = textWidth(msg) * 1 + 10;
+        ctx.fillRect(W / 2 - w / 2, 52, w, 12);
+        this.text(msg, W / 2, 54, settling ? "#7ff3ff" : "#5fff8a", 1);
+        if (!Number.isFinite(c.timeTotal) && !settling) {
+          ctx.fillRect(W / 2 - 74, 64, 148, 11);
+          this.text("PICK A LANE: 1-4 OR TAP", W / 2, 66, "#f2f4ff", 1);
+        }
       }
       if (sim.cp.lock !== null) {
         // Arrow over the locked-in lane

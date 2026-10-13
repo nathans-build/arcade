@@ -12,6 +12,12 @@
  * Rules — lane mapping (x → lane 1-4), the 4-lane road at a gate, steering or keying into a lane,
  * wrong answers never costing a car or ending the game, gadgets for right answers, crashes costing
  * a car and the game ending only when the cars run out, zones (city → coast → river/boat).
+ *
+ * Timing — RELAXED (default): a player who never answers waits at the gates forever (no auto pass
+ * or fail, no hazards, nothing lost) and answering then drives on. NORMAL: every checkpoint gets at
+ * least K–2 30 s, ciphers / story problems 25 s, short facts 15 s, more for longer prompts and
+ * younger grades, and the countdown only starts after read-aloud. SPEEDY: faster than NORMAL but
+ * never under 8 s (14 s for K–2, 12 s for ciphers / story problems).
  */
 import { readdirSync } from "fs";
 import path from "path";
@@ -31,7 +37,8 @@ import {
   MIN_DISTINCT, OFFERED, TOPICS, TOPIC_IDS, availableTopics, gradesNote, parsePref, questionTopic, readUrlFocus, resolveFocus, topicAvailable, topicInfo,
   type FocusPref, type SubjectId, type TopicId,
 } from "../src/pursuit/topics";
-import { GATE_CX, GATE_HALF, LANE_W, PursuitSim, laneAt, laneCenter, type SimEvent } from "../src/pursuit/sim";
+import { GATE_CX, GATE_HALF, HOLD_GAP, LANE_W, PursuitSim, SETTLE, laneAt, laneCenter, type SimEvent } from "../src/pursuit/sim";
+import { TIMING_KEY, answerSeconds, isTiming, speechSeconds, type Timing } from "../src/pursuit/timing";
 
 let failures = 0;
 let checks = 0;
@@ -301,10 +308,10 @@ check(laneAt(-50) === 0 && laneAt(999) === 3, () => "lanes clamp to 1-4 off the 
 
 /* ------------------------------------------------------------ 5. headless play */
 
-function newSim(g: Grade, seed: number, god = false) {
+function newSim(g: Grade, seed: number, god = false, timing?: Timing, readAloud = false) {
   const r = mulberry32(seed);
   const src = new CodeSource(g, hooks, r);
-  return new PursuitSim({ gradeN: g === "K" ? 0 : Number(g), nextQuestion: (ctx) => src.next(ctx), rand: r, god });
+  return new PursuitSim({ gradeN: g === "K" ? 0 : Number(g), nextQuestion: (ctx) => src.next(ctx), rand: r, god, timing, readAloud });
 }
 function run(sim: PursuitSim, seconds: number, until?: (e: SimEvent) => boolean): SimEvent[] {
   const all: SimEvent[] = [];
@@ -444,6 +451,195 @@ for (const g of GRADES) {
   }
   check(sim.cleared >= 3, () => `free drive reached only ${sim.cleared} checkpoints in ${t.toFixed(0)}s`);
 }
+
+
+/* ------------------------------------------------------------ 5b. checkpoint timing */
+
+/** Drive to the next checkpoint and return its question (null if none came up). */
+function toCheckpoint(sim: PursuitSim): CPQuestion | null {
+  sim.skipToCheckpoint();
+  const ann = run(sim, 2, (e) => e.type === "announce").find((e) => e.type === "announce");
+  return ann && ann.type === "announce" ? ann.q : null;
+}
+/** Seconds until the gate result, with no input (cap `max`). */
+function secondsToResult(sim: PursuitSim, max: number): { t: number; res: SimEvent | undefined } {
+  let t = 0;
+  for (; t < max; t += 1 / 60) {
+    sim.update(1 / 60);
+    const res = sim.drainEvents().find((e) => e.type === "result");
+    if (res) return { t, res };
+  }
+  return { t, res: undefined };
+}
+
+// RELAXED (the default) waits forever for an answer: no auto pass/fail, no hazards, nothing lost.
+let relaxedRuns = 0;
+for (const [g, readAloud] of [["K", true], ["1", false], ["2", true], ["4", false], ["7", false], ["9", true], ["12", false]] as [Grade, boolean][]) {
+  for (let k = 0; k < 3; k++) {
+    const sim = newSim(g, 600 + k * 13 + Number(g === "K" ? 0 : g), false, undefined, readAloud);
+    check(sim.timing === "relaxed", () => "RELAXED should be the default timing");
+    for (let skip = 0; skip < k; skip++) {
+      toCheckpoint(sim);
+      sim.choose(0);
+      run(sim, 40, (e) => e.type === "result");
+      sim.continueDrive();
+    }
+    const q = toCheckpoint(sim);
+    check(!!q && sim.phase === "approach", () => `relaxed grade ${g}: no checkpoint`);
+    if (!q) continue;
+    check(!Number.isFinite(sim.cp.timeTotal), () => `relaxed grade ${g}: has a timer (${sim.cp.timeTotal})`);
+    const lives = sim.lives;
+    const fuel = sim.fuel;
+    const score = sim.score;
+    // Five minutes with no input at all (in 30 s slices, checking along the way).
+    let sawResult = false;
+    let sawHazard = false;
+    for (let slice = 0; slice < 10; slice++) {
+      const evs = run(sim, 30);
+      if (evs.some((e) => e.type === "result" || e.type === "crash" || e.type === "spin")) sawResult = true;
+      if (sim.enemies.some((e) => e.state === "live")) sawHazard = true;
+    }
+    relaxedRuns++;
+    check(!sawResult, () => `relaxed grade ${g}: the gate passed / something happened with no answer`);
+    check(!sawHazard, () => `relaxed grade ${g}: hazards appeared while waiting`);
+    check(sim.phase === "approach" && sim.waiting, () => `relaxed grade ${g}: not waiting at the gate after 5 min (phase ${sim.phase})`);
+    check(Math.abs(sim.cp.gateWy - sim.dist - HOLD_GAP) < 0.01 && sim.speed === 0, () => `relaxed grade ${g}: car should be stopped ${HOLD_GAP}px before the gate (gap ${sim.cp.gateWy - sim.dist}, speed ${sim.speed})`);
+    check(sim.lives === lives && sim.fuel === fuel && sim.score === score, () => `relaxed grade ${g}: waiting changed cars/fuel/score`);
+    // Answering then proceeds (and steers into the chosen lane first).
+    const lane = (q.answer + k) % 4;
+    check(sim.choose(lane), () => `relaxed grade ${g}: choose() refused while waiting`);
+    const { t, res } = secondsToResult(sim, 10);
+    check(!!res && res.type === "result" && res.lane === lane, () => `relaxed grade ${g}: answering lane ${lane + 1} gave ${res && res.type === "result" ? res.lane + 1 : "no result"}`);
+    check(t < 5, () => `relaxed grade ${g}: took ${t.toFixed(1)}s to drive through after answering`);
+    check(sim.phase === "debrief" && sim.lives === lives, () => `relaxed grade ${g}: after the answer phase ${sim.phase}, cars ${sim.lives}`);
+  }
+}
+
+// RELAXED: ▲ held from before the checkpoint never forces it; a fresh ▲ press rushes the gate.
+{
+  const sim = newSim("3", 8080);
+  sim.input.up = true;
+  run(sim, 1);
+  toCheckpoint(sim);
+  const r1 = run(sim, 60, (e) => e.type === "result");
+  check(!r1.some((e) => e.type === "result") && sim.waiting, () => "relaxed: holding ▲ through the checkpoint forced the gate");
+  sim.input.up = false;
+  run(sim, 0.2);
+  sim.input.up = true;
+  const { t, res } = secondsToResult(sim, 10);
+  sim.input.up = false;
+  check(!!res && t < 3, () => `relaxed: a fresh ▲ should rush the gate (${res ? t.toFixed(1) + "s" : "no result"})`);
+}
+
+// RELAXED: steering into a lane and letting go answers; steering again restarts the settle.
+{
+  const sim = newSim("6", 9090);
+  const q = toCheckpoint(sim)!;
+  run(sim, 30); // pull up at the gate
+  check(sim.waiting, () => "relaxed steer: not waiting");
+  const want = laneAt(sim.x) === 3 ? 2 : 3;
+  sim.input.right = want > laneAt(sim.x);
+  sim.input.left = !sim.input.right;
+  let guard = 0;
+  while (laneAt(sim.x) !== want || Math.abs(sim.x - laneCenter(want)) > 6) {
+    if (++guard > 600) break;
+    if (Math.abs(sim.x - laneCenter(want)) < 3) break;
+    run(sim, 1 / 60);
+  }
+  sim.input.left = sim.input.right = false;
+  const half = run(sim, SETTLE * 0.6);
+  check(!half.some((e) => e.type === "result") && sim.waiting, () => "relaxed steer: drove through before settling");
+  const { res } = secondsToResult(sim, 6);
+  check(!!res && res.type === "result" && res.lane === want, () => `relaxed steer: wanted lane ${want + 1}, got ${res && res.type === "result" ? res.lane + 1 : "none"}`);
+  check(q.choices.length === 4, () => "relaxed steer: question");
+}
+
+// NORMAL / SPEEDY: the numbers. Every question the game can ask, every grade.
+const WORDY = new Set(["drt", "rate", "ratio", "pctof", "pctchange", "fracrate", "mpg", "slope", "rateTable", "chase", "lineq", "lineParam", "avgRate", "multWord", "bigMult", "addSub"]);
+let timed = 0;
+const minNormal: Record<string, number> = {};
+for (const g of GRADES) {
+  const n = g === "K" ? 0 : Number(g);
+  const r = mulberry32(31337 + n);
+  const src = new CodeSource(g, hooks, r);
+  for (let i = 0; i < 400; i++) {
+    const q = src.next({ mph: 30 + r() * 60, fuelPct: 50 });
+    const normal = answerSeconds(q, n, "normal");
+    const speedy = answerSeconds(q, n, "speedy");
+    timed++;
+    const cipher = q.family.startsWith("cipher");
+    const wordy = WORDY.has(q.family);
+    const floor = n <= 2 ? 30 : cipher || wordy ? 25 : 15;
+    const where = `timing grade ${g} ${q.family} "${q.prompt}"`;
+    check(normal >= floor, () => `${where}: NORMAL ${normal}s < ${floor}s`);
+    check(normal >= 15, () => `${where}: NORMAL under 15s`);
+    check(speedy < normal, () => `${where}: SPEEDY ${speedy}s not faster than NORMAL ${normal}s`);
+    check(speedy >= (n <= 2 ? 14 : cipher || wordy ? 12 : 8), () => `${where}: SPEEDY ${speedy}s under its floor`);
+    check(answerSeconds(q, n, "relaxed") === Infinity, () => `${where}: RELAXED should have no timer`);
+    const key = n <= 2 ? "K-2" : cipher ? "cipher" : wordy ? "word" : "fact";
+    minNormal[key] = Math.min(minNormal[key] ?? Infinity, normal);
+  }
+}
+// Longer prompts and younger grades get more time.
+{
+  const short = { family: "multFact" as const, prompt: "6 × 7 = ?", choices: ["42", "36", "48", "49"] as CPQuestion["choices"] };
+  const long = { ...short, family: "drt" as const, prompt: "Your gadget car drives at 45 mph for 3 hours on the coast road. How far does it go in all?" };
+  check(answerSeconds(long, 6, "normal") > answerSeconds(short, 6, "normal"), () => "a longer story problem should get more time than a fact");
+  check(answerSeconds(long, 3, "normal") > answerSeconds(long, 9, "normal"), () => "grade 3 should get more time than grade 9 for the same problem");
+  check(answerSeconds(long, 1, "normal") >= 30 && answerSeconds(short, 0, "normal") >= 30, () => "K-2 at least 30 s");
+}
+check(isTiming("relaxed") && isTiming("normal") && isTiming("speedy") && !isTiming("fast"), () => "isTiming");
+check(TIMING_KEY.startsWith("arcade.cipher-pursuit."), () => `timing key ${TIMING_KEY}`);
+
+// NORMAL / SPEEDY in the sim: no input → the gate takes at least the timer, and the timer waits for read-aloud.
+let timedRuns = 0;
+for (const timing of ["normal", "speedy"] as Timing[]) {
+  for (const [g, readAloud] of [["K", true], ["2", true], ["2", false], ["5", false], ["7", false], ["7", true], ["10", false]] as [Grade, boolean][]) {
+    const sim = newSim(g, 4400 + timing.length + (g === "K" ? 0 : Number(g)), false, timing, readAloud);
+    for (let k = 0; k < 3; k++) {
+      const q = toCheckpoint(sim);
+      if (!q) {
+        fail(`${timing} grade ${g}: no checkpoint`);
+        break;
+      }
+      const n = g === "K" ? 0 : Number(g);
+      const total = sim.cp.timeTotal;
+      check(total === answerSeconds(q, n, timing), () => `${timing} grade ${g}: sim timer ${total} vs answerSeconds`);
+      const voice = readAloud ? speechSeconds(q) : 0;
+      check(Math.abs(sim.cp.voiceWait - voice) < 0.05, () => `${timing} grade ${g}: voiceWait ${sim.cp.voiceWait} vs ${voice}`);
+      if (readAloud) {
+        run(sim, Math.max(0, voice - 0.3));
+        check(sim.cp.timeLeft === total, () => `${timing} grade ${g}: the timer started during read-aloud (${sim.cp.timeLeft}/${total})`);
+        // The page also reports the browser still speaking: the timer keeps waiting.
+        sim.voiceBusy = true;
+        run(sim, 5);
+        check(sim.cp.timeLeft === total && sim.phase === "approach", () => `${timing} grade ${g}: timer ran while the voice was busy`);
+        sim.voiceBusy = false;
+      }
+      const startT = sim.time;
+      const { res } = secondsToResult(sim, total + 30);
+      const elapsed = sim.time - startT;
+      timedRuns++;
+      check(!!res, () => `${timing} grade ${g}: never reached the gate (timer ${total}s)`);
+      check(elapsed >= total - 0.05, () => `${timing} grade ${g}: gate came after ${elapsed.toFixed(1)}s, timer was ${total}s`);
+      check(elapsed <= total + 4, () => `${timing} grade ${g}: gate came ${elapsed.toFixed(1)}s after a ${total}s timer`);
+      if (timing === "normal") check(elapsed >= (n <= 2 ? 30 : 15), () => `${timing} grade ${g}: only ${elapsed.toFixed(1)}s`);
+      check(sim.lives === 3, () => `${timing} grade ${g}: running out of time cost a car`);
+      run(sim, 1.5);
+      sim.continueDrive();
+    }
+  }
+}
+// Answering early still works in NORMAL / SPEEDY (and doesn't wait for the clock).
+for (const timing of ["normal", "speedy"] as Timing[]) {
+  const sim = newSim("7", 515, false, timing);
+  const q = toCheckpoint(sim)!;
+  run(sim, 2);
+  sim.choose(q.answer);
+  const { t, res } = secondsToResult(sim, 20);
+  check(!!res && res.type === "result" && res.correct && t < 8, () => `${timing}: answering early should drive through quickly (${t.toFixed(1)}s)`);
+}
+console.log(`Timing: ${relaxedRuns} RELAXED waits of 5 min · ${timedRuns} timed gates · ${timed} questions timed · min NORMAL s ${JSON.stringify(minNormal)}`);
 
 
 /* ------------------------------------------------------------ 6. FOCUS mode (one subject + one topic) */

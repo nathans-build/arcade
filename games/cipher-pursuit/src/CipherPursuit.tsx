@@ -33,6 +33,7 @@ import {
   SUBJECT_MODES, focusName, focusTag, gradesNote, loadPref, prefOf, readUrlFocus, resolveFocus, savePref, topicAvailable, topicsFor,
   type Focus, type FocusPref,
 } from "@/pursuit/topics";
+import { TIMINGS, loadTiming, saveTiming, type Timing } from "@/pursuit/timing";
 import "@/pursuit/pursuit.css";
 
 const GAME_ID = "cipher-pursuit";
@@ -65,6 +66,18 @@ interface HudState {
   cracked: number;
   cleared: number;
   boat: boolean;
+  clock: ClockView | null;
+}
+
+/** The checkpoint countdown for the time bar (null when no question is waiting). */
+interface ClockView {
+  /** Infinity in RELAXED: the gate waits. */
+  total: number;
+  left: number;
+  /** Still waiting for read-aloud before the countdown starts. */
+  voice: boolean;
+  /** The car is stopped at the gates. */
+  waiting: boolean;
 }
 
 interface CodeView {
@@ -77,8 +90,17 @@ interface CodeView {
 }
 
 const EMPTY_HUD: HudState = {
-  score: 0, lives: 3, fuel: 100, mph: 55, miles: 0, stage: 1, zone: ZONE_NAMES.city, shield: false, turbo: 0, smoke: 0, cracked: 0, cleared: 0, boat: false,
+  score: 0, lives: 3, fuel: 100, mph: 55, miles: 0, stage: 1, zone: ZONE_NAMES.city, shield: false, turbo: 0, smoke: 0, cracked: 0, cleared: 0, boat: false, clock: null,
 };
+
+/** True while the browser is still reading something out. */
+function speechBusy(): boolean {
+  try {
+    return typeof window !== "undefined" && "speechSynthesis" in window && (window.speechSynthesis.speaking || window.speechSynthesis.pending);
+  } catch {
+    return false;
+  }
+}
 
 const KEYS: Record<string, "left" | "right" | "up" | "down"> = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", ArrowDown: "down" };
 
@@ -138,6 +160,7 @@ export default function CipherPursuit() {
   const [touch, setTouch] = useState(false);
   const [highScore, setHighScore] = useState(() => loadProgress(GAME_ID).highScore);
   const [splats, setSplats] = useState(0);
+  const [timing, setTiming] = useState<Timing>(loadTiming);
   const stageRef = useRef<HTMLDivElement>(null);
   const [screenWidth, setScreenWidth] = useState<number | null>(null);
 
@@ -259,6 +282,7 @@ export default function CipherPursuit() {
     let last = performance.now();
     let hudT = 0;
     let demoT = 0;
+    let voiceT = 0;
     const frame = (now: number) => {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
@@ -266,6 +290,15 @@ export default function CipherPursuit() {
       const playing = screenRef.current === "playing";
       if (sim) {
         if (playing && !pausedRef.current) {
+          // The countdown waits while the question is being read out (at most a minute, in case
+          // a browser never reports the end of speech).
+          if (sim.phase === "approach" && sim.readAloud && speechBusy()) {
+            voiceT += dt;
+            sim.voiceBusy = voiceT < 60;
+          } else {
+            voiceT = 0;
+            sim.voiceBusy = false;
+          }
           sim.update(dt);
         } else if (!playing) {
           // Demo driver: follow the road, fire now and then, pick a lane, drive on.
@@ -292,6 +325,9 @@ export default function CipherPursuit() {
             score: sim.score, lives: sim.lives, fuel: sim.fuel, mph: sim.mph, miles: sim.dist / PX_PER_MILE, stage: sim.stage,
             zone: ZONE_NAMES[sim.surfaceAt(sim.dist)], shield: sim.shield, turbo: sim.turbo, smoke: sim.smoke,
             cracked: sim.correctCount, cleared: sim.cleared, boat: sim.boat,
+            clock: sim.phase === "approach" && !sim.cp.released
+              ? { total: sim.cp.timeTotal, left: sim.cp.timeLeft, voice: sim.cp.voiceWait > 0 || sim.voiceBusy, waiting: sim.waiting }
+              : null,
           });
         }
       }
@@ -322,7 +358,7 @@ export default function CipherPursuit() {
     rememberGrade(grade);
     const src = new CodeSource(grade, kitHooks, Math.random, focus);
     const god = new URLSearchParams(window.location.search).has("god");
-    simRef.current = new PursuitSim({ gradeN: gradeNumber(grade), nextQuestion: (ctx) => src.next(ctx), god });
+    simRef.current = new PursuitSim({ gradeN: gradeNumber(grade), nextQuestion: (ctx) => src.next(ctx), god, timing, readAloud });
     bannerRef.current = { text: ZONE_NAMES.city, sub: "STAGE 1 · GO, AGENT!", t: 2.6, color: "#ffd23f" };
     setLog([]);
     setCode(null);
@@ -331,7 +367,12 @@ export default function CipherPursuit() {
     setTip(isEarlyReader(grade) ? "Steer with ◀ ▶. Press SPACE (or FIRE) to splat Smudge cars with foam!" : "Splat Smudge Gang cars with foam (Space). Dodge oil slicks and stay on the road!");
     setPaused(false);
     setScreen("playing");
-  }, [audio, grade, focus]);
+  }, [audio, grade, focus, timing, readAloud]);
+
+  const changeTiming = useCallback((t: Timing) => {
+    setTiming(t);
+    saveTiming(t);
+  }, []);
 
   /** A change made on the title screen: saved for next time (the arcade swaps arcade.* keys per player). */
   const changePref = useCallback(
@@ -357,6 +398,11 @@ export default function CipherPursuit() {
   const toggleReadAloud = useCallback(() => {
     setReadAloud((on) => {
       setReadAloudPref(!on);
+      const sim = simRef.current;
+      if (sim) {
+        sim.readAloud = !on;
+        if (on) sim.cp.voiceWait = 0; // turned off: no need to wait for the voice
+      }
       return !on;
     });
   }, []);
@@ -380,8 +426,11 @@ export default function CipherPursuit() {
 
   const replay = useCallback(() => {
     if (code) {
-      if (code.correct === null) sayCode(code.q);
-      else speak(code.q.explanation);
+      if (code.correct === null) {
+        sayCode(code.q);
+        // Listening again: the countdown waits for it.
+        if (readAloudRef.current) simRef.current?.holdForVoice();
+      } else speak(code.q.explanation);
     }
   }, [code]);
 
@@ -541,8 +590,9 @@ export default function CipherPursuit() {
         </div>
 
         {screen === "playing" && (
-          <Radio code={code} tip={tip} hud={hud} focus={focus} onPick={pickLane} onDriveOn={driveOn} onSpeak={speechSupported() ? replay : null} readAloud={readAloud} />
+          <Radio code={code} tip={tip} hud={hud} focus={focus} onPick={pickLane} onDriveOn={driveOn} onSpeak={speechSupported() ? replay : null} readAloud={readAloud} timing={timing} />
         )}
+        {screen === "playing" && <TimeBar clock={code && code.correct === null ? hud.clock : null} timing={timing} />}
 
         <div className="cp-stage" ref={stageRef}>
           <div className="cp-screen" style={screenWidth ? { width: screenWidth } : undefined}>
@@ -558,7 +608,7 @@ export default function CipherPursuit() {
             />
 
             {screen === "title" && (
-              <TitleScreen grade={grade} onGrade={chooseGrade} onStart={startGame} highScore={highScore} focus={focus} onPref={changePref} notice={notice} />
+              <TitleScreen grade={grade} onGrade={chooseGrade} onStart={startGame} highScore={highScore} focus={focus} onPref={changePref} notice={notice} timing={timing} onTiming={changeTiming} />
             )}
 
             {screen === "playing" && paused && (
@@ -630,9 +680,9 @@ function SpeakerIcon() {
 
 /** The agent radio above the screen: tips while driving, the coded question at a checkpoint, then the debrief. */
 function Radio({
-  code, tip, hud, focus, onPick, onDriveOn, onSpeak, readAloud,
+  code, tip, hud, focus, onPick, onDriveOn, onSpeak, readAloud, timing,
 }: {
-  code: CodeView | null; tip: string; hud: HudState; focus: Focus; onPick: (i: number) => void; onDriveOn: () => void; onSpeak: (() => void) | null; readAloud: boolean;
+  code: CodeView | null; tip: string; hud: HudState; focus: Focus; onPick: (i: number) => void; onDriveOn: () => void; onSpeak: (() => void) | null; readAloud: boolean; timing: Timing;
 }) {
   const tag = focusTag(focus);
   if (!code) {
@@ -651,7 +701,7 @@ function Radio({
   }
   const { q } = code;
   const done = code.correct !== null;
-  let head = "INCOMING CODE · STEER INTO A LANE, PRESS 1–4 OR TAP";
+  let head = timing === "relaxed" ? "INCOMING CODE · TAKE YOUR TIME! · PRESS 1–4, TAP OR STEER" : "INCOMING CODE · STEER INTO A LANE, PRESS 1–4 OR TAP";
   if (!done && code.lock !== null) head = `LANE ${code.lock + 1} LOCKED IN · ARROWS TO STEER BY HAND`;
   if (done) head = code.correct ? `✔ CODE CRACKED! +${code.points}` : `✘ WRONG LANE · THE ANSWER WAS LANE ${q.answer + 1}`;
   return (
@@ -702,6 +752,54 @@ function Radio({
   );
 }
 
+/** The countdown under the radio: a shrinking bar in NORMAL / SPEEDY, a friendly note in RELAXED. */
+function TimeBar({ clock, timing }: { clock: ClockView | null; timing: Timing }) {
+  if (!clock) return <div className="cp-timebar idle" aria-hidden="true" />;
+  if (!Number.isFinite(clock.total)) {
+    return (
+      <div className="cp-timebar relaxed cp-pixel" data-timing={timing} role="status">
+        {clock.waiting ? "TAKE YOUR TIME! THE GATE WAITS FOR YOUR ANSWER" : "TAKE YOUR TIME · THE CAR WILL WAIT AT THE GATE"}
+      </div>
+    );
+  }
+  const frac = Math.max(0, Math.min(1, clock.left / clock.total));
+  const secs = Math.ceil(clock.left);
+  return (
+    <div
+      className={`cp-timebar timed ${frac <= 0.2 ? "low" : frac <= 0.5 ? "mid" : ""}`}
+      data-timing={timing}
+      data-left={clock.left.toFixed(1)}
+      data-total={clock.total}
+      role="timer"
+      aria-label={clock.voice ? "Timer starts after the question is read" : `${secs} seconds left`}
+    >
+      <span className="lbl cp-pixel">{clock.voice ? "LISTEN…" : `TIME ${secs}s`}</span>
+      <span className="bar"><i style={{ width: `${frac * 100}%` }} /></span>
+    </div>
+  );
+}
+
+function TimingPicker({ timing, onTiming }: { timing: Timing; onTiming: (t: Timing) => void }) {
+  return (
+    <div className="cp-timings" role="radiogroup" aria-label="Timing" onKeyDown={arrowNav}>
+      {TIMINGS.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          role="radio"
+          aria-checked={timing === t.id}
+          data-timing={t.id}
+          className={`cp-timing ${timing === t.id ? "on" : ""}`}
+          onClick={() => onTiming(t.id)}
+        >
+          <span className="cp-pixel">{t.label}</span>
+          <small>{t.note}</small>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function HowToPlay({ early }: { early: boolean }) {
   return (
     <div className="cp-help">
@@ -712,7 +810,7 @@ function HowToPlay({ early }: { early: boolean }) {
       <div className="touchhelp">On a phone or tablet: hold ◀ ▶ (or drag on the road) to steer, FIRE to blast, tap an answer to pick its lane.</div>
       <ul>
         <li>You're a junior secret agent in a gadget car. <span className="g">Splat Smudge Gang cars</span> with harmless foam, dodge <span className="y">oil slicks</span>, and stay on the road{early ? "" : " (the edges are a crash!)"}.</li>
-        <li>At a <span className="c">CODE CHECKPOINT</span> the road splits into 4 lanes. Read the code, then steer into the lane with the right answer (or press its number).</li>
+        <li>At a <span className="c">CODE CHECKPOINT</span> the road splits into 4 lanes. Read the code, then steer into the lane with the right answer (or press its number). In <b>RELAXED</b> timing your car waits at the gates until you answer; <b>NORMAL</b> and <b>SPEEDY</b> show a time bar.</li>
         <li>Right lane: the <span className="c">gadget van</span> delivers a <b>shield</b>, <b>turbo</b> or <b>smoke screen</b>, plus fuel. Wrong lane: no gadget, but no crash either. Read the tip and try the next one!</li>
         <li>Grab red <span className="y">fuel cans</span>. Every two checkpoints the zone changes: city, coast, then the river, where your car becomes a boat.</li>
       </ul>
@@ -782,9 +880,10 @@ function FocusPicker({ grade, focus, onPref }: { grade: Grade; focus: Focus; onP
 }
 
 function TitleScreen({
-  grade, onGrade, onStart, highScore, focus, onPref, notice,
+  grade, onGrade, onStart, highScore, focus, onPref, notice, timing, onTiming,
 }: {
   grade: Grade; onGrade: (g: Grade) => void; onStart: () => void; highScore: number; focus: Focus; onPref: (p: FocusPref) => void; notice: string | null;
+  timing: Timing; onTiming: (t: Timing) => void;
 }) {
   const fromArcade = gradeFromArcade();
   const [help, setHelp] = useState(false);
@@ -813,6 +912,8 @@ function TitleScreen({
         <div className="cp-h cp-pixel">PICK YOUR SUBJECT</div>
         {notice && <div className="cp-help center y cp-notice" role="status">{notice}</div>}
         <FocusPicker grade={grade} focus={focus} onPref={onPref} />
+        <div className="cp-h cp-pixel">TIMING</div>
+        <TimingPicker timing={timing} onTiming={onTiming} />
         <div className="cp-row center">
           <button className="cp-cta big" autoFocus onClick={onStart}>
             {tag ? `Start: ${tag} ▶` : "Start mission ▶"}

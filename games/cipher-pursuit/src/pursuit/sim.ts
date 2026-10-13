@@ -10,8 +10,14 @@
  * into 4 lanes with an answer gate over each) → the gate row passes the car → DEBRIEF (the
  * gadget van delivers or drives off; the explanation shows) → DRIVE again. Wrong answers never
  * cost a life: only crashes do, and the approach and debrief stretches have no hazards.
+ *
+ * Timing (see timing.ts): on the approach the car slows to a gentle cruise and pulls up at a hold
+ * line just before the gates. It only drives through once the player has answered (1-4 / A-D /
+ * tap, steering into a lane and letting go, or a fresh ▲ press to rush), or — in NORMAL and SPEEDY
+ * only — when the countdown runs out. The countdown waits for read-aloud to finish.
  */
 import type { CPQuestion, DriveCtx } from "./questions";
+import { answerSeconds, speechSeconds, type Timing } from "./timing";
 
 export const W = 320;
 export const H = 200;
@@ -66,6 +72,20 @@ export interface Checkpoint {
   lock: number | null;
   picked: number | null;
   correct: boolean | null;
+  /** Answer time in seconds once any read-aloud is done (Infinity: RELAXED, the gate waits). */
+  timeTotal: number;
+  /** Seconds left on the countdown. */
+  timeLeft: number;
+  /** Seconds of read-aloud still to wait for before the countdown starts. */
+  voiceWait: number;
+  /** The car may drive through the gate (answered, rushed with ▲, or out of time). Sticky. */
+  released: boolean;
+  /** The player has steered by hand since the question came up. */
+  steered: boolean;
+  /** Seconds the car has sat still in a lane at the hold line after steering. */
+  settle: number;
+  /** ▲ was already held when the question came up (it must be let go and pressed again to rush). */
+  upHeld: boolean;
 }
 
 export interface Van { mode: "deliver" | "leave"; t: number; side: 1 | -1; gadget: Gadget | null; given: boolean; x: number }
@@ -97,6 +117,10 @@ export interface SimOptions {
   rand?: () => number;
   /** Crashes are ignored (tests and automated playtests). */
   god?: boolean;
+  /** How long a checkpoint waits for an answer (default RELAXED: it waits for you). */
+  timing?: Timing;
+  /** Read-aloud is on: the countdown starts after the question has been read out. */
+  readAloud?: boolean;
 }
 
 const MIN_SPEED = 60;
@@ -106,6 +130,12 @@ const MPH_PER_PX = 0.55;
 const RAMP_UP = 220;
 const RAMP_DOWN = 260;
 const GATE_HOLD = 50;
+/** Where the car pulls up to wait: this far before the gate row (the signs are mid-screen). */
+export const HOLD_GAP = 56;
+/** Distance from the question appearing to the gate row. */
+export const APPROACH = 640;
+/** Seconds sitting still in a lane at the hold line, after steering there by hand, to count as an answer. */
+export const SETTLE = 1.5;
 const ROAD_HALF = 56;
 const MAX_LIVES = 5;
 
@@ -113,9 +143,14 @@ const smooth = (t: number) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 
 export class PursuitSim {
   readonly early: boolean;
+  readonly gradeN: number;
   private r: () => number;
   private nextQ: (ctx: DriveCtx) => CPQuestion;
   god: boolean;
+  timing: Timing;
+  readAloud: boolean;
+  /** Set by the page while the browser is still speaking (holds the countdown, like voiceWait). */
+  voiceBusy = false;
 
   phase: Phase = "drive";
   time = 0;
@@ -164,9 +199,12 @@ export class PursuitSim {
 
   constructor(opts: SimOptions) {
     this.early = opts.gradeN <= 2;
+    this.gradeN = opts.gradeN;
     this.r = opts.rand ?? Math.random;
     this.nextQ = opts.nextQuestion;
     this.god = !!opts.god;
+    this.timing = opts.timing ?? "relaxed";
+    this.readAloud = !!opts.readAloud;
     this.cp = this.schedule(1);
   }
 
@@ -179,7 +217,10 @@ export class PursuitSim {
 
   private schedule(n: number): Checkpoint {
     const announceWy = this.dist + this.driveLen;
-    return { n, announceWy, rampStart: announceWy + 175, gateWy: Infinity, q: null, lock: null, picked: null, correct: null };
+    return {
+      n, announceWy, rampStart: announceWy + 175, gateWy: Infinity, q: null, lock: null, picked: null, correct: null,
+      timeTotal: Infinity, timeLeft: Infinity, voiceWait: 0, released: false, steered: false, settle: 0, upHeld: false,
+    };
   }
 
   /** 0 = normal road, 1 = fully widened 4-lane checkpoint. */
@@ -225,6 +266,28 @@ export class PursuitSim {
 
   get stage(): number {
     return Math.floor(this.cleared / 2) + 1;
+  }
+
+  /** World position of the hold line where the car waits for an answer. */
+  get holdWy(): number {
+    return this.cp.gateWy - HOLD_GAP;
+  }
+
+  /** The car is stopped at the hold line, waiting for an answer. */
+  get waiting(): boolean {
+    return this.phase === "approach" && !this.cp.released && this.dist >= this.holdWy - 0.5;
+  }
+
+  /** The countdown is running (NORMAL / SPEEDY, after any read-aloud). */
+  get clockRunning(): boolean {
+    const c = this.cp;
+    return this.phase === "approach" && !c.released && Number.isFinite(c.timeTotal) && c.voiceWait <= 0 && !this.voiceBusy;
+  }
+
+  /** Read-aloud of the question started again (R or the speaker button): the countdown waits for it. */
+  holdForVoice() {
+    const c = this.cp;
+    if (this.phase === "approach" && c.q && !c.released) c.voiceWait = Math.max(c.voiceWait, speechSeconds(c.q));
   }
 
   /* ------------------------------------------------------------ player actions */
@@ -297,7 +360,7 @@ export class PursuitSim {
       if (this.fuel <= 0) target = Math.min(target, MIN_SPEED);
       if (this.turbo > 0) target += 60;
     } else if (this.phase === "approach") {
-      target = this.cp.lock !== null || inp.up ? 150 : this.early ? 60 : 70;
+      target = this.approachSpeed(dt);
     } else if (this.phase === "debrief") {
       target = 80;
     } else {
@@ -306,6 +369,11 @@ export class PursuitSim {
     const acc = this.phase === "crash" ? 260 : 150;
     this.speed += Math.max(-acc * dt, Math.min(acc * dt, target - this.speed));
     this.dist += this.speed * dt;
+    if (this.phase === "approach" && !this.cp.released && this.dist > this.holdWy) {
+      // The road stops just before the gates: wait here for an answer.
+      this.dist = this.holdWy;
+      this.speed = 0;
+    }
     if (driving) {
       this.scoreAcc += this.speed * dt;
       while (this.scoreAcc >= 10) {
@@ -323,14 +391,19 @@ export class PursuitSim {
         const keys = (inp.right ? 1 : 0) - (inp.left ? 1 : 0);
         // Steering by hand cancels a locked-in lane.
         if (keys !== 0 && this.phase === "approach" && this.cp.lock !== null) this.cp.lock = null;
+        const x0 = this.x;
+        let hand = false;
         if (this.phase === "approach" && this.cp.lock !== null) {
           const tx = laneCenter(this.cp.lock);
           this.x += Math.max(-150 * dt, Math.min(150 * dt, tx - this.x));
         } else if (keys !== 0) {
           this.x += keys * steer * dt;
+          hand = true;
         } else if (inp.targetX !== null) {
           this.x += Math.max(-steer * dt, Math.min(steer * dt, inp.targetX - this.x));
+          hand = Math.abs(this.x - x0) > 0.01;
         }
+        if (this.phase === "approach") this.steerAnswer(hand, dt);
       }
       this.x = Math.max(6, Math.min(W - 6, this.x));
     }
@@ -604,15 +677,55 @@ export class PursuitSim {
     this.cp.rampStart = this.cp.announceWy + 175;
   }
 
+  /** Gentle cruise to the hold line and a stop there; full speed once released. */
+  private approachSpeed(dt: number): number {
+    const c = this.cp;
+    const inp = this.input;
+    if (!inp.up) c.upHeld = false;
+    else if (!c.upHeld && !c.released) c.released = true; // a fresh ▲: rush the gate in this lane
+    if (!c.released && c.lock !== null && Math.abs(this.x - laneCenter(c.lock)) < LANE_W / 2 - 6) c.released = true;
+    if (this.clockRunning) {
+      c.timeLeft = Math.max(0, c.timeLeft - dt);
+      if (c.timeLeft <= 0) c.released = true; // NORMAL / SPEEDY only: drive through in this lane
+    } else if (c.voiceWait > 0) {
+      c.voiceWait = Math.max(0, c.voiceWait - dt);
+    }
+    if (c.released) return 150;
+    const cruise = this.early ? 55 : 65;
+    const left = Math.max(0, this.holdWy - this.dist);
+    // Ease to a stop at the hold line (the gates and lanes in full view) and wait there.
+    return Math.min(cruise, Math.sqrt(2 * 70 * left));
+  }
+
+  /** Steering into a lane answers: let go in a lane at the hold line for SETTLE seconds. */
+  private steerAnswer(hand: boolean, dt: number) {
+    const c = this.cp;
+    if (hand || this.input.left || this.input.right) {
+      c.steered = true;
+      c.settle = 0;
+      return;
+    }
+    if (!c.steered || c.released || c.lock !== null || !this.waiting) {
+      c.settle = 0;
+      return;
+    }
+    c.settle += dt;
+    if (c.settle >= SETTLE) c.released = true;
+  }
+
   private announce() {
     const q = this.nextQ({ mph: this.mph, fuelPct: this.fuel });
     const cp = this.cp;
     cp.q = q;
-    const longest = Math.max(...q.choices.map((c) => c.length));
-    const read = Math.min(16, Math.max(7, 4 + q.prompt.length / 9 + longest / 4)) + (this.early ? 5 : 0);
-    const cruise = this.early ? 60 : 70;
     cp.rampStart = this.dist + 175;
-    cp.gateWy = this.dist + Math.max(640, cruise * read);
+    cp.gateWy = this.dist + APPROACH;
+    cp.timeTotal = answerSeconds(q, this.gradeN, this.timing);
+    cp.timeLeft = cp.timeTotal;
+    cp.voiceWait = this.readAloud ? speechSeconds(q) : 0;
+    cp.released = false;
+    cp.steered = false;
+    cp.settle = 0;
+    cp.upHeld = this.input.up;
     this.cruiseMph = q.meta.kind === "drt" ? q.meta.speed : this.mph;
     this.phase = "approach";
     // The gang scatters when a code checkpoint comes up: the approach is hazard-free.
