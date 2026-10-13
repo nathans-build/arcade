@@ -11,6 +11,13 @@
  * 3. Grade 8 typing "The Cafeteria Talent Show" with a pronoun-case hint.
  * 4. Write your own (grade 5): insert blanks with buttons, save, play it, and find it again after a reload.
  * 5. 390px and 360px phones: no sideways scroll on any screen, the word box stays on screen.
+ * 6. Story length, grade 1: the K-2 picker offers All/Short/Medium (no Long); Medium shows only Medium stories
+ *    and is remembered after a reload; a Medium story is filled with picture cards ("BLANK 1 OF 12").
+ * 7. Story length, grade 7: Long is chosen and remembered; a Long story is typed all the way to the reveal
+ *    (progress "BLANK n OF N", "Change my last word" goes back one); the reveal scrolls inside the story box;
+ *    "Save as picture" makes a PNG tall enough for the whole story; the saved Long choice falls back to All on
+ *    the K-2 tab; 9-12 Short shows its own Short story (no borrowing).
+ * 8. A Long story on a 390px phone: no sideways scroll while picking, filling or reading it.
  * Fails on any console error, page error or request that leaves this machine.
  */
 const path = require("path");
@@ -387,6 +394,157 @@ async function phone(browser, width, grade) {
   await ctx.close();
 }
 
+
+/** Reads width and height from a PNG file's header. */
+function pngSize(buf) {
+  return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+}
+
+async function lengthChips(page) {
+  return page.locator(".ss-len").evaluateAll((els) => els.map((e) => `${e.getAttribute("data-length")}${e.getAttribute("aria-checked") === "true" ? "*" : ""}`).join(","));
+}
+
+async function grade1Medium(browser) {
+  const where = "grade 1 medium";
+  const { ctx, page, errors } = await newPage(browser);
+  await page.goto(`${BASE}?grade=1&debug`);
+  await page.locator(".ss-btn", { hasText: "Pick a story" }).click();
+  let chips = await lengthChips(page);
+  if (chips !== "all*,short,medium") note(where, `K-2 length chips “${chips}” (want All/Short/Medium, All on)`);
+  await page.locator('.ss-len[data-length="medium"]').click();
+  const lens = await page.locator(".ss-story").evaluateAll((els) => els.map((e) => e.getAttribute("data-length")));
+  if (lens.length < 2 || lens.some((l) => l !== "medium")) note(where, `Medium filter shows ${lens.join(",")}`);
+  const saved = await page.evaluate(() => localStorage.getItem("arcade.silly-story.length.v1"));
+  if (saved !== "medium") note(where, `length not saved (got ${saved})`);
+  await page.reload();
+  await page.locator(".ss-btn", { hasText: "Pick a story" }).click();
+  chips = await lengthChips(page);
+  if (chips !== "all,short,medium*") note(where, `Medium not remembered after reload (${chips})`);
+  await page.locator('.ss-story[data-story="bubble-bath"]').click();
+  await page.waitForSelector(".ss-fill");
+  const prog = await page.locator(".ss-progress").innerText();
+  if (!/BLANK 1 OF 12/.test(prog)) note(where, `progress reads “${prog}”`);
+  const n = await fillWithCards(page, where, { wrongFirst: true });
+  await page.waitForSelector(".ss-reveal");
+  const st = await state(page);
+  if (st.words.length !== 12 || n !== 12) note(where, `filled ${st.words.length} words in ${n} picks`);
+  if ((await page.locator(".ss-storytext mark").count()) !== 12) note(where, "not every word highlighted");
+  const scene = await page.evaluate(() => window.__ssScene);
+  if (scene.bg !== "bathroom" || !scene.actors.some((a) => a.sprite.id === "rubberduck")) note(where, "bubble bath scene missing its duck");
+  await page.waitForTimeout(1200);
+  if (errors.length) note(where, `errors: ${errors.join(" ; ")}`);
+  await ctx.close();
+}
+
+async function grade7Long(browser) {
+  const where = "grade 7 long";
+  const { ctx, page, errors } = await newPage(browser);
+  await page.goto(`${BASE}?grade=7&debug`);
+  await page.locator(".ss-btn", { hasText: "Pick a story" }).click();
+  if ((await lengthChips(page)) !== "all*,short,medium,long") note(where, `6-8 chips “${await lengthChips(page)}”`);
+  await page.locator('.ss-len[data-length="long"]').click();
+  const ids = await page.locator(".ss-story").evaluateAll((els) => els.map((e) => `${e.getAttribute("data-story")}:${e.getAttribute("data-length")}`));
+  if (ids.length < 2 || ids.some((x) => !x.endsWith(":long"))) note(where, `Long filter shows ${ids.join(",")}`);
+  await page.locator('.ss-story[data-story="robot-referee"]').click();
+  await page.waitForSelector(".ss-fill");
+  const total = (await state(page)).play.parsed.blanks.length;
+  if (total < 15 || total > 22) note(where, `Long story has ${total} blanks`);
+  if (await page.locator(".ss-cardbtn").count()) note(where, "grade 7 should type, not tap cards");
+  let undone = false;
+  let sawProgress = false;
+  for (let guard = 0; guard < 40; guard++) {
+    if (!(await page.locator(".ss-fill").count())) break;
+    const i = Number(await page.locator(".ss-progress").getAttribute("aria-valuenow")) - 1;
+    const prog = await page.locator(".ss-progress").innerText();
+    if (!prog.includes(`BLANK ${i + 1} OF ${total}`)) note(where, `progress “${prog}” at blank ${i + 1}`);
+    if (i === 6) sawProgress = true;
+    if (!(await page.locator(".ss-progress .bar").count())) note(where, "long story should show a progress bar");
+    const t = await blankType(page);
+    const input = page.locator(".ss-input");
+    if (i === 3 && !undone) {
+      // Type a word, then change it.
+      await input.fill("oops");
+      await input.press("Enter");
+      await page.waitForTimeout(120);
+      if (await page.locator(".ss-coach").count()) await page.locator(".ss-btn", { hasText: "Keep it anyway" }).click();
+      await page.waitForTimeout(80);
+      await page.locator(".ss-undo").click();
+      await page.waitForTimeout(80);
+      if (!(await page.locator(".ss-progress").innerText()).includes(`BLANK 4 OF ${total}`)) note(where, "Change my last word didn't go back one blank");
+      undone = true;
+      continue;
+    }
+    await input.fill(GOOD[t]);
+    await input.press("Enter");
+    await page.waitForTimeout(90);
+    if (await page.locator(".ss-coach").count()) {
+      note(where, `unexpected hint for ${t}`);
+      await page.locator(".ss-btn", { hasText: "Keep it anyway" }).click();
+    }
+  }
+  await page.waitForSelector(".ss-reveal");
+  if (!sawProgress) note(where, "never reached blank 7");
+  const st = await state(page);
+  if (st.words.length !== total || st.words.includes("oops")) note(where, `reveal has ${st.words.length}/${total} words (${st.words.join(",")})`);
+  if ((await page.locator(".ss-storytext mark").count()) !== total) note(where, "not every word highlighted");
+  const box = await page.locator(".ss-storytext").evaluate((el) => ({ long: el.classList.contains("long"), sh: el.scrollHeight, ch: el.clientHeight, ov: getComputedStyle(el).overflowY }));
+  if (!box.long || box.ov !== "auto") note(where, `story box isn't a scrolling panel ${JSON.stringify(box)}`);
+  await page.setViewportSize({ width: 1280, height: 600 });
+  await page.waitForTimeout(100);
+  const box2 = await page.locator(".ss-storytext").evaluate((el) => ({ sh: el.scrollHeight, ch: el.clientHeight }));
+  if (!(box2.sh > box2.ch)) note(where, `long story should scroll inside its box (${box2.sh} vs ${box2.ch})`);
+  await page.locator(".ss-storytext").evaluate((el) => el.scrollTo(0, el.scrollHeight));
+  if (!(await noSideways(page))) note(where, "sideways scroll on reveal");
+  const read = page.locator(".ss-btn", { hasText: "Read it to me" });
+  await read.click();
+  const said = await spoken(page);
+  if (!said.includes("Robot Referee") || !said.includes("Wombats won")) note(where, "Read it to me didn't read the whole long story");
+  const [dl] = await Promise.all([page.waitForEvent("download", { timeout: 10000 }), page.locator(".ss-btn", { hasText: "Save as picture" }).click()]);
+  const buf = fs.readFileSync(await dl.path());
+  const size = buf.slice(1, 4).toString() === "PNG" ? pngSize(buf) : null;
+  if (!dl.suggestedFilename().endsWith(".png") || !size) note(where, `bad picture download ${dl.suggestedFilename()}`);
+  const comic = await page.evaluate(() => window.__ssComic);
+  if (!comic || !size || comic.height !== size.height || size.width !== 688) note(where, `picture size mismatch ${JSON.stringify({ comic, size })}`);
+  // Taller than a short story's picture, a smaller font, and room below the text for every line.
+  else if (comic.fontPx >= 26 || comic.lines < 14 || size.height < comic.textTop + comic.lines * comic.lineH + 24) note(where, `long-story picture doesn't fit its text ${JSON.stringify(comic)}`);
+  // The choice is remembered; the K-2 tab falls back to All; 9-12 Short borrows 6-8 Short stories.
+  await page.goto(`${BASE}?grade=7&debug`);
+  await page.locator(".ss-btn", { hasText: "Pick a story" }).click();
+  if ((await lengthChips(page)) !== "all,short,medium,long*") note(where, `Long not remembered (${await lengthChips(page)})`);
+  await page.locator(".ss-tab", { hasText: "K–2" }).click();
+  if ((await lengthChips(page)) !== "all*,short,medium") note(where, `K-2 tab should fall back to All (${await lengthChips(page)})`);
+  await page.locator(".ss-tab", { hasText: "9–12" }).click();
+  if ((await lengthChips(page)) !== "all,short,medium,long*") note(where, "9-12 tab should use the saved Long");
+  await page.locator('.ss-len[data-length="short"]').click();
+  if (await page.locator(".ss-borrow").count()) note(where, "9-12 Short should have its own story, not borrow");
+  const shorts = await page.locator(".ss-story").evaluateAll((els) => els.map((e) => `${e.getAttribute("data-story")}:${e.getAttribute("data-length")}`));
+  if (shorts.join(",") !== "pet-rock-audition:short") note(where, `9-12 Short list ${shorts.join(",")}`);
+  const savedNow = await page.evaluate(() => localStorage.getItem("arcade.silly-story.length.v1"));
+  if (savedNow !== "short") note(where, "length choice not saved");
+  if (errors.length) note(where, `errors: ${errors.join(" ; ")}`);
+  await ctx.close();
+}
+
+async function phoneLong(browser) {
+  const where = "390px phone long story";
+  const { ctx, page, errors } = await newPage(browser, { viewport: { width: 390, height: 760 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+  await page.goto(`${BASE}?grade=10&debug`);
+  await page.locator(".ss-btn", { hasText: "Pick a story" }).tap();
+  await page.locator('.ss-len[data-length="long"]').tap();
+  if (!(await noSideways(page))) note(where, "sideways scroll on the story list");
+  await page.locator('.ss-story[data-story="lighthouse-week"]').tap();
+  await page.waitForSelector(".ss-fill");
+  if (!(await noSideways(page))) note(where, "sideways scroll while filling");
+  await fillTyped(page, where, (t) => GOOD[t]);
+  await page.waitForSelector(".ss-reveal");
+  await page.waitForTimeout(800);
+  if (!(await noSideways(page))) note(where, "sideways scroll on the reveal");
+  const box = await page.locator(".ss-storytext").evaluate((el) => ({ sh: el.scrollHeight, ch: el.clientHeight, w: el.getBoundingClientRect().right }));
+  if (!(box.sh > box.ch) || box.w > 390) note(where, `story box ${JSON.stringify(box)}`);
+  if (errors.length) note(where, `errors: ${errors.join(" ; ")}`);
+  await ctx.close();
+}
+
 (async () => {
   if (!fs.existsSync(path.join(DIST, "index.html"))) throw new Error("Run npm run build first.");
   const server = await serve();
@@ -400,6 +558,9 @@ async function phone(browser, width, grade) {
     await phone(browser, 390, "6");
     await phone(browser, 360, "4");
     await phone(browser, 360, "10");
+    await grade1Medium(browser);
+    await grade7Long(browser);
+    await phoneLong(browser);
   } catch (e) {
     problems.push(`crashed: ${e && e.stack ? e.stack : e}`);
   } finally {

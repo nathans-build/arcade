@@ -2,9 +2,12 @@
  * Checks Silly Story Studio's stories, word cards, pictures, grammar coach and safety filter:
  *   npm test   (tsx scripts/check-rules.ts)
  *
- * Stories    every built-in story parses, has 6-12 valid blanks, a grade band, a background, uses only
- *            blank types for its band, has no rude words, fills cleanly (articles, capitals) and puts
- *            at least two characters in its picture.
+ * Stories    all 27 built-in stories parse, have valid blanks, a grade band, a background, use only
+ *            blank types for their band, have no rude words, fill cleanly (articles, capitals) and put
+ *            at least two characters in their picture.
+ * Lengths    every story's blank count matches its Short/Medium/Long tag within its band's limits; each
+ *            band has the Short/Medium/Long stories it needs; the length filter, the saved choice and its
+ *            fallback; the saved comic picture fits a long story's text.
  * Cards      every card word's part of speech (from the built-in dictionary) matches its category;
  *            dealt hands have three cards that fit and at most one that doesn't (and that one really
  *            is a different part of speech).
@@ -31,6 +34,10 @@ import {
 import { bandOf, promptFor, standardFor } from "../src/story/prompts";
 import { cleanText, cleanWord, ENCODED, isRude, rot13, sanitizeInput, SWAP_WORD } from "../src/story/safety";
 import { STORIES } from "../src/story/stories";
+import {
+  BAND_LENGTHS, effectiveLength, fitsLength, LENGTH_KEY, LENGTHS, lengthOfCount, lengthsFor, MAX_STORY_BLANKS, pickStories,
+} from "../src/story/length";
+import { layoutComic } from "../src/art/comic";
 import { fill, filledText, linkCast, parseTemplate } from "../src/story/template";
 import { BANDS, BLANK_TYPES, type Band, type BlankType } from "../src/story/types";
 import { SIMILES, VOCAB } from "../src/story/vocab";
@@ -62,7 +69,7 @@ const SAMPLE: Record<BlankType, string> = {
   superlative: "silliest", sound: "boing", simile: "like a rocket", vocab: "",
 };
 
-check(STORIES.length >= 12, () => `need at least 12 stories, have ${STORIES.length}`);
+eq(STORIES.length, 27, "27 built-in stories (16 original + 11 new)");
 eq(new Set(STORIES.map((s) => s.id)).size, STORIES.length, "story ids unique");
 for (const b of BANDS) check(STORIES.filter((s) => s.band === b).length >= 3, () => `band ${b} needs at least 3 stories`);
 
@@ -70,7 +77,12 @@ for (const s of STORIES) {
   const p = parseTemplate(s.template);
   const where = `story ${s.id}`;
   check(p.errors.length === 0, () => `${where} parse errors: ${p.errors.join("; ")}`);
-  check(p.blanks.length >= 6 && p.blanks.length <= 12, () => `${where} has ${p.blanks.length} blanks (6-12)`);
+  check((LENGTHS as string[]).includes(s.length), () => `${where} has no length tag`);
+  check(fitsLength(s.band, s.length, p.blanks.length), () => `${where} has ${p.blanks.length} blanks, which doesn't fit ${s.length} for ${s.band} (${JSON.stringify(BAND_LENGTHS[s.band][s.length])})`);
+  eq(lengthOfCount(p.blanks.length), s.length, `${where} length tag matches its blank count`);
+  check(p.blanks.length <= MAX_STORY_BLANKS, () => `${where} has more than ${MAX_STORY_BLANKS} blanks`);
+  check(parseTemplate(s.template, { maxBlanks: MAX_STORY_BLANKS }).errors.length === 0, () => `${where} doesn't parse with the built-in blank limit`);
+  if (s.length === "long") check((s.template.match(/\n\n/g) ?? []).length >= 2, () => `${where} is Long but isn't split into paragraphs`);
   check((BANDS as string[]).includes(s.band), () => `${where} band ${s.band}`);
   check(BGS.some((b) => b.id === s.bg), () => `${where} unknown background ${s.bg}`);
   check(s.title.length > 0 && s.blurb.length > 0, () => `${where} needs a title and blurb`);
@@ -123,6 +135,130 @@ for (const s of STORIES) {
         check(msg.length > 20 && !/undefined/.test(msg), () => `${where} wrong-card message: ${msg}`);
       }
     }
+  }
+}
+
+/* ------------------------------------------------------------------ story lengths */
+
+{
+  // What each band offers.
+  eq(lengthsFor("K-2").join(","), "short,medium", "K-2 offers Short + Medium");
+  for (const b of ["3-5", "6-8", "9-12"] as Band[]) eq(lengthsFor(b).join(","), "short,medium,long", `${b} offers all three lengths`);
+  check((BAND_LENGTHS["K-2"].medium ?? [0, 99])[1] <= 12, () => "K-2 Medium is at most 12 blanks");
+  check((BAND_LENGTHS["3-5"].long ?? [0, 99])[1] <= 16, () => "3-5 Long is at most about 16 blanks");
+  eq((BAND_LENGTHS["6-8"].long ?? [0, 0])[1], 22, "6-8 Long goes up to 22 blanks");
+  eq((BAND_LENGTHS["9-12"].long ?? [0, 0])[1], 22, "9-12 Long goes up to 22 blanks");
+  // Each band has the stories it needs.
+  const count = (b: Band, l: string) => STORIES.filter((s) => s.band === b && s.length === l).length;
+  check(count("K-2", "short") >= 2, () => "K-2 needs at least 2 Short stories");
+  check(count("K-2", "medium") >= 2, () => "K-2 needs at least 2 Medium stories");
+  eq(count("K-2", "long"), 0, "no Long stories for K-2");
+  for (const b of ["3-5", "6-8", "9-12"] as Band[]) {
+    check(count(b, "long") >= 2, () => `${b} needs at least 2 Long stories (has ${count(b, "long")})`);
+    check(count(b, "medium") >= 2, () => `${b} needs at least 2 Medium stories`);
+  }
+  // Every band has a native story of every length it offers (borrowing is only a fallback).
+  for (const b of BANDS) for (const l of lengthsFor(b)) check(count(b, l) >= 1, () => `${b} needs its own ${l} story`);
+  check(count("9-12", "short") >= 1, () => "9-12 needs a native Short story");
+  // The 10 new stories: spread across the bands, mostly Medium/Long.
+  const NEW = ["bubble-bath", "camping-stars", "talking-lunchbox", "pirate-picnic", "museum-sleepover", "overdue-book", "time-machine", "robot-referee", "food-truck-rivalry", "lighthouse-week", "pet-rock-audition"];
+  const fresh = STORIES.filter((s) => NEW.includes(s.id));
+  eq(fresh.length, 11, "all 11 new stories are in");
+  check(fresh.filter((s) => s.length !== "short").length >= 7, () => "most new stories are Medium or Long");
+  for (const b of BANDS) check(fresh.some((s) => s.band === b), () => `a new story for ${b}`);
+  // Long 6-12 stories use the band's grammar: 6-8 pronouns/prepositions/comparatives, 9-12 precise words & similes.
+  for (const s of fresh.filter((x) => x.band === "6-8" && x.length === "long")) {
+    const types = new Set(parseTemplate(s.template).blanks.map((b) => b.type));
+    for (const t of ["pronoun-subject", "pronoun-object", "preposition", "comparative", "superlative"] as BlankType[]) check(types.has(t), () => `${s.id} should practice ${t}`);
+  }
+  for (const s of fresh.filter((x) => x.band === "9-12" && x.length === "short")) {
+    const bl = parseTemplate(s.template).blanks;
+    check(bl.some((b) => b.type === "vocab" || b.type === "simile"), () => `${s.id} should have a precise-word or simile blank`);
+  }
+  for (const s of fresh.filter((x) => x.band === "9-12" && x.length === "long")) {
+    const bl = parseTemplate(s.template).blanks;
+    check(bl.filter((b) => b.type === "vocab").length >= 5, () => `${s.id} should have 5+ precise-word (connotation) blanks`);
+    check(bl.filter((b) => b.type === "simile").length >= 2, () => `${s.id} should have 2+ simile blanks`);
+  }
+  // Card words for the new stories' blanks are the right part of speech (the deal gives 3 that fit, checked above,
+  // and each fitting card's word really is that part of speech in the dictionary).
+  for (const s of fresh) {
+    for (const b of parseTemplate(s.template).blanks) {
+      for (let seed = 1; seed <= 4; seed++) {
+        for (const c of dealCards(b, rngFrom(seed * 97 + b.index)).filter((x) => cardFits(x, b))) {
+          const tags = classify(c.word);
+          const ok =
+            b.type === "vocab" ? fits(tags, VOCAB[b.hint!].pos) && VOCAB[b.hint!].words.includes(c.word) :
+            b.type === "simile" ? /^(like|as) /.test(c.word) && (!b.hint || SIMILES[b.hint].examples.includes(c.word)) :
+            b.type === "noun" && c.cat === "plural-noun" ? tags.has("plural") || tags.has("noun") :
+            fits(tags, b.type) || tags.has(CAT_TAG[c.cat]!);
+          check(ok, () => `${s.id} ${b.id} (${b.type}) card “${c.word}” is the wrong part of speech`);
+          if ((b.type === "noun" || b.type === "plural-noun") && b.hint && b.hint !== "place" && b.hint !== "person") {
+            const pic = c.pic.kind === "sprite" ? spriteById(c.pic.sprite) : undefined;
+            check(!!pic && (pic.kind === "food") === (b.hint === "food"), () => `${s.id} ${b.id} noun card “${c.word}” has no matching picture`);
+          }
+        }
+      }
+    }
+  }
+  // The filter: "all" is the band's stories; a length shows only that length; empty bands borrow the nearest band.
+  for (const b of BANDS) {
+    eq(pickStories(STORIES, b, "all").list.length, STORIES.filter((s) => s.band === b).length, `${b} All shows every story`);
+    for (const l of lengthsFor(b)) {
+      const r = pickStories(STORIES, b, l);
+      check(r.list.length > 0 && r.list.every((s) => s.length === l), () => `${b} ${l} filter`);
+      if (!r.from) check(r.list.every((s) => s.band === b), () => `${b} ${l} stays in its band`);
+    }
+  }
+  eq(pickStories(STORIES, "K-2", "medium").list.map((s) => s.id).join(","), "bubble-bath,camping-stars", "K-2 Medium filter");
+  eq(pickStories(STORIES, "6-8", "long").list.map((s) => s.id).join(","), "time-machine,robot-referee", "6-8 Long filter");
+  for (const b of BANDS) for (const l of lengthsFor(b)) eq(pickStories(STORIES, b, l).from, undefined, `${b} ${l} needs no borrowing`);
+  eq(pickStories(STORIES, "9-12", "short").list.map((s) => s.id).join(","), "pet-rock-audition", "9-12 Short filter");
+  // Fallback only: with a band's Short stories removed, the nearest band's fill in.
+  const without = STORIES.filter((s) => !(s.band === "9-12" && s.length === "short"));
+  const borrowed = pickStories(without, "9-12", "short");
+  eq(borrowed.from, "6-8", "fallback: 9-12 Short borrows the nearest band's Short stories");
+  check(borrowed.list.length > 0 && borrowed.list.every((s) => s.band === "6-8" && s.length === "short"), () => "borrowed list is 6-8 Short");
+  eq(pickStories(STORIES.filter((s) => s.band !== "3-5"), "3-5", "long").from, "6-8", "fallback skips K-2 (no Long) and bands without that length");
+  // The saved length and its fallback.
+  check(LENGTH_KEY.startsWith("arcade.silly-story."), () => "length is saved per player under arcade.silly-story.");
+  eq(effectiveLength("long", "6-8"), "long", "saved Long is used at 6-8");
+  eq(effectiveLength("long", "K-2"), "all", "saved Long falls back to All for K-2");
+  eq(effectiveLength("medium", "K-2"), "medium", "saved Medium is used at K-2");
+  eq(effectiveLength("short", "9-12"), "short", "saved Short is used at 9-12");
+  eq(effectiveLength("all", "3-5"), "all", "saved All");
+  for (const junk of [null, undefined, "", "huge", "LONG", 42, "{}"]) eq(effectiveLength(junk, "3-5"), "all", `junk saved length ${JSON.stringify(junk)} falls back to All`);
+  eq(lengthOfCount(9), "short", "9 blanks is Short");
+  eq(lengthOfCount(10), "medium", "10 blanks is Medium");
+  eq(lengthOfCount(15), "long", "15 blanks is Long");
+  check(!fitsLength("K-2", "long", 16), () => "K-2 can't have Long");
+  check(!fitsLength("3-5", "long", 18), () => "3-5 Long stops at 16");
+  check(fitsLength("9-12", "long", 22) && !fitsLength("9-12", "long", 23), () => "9-12 Long up to 22");
+  check(parseTemplate("[noun] ".repeat(22), { maxBlanks: MAX_STORY_BLANKS }).errors.length === 0, () => "22 blanks allowed for built-in stories");
+}
+
+/* ------------------------------------------------------------------ the saved comic fits long stories */
+
+{
+  // VT323 is about half as wide as it is tall; estimate widths the way a canvas would.
+  const measure = (text: string, px: number) => text.length * px * 0.5;
+  const textW = (line: { text: string }[], px: number) => line.reduce((w, r) => w + measure(r.text, px), 0);
+  for (const s of STORIES) {
+    const p = parseTemplate(s.template);
+    const words = p.blanks.map((b) => (b.type === "vocab" ? VOCAB[b.hint!].words[0] : b.type === "simile" ? "like a cheetah on skates" : "supercalifragilistic"));
+    const pieces = fill(p, words);
+    const L = layoutComic(pieces, s.title, measure);
+    const where = `comic for ${s.id}`;
+    for (const line of L.lines) check(textW(line, L.fontPx) <= 640 + 0.5, () => `${where} has a line wider than the picture`);
+    const drawn = L.lines.flat().map((r) => r.text).join("").replace(/\s+/g, "");
+    eq(drawn, pieces.map((x) => x.text).join("").replace(/\s+/g, ""), `${where} draws every word`);
+    eq(L.height, L.textTop + L.lines.length * L.lineH + 24 + 40, `${where} is tall enough for every line`);
+    check(L.titleLines.join(" ").length >= Math.min(s.title.length, 30), () => `${where} title cut off`);
+    if (s.length === "long") {
+      check(L.fontPx < 26, () => `${where} should use a smaller font for a long story`);
+      check(L.lines.some((l) => l.length === 0), () => `${where} keeps paragraph gaps`);
+    }
+    if (s.length === "short") eq(L.fontPx, 26, `${where} keeps the big font for a short story`);
   }
 }
 
@@ -323,6 +459,9 @@ eq(sanitizeInput("it’s a-ok 42"), "it's a-ok 42", "input keeps letters, number
   eq(filledText(parseTemplate("I saw [number] [noun+s]."), ["three", "puppy"]), "I saw three puppies.", "+s pluralizes");
   eq(filledText(parseTemplate("I saw [number] [noun+s]."), ["one", "puppy"]), "I saw one puppy.", "+s stays singular after one");
   eq(filledText(parseTemplate("\"[sound]!\" said Bo."), ["boing"]), "\"Boing!\" said Bo.", "capital after a quote");
+  eq(filledText(parseTemplate("She gasped, \"[sound]!\" and ran."), ["kaboom"]), "She gasped, \"Kaboom!\" and ran.", "capital at the start of a quotation");
+  eq(filledText(parseTemplate("\"Fine,\" [pronoun-subject] said."), ["she"]), "\"Fine,\" she said.", "no capital after a closing quote");
+  eq(filledText(parseTemplate("One.\n\n[noun] two."), ["cat"]), "One.\n\nCat two.", "capital at a new paragraph");
   const pieces = fill(parseTemplate("The [adjective] cat."), ["fuzzy"]);
   eq(pieces.filter((x) => x.blank >= 0).map((x) => x.text).join(), "fuzzy", "fill marks the player's words");
   check(!/banana/.test(cleanText("A [noun] at the [adjective] zoo.")), () => "cleanText leaves blanks alone");

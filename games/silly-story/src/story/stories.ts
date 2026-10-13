@@ -1,5 +1,6 @@
 /*
- * The built-in stories: all original, silly and kid-safe. Four per grade band.
+ * The built-in stories: all original, silly and kid-safe. Each has a grade band and a length
+ * (Short / Medium / Long; the limits per band are in length.ts).
  * Template syntax is in template.ts. `cast` adds characters the story always has
  * (and links which blanks change them); every other noun blank joins the scene by itself.
  */
@@ -11,6 +12,7 @@ export const STORIES: Story[] = [
     id: "zoo-day",
     title: "A Day at the Zoo",
     band: "K-2",
+    length: "short",
     bg: "zoo",
     blurb: "Who lives in the cages today?",
     template:
@@ -23,6 +25,7 @@ export const STORIES: Story[] = [
     id: "robot-pet",
     title: "My Robot Pet",
     band: "K-2",
+    length: "short",
     bg: "bedroom",
     blurb: "Beep boop! Build a pet out of junk.",
     template:
@@ -35,6 +38,7 @@ export const STORIES: Story[] = [
     id: "pancake-contest",
     title: "The Royal Pancake Contest",
     band: "K-2",
+    length: "short",
     bg: "castle",
     blurb: "The king is very, very hungry.",
     template:
@@ -47,6 +51,7 @@ export const STORIES: Story[] = [
     id: "silly-farm",
     title: "The Bouncy Farm",
     band: "K-2",
+    length: "short",
     bg: "farm",
     blurb: "The animals on this farm are a little bit silly.",
     template:
@@ -61,6 +66,7 @@ export const STORIES: Story[] = [
     id: "space-lunch",
     title: "Space Lunch",
     band: "3-5",
+    length: "medium",
     bg: "space",
     blurb: "Lunch is hard when there's no gravity.",
     template:
@@ -75,6 +81,7 @@ export const STORIES: Story[] = [
     id: "volcano-trip",
     title: "Field Trip to the Volcano",
     band: "3-5",
+    length: "medium",
     bg: "volcano",
     blurb: "Whatever you do, don't feed the volcano.",
     template:
@@ -89,6 +96,7 @@ export const STORIES: Story[] = [
     id: "haunted-bakery",
     title: "The Haunted Bakery",
     band: "3-5",
+    length: "medium",
     bg: "bakery",
     blurb: "The ghost here only wants to bake.",
     template:
@@ -103,6 +111,7 @@ export const STORIES: Story[] = [
     id: "science-fair",
     title: "The Great Science Fair",
     band: "3-5",
+    length: "medium",
     bg: "lab",
     blurb: "An invention that turns one thing into another.",
     template:
@@ -118,6 +127,7 @@ export const STORIES: Story[] = [
     id: "talent-show",
     title: "The Cafeteria Talent Show",
     band: "6-8",
+    length: "medium",
     bg: "stage",
     blurb: "Juggling, singing and one very surprising pet.",
     template:
@@ -132,6 +142,7 @@ export const STORIES: Story[] = [
     id: "deep-sea-detective",
     title: "Deep-Sea Detective",
     band: "6-8",
+    length: "medium",
     bg: "ocean",
     blurb: "Someone stole the Giant Pearl!",
     template:
@@ -147,6 +158,7 @@ export const STORIES: Story[] = [
     id: "missing-mascot",
     title: "The Mystery of the Missing Mascot",
     band: "6-8",
+    length: "medium",
     bg: "school",
     blurb: "The pep rally starts in ten minutes. Where is Sir Hops-a-Lot?",
     template:
@@ -161,6 +173,7 @@ export const STORIES: Story[] = [
     id: "snow-day",
     title: "Snow Day Championship",
     band: "6-8",
+    length: "medium",
     bg: "snow",
     blurb: "School is closed. The sledding race is on.",
     template:
@@ -177,6 +190,7 @@ export const STORIES: Story[] = [
     id: "dragon-interview",
     title: "The Dragon's Job Interview",
     band: "9-12",
+    length: "medium",
     bg: "library",
     blurb: "A dragon applies to work at the Royal Library. What could go wrong?",
     template:
@@ -192,6 +206,7 @@ export const STORIES: Story[] = [
     id: "rainforest-trip",
     title: "The Rainforest Road Trip",
     band: "9-12",
+    length: "medium",
     bg: "jungle",
     blurb: "A family camper van, a muddy trail and something enormous in the trees.",
     template:
@@ -206,6 +221,7 @@ export const STORIES: Story[] = [
     id: "robot-prom",
     title: "The Robot Prom Committee",
     band: "9-12",
+    length: "medium",
     bg: "ballroom",
     blurb: "Planning a dance is hard when your circuits hate water.",
     template:
@@ -220,6 +236,7 @@ export const STORIES: Story[] = [
     id: "mars-election",
     title: "Election Day on Mars",
     band: "9-12",
+    length: "medium",
     bg: "mars",
     blurb: "The first class president of the Mars colony. Two candidates. One microphone.",
     template:
@@ -230,6 +247,209 @@ export const STORIES: Story[] = [
       "carrying [plural-noun@n3], and everyone [vocab:eat-fast@v4] them. The vote was a tie, so Nova and Rex became co-presidents, " +
       "[simile:team@m2].",
     cast: [{ sprite: "astronaut", verb: "v2" }, { sprite: "alien", verb: "v3", adj: ["a2"] }],
+  },
+
+  /* ================================================================ more stories, including longer ones
+   * Medium stories for K-2 (still picture cards), and Short/Long choices for the older bands.
+   * Long stories come in paragraphs ("\n\n").
+   */
+
+  /* ---------------------------------------------------------------- K-2 (Medium) */
+  {
+    id: "bubble-bath",
+    title: "The Bubble Bath Surprise",
+    band: "K-2",
+    length: "medium",
+    bg: "bathroom",
+    blurb: "Bath time gets very bubbly, very fast.",
+    template:
+      "It was bath time, and the tub was full of [color@a1] bubbles. I brought my rubber duck and {a} [adjective@a2] [noun:animal@n1] made of soap. " +
+      "When I squeezed the duck, it began to [verb@v1]! Then [number@c1] [noun:thing+s@n2] popped up out of the bubbles.\n\n" +
+      "\"Let's [verb@v2]!\" said the duck. We splashed so much that Mom came in holding {a} [noun:food@n3]. \"What is going on in here?\" she asked. " +
+      "The duck said, \"We are having {a} [adjective@a3] bath party!\" Mom laughed and began to [verb@v3] too. " +
+      "The bubbles turned [color@a4] and floated all the way to the [noun:place@n4].",
+    cast: [{ sprite: "rubberduck", verb: "v1" }],
+  },
+  {
+    id: "camping-stars",
+    title: "Camping Under the Stars",
+    band: "K-2",
+    length: "medium",
+    bg: "campsite",
+    blurb: "A tent, a campfire and a surprise visitor.",
+    template:
+      "Grandpa and I went camping in the woods. We set up {a} [color@a1] tent next to a big tree. " +
+      "For dinner we cooked [number@c1] [noun:food+s@n1] over the campfire. Yum!\n\n" +
+      "Then we heard a noise. Out of the bushes came {a} [adjective@a2] [noun:animal@n2]! It wanted to [verb@v1] with us. " +
+      "Grandpa gave it {a} [noun:food@n3], and it was very [adjective@a3]. We all sang songs and began to [verb@v2].\n\n" +
+      "When the moon came up, I saw {a} [noun:thing@n4] in the sky. Grandpa said, \"That is the [adjective@a4] star!\" " +
+      "I fell asleep and dreamed I could [verb@v3].",
+    cast: [{ sprite: "grandma", anim: "wave" }, { sprite: "tent", adj: ["a1"] }],
+  },
+
+  /* ---------------------------------------------------------------- 3-5 (Short, Long, Long) */
+  {
+    id: "talking-lunchbox",
+    title: "The Lunchbox That Talked",
+    band: "3-5",
+    length: "short",
+    bg: "school",
+    blurb: "A quick one: lunch has a lot to say today.",
+    template:
+      "When I opened my lunchbox, it said, \"Good morning!\" in {a} [adjective@a1] voice. Inside were [number@c1] [plural-noun:food@n1] " +
+      "and a note from my [noun:person@n2]. The lunchbox [verb-past@v1] [adverb@d1] across the table and asked to trade for {a} [noun@n3]. " +
+      "My friends started [verb-ing@v2]. Now my lunchbox sits with us every day, and it is the most [adjective@a2] member of our class.",
+    cast: [{ sprite: "backpack", adj: ["a1"], verb: "v1", adverb: "d1" }],
+  },
+  {
+    id: "pirate-picnic",
+    title: "The Pirate Picnic",
+    band: "3-5",
+    length: "long",
+    bg: "island",
+    blurb: "A long one: a picnic basket, a sneaky crab and a very odd treasure.",
+    template:
+      "Captain Pickles was the [adjective@a1] pirate on the seven seas. One sunny morning, she [verb-past@v1] onto Coconut Island " +
+      "with a picnic basket full of [plural-noun:food@n1]. Her parrot, Squawk, flew [adverb@d1] overhead.\n\n" +
+      "\"Arr! Let's eat!\" she shouted. But when she opened the basket, [number@c1] [color@a2] [plural-noun:animal@n2] jumped out " +
+      "and started [verb-ing@v2] on the sand. Then {a} [adjective@a3] crab [verb-past@v3] the last [noun:food@n3]!\n\n" +
+      "Captain Pickles was not angry. She dug up her treasure chest, but instead of gold it was full of [plural-noun@n4]. " +
+      "\"Even better,\" she said. The whole crew [verb-past@v4] until sunset, and the crab got to wear the captain's [noun:thing@n5]. " +
+      "It was the most [adjective@a4] picnic in pirate history.",
+    cast: [{ sprite: "pirate", adj: ["a1"], verb: "v1" }, { sprite: "bird", adverb: "d1", anim: "fly" }, { sprite: "crab", adj: ["a3"], verb: "v3" }],
+  },
+  {
+    id: "museum-sleepover",
+    title: "The Museum Sleepover",
+    band: "3-5",
+    length: "long",
+    bg: "museum",
+    blurb: "A long one: the dinosaur skeleton doesn't stay still at night.",
+    template:
+      "Our class got to sleep over at the Museum of Very Old Stuff. Mr. Fossil, the night guard, gave each of us {a} [adjective@a1] flashlight " +
+      "and [number@c1] [plural-noun:food@n1] for a snack. We rolled out our sleeping bags right under the giant dinosaur skeleton.\n\n" +
+      "At midnight, I heard {a} [adjective@a2] noise. The dinosaur [verb-past@v1] its tail and [verb-past@v2] [adverb@d1] down from its stand! " +
+      "It was looking for {a} [noun@n2] to play with. Behind it, the [color@a3] statue of {a} [noun:animal@n3] started [verb-ing@v3]. " +
+      "Then a suit of armor [verb-past@v5] across the hall.\n\n" +
+      "Everybody woke up. We taught the dinosaur how to [verb@v4], and it taught us how to roar. By morning, everything was back in place, " +
+      "except for one thing: the dinosaur was wearing my [noun:thing@n4], and it looked very [adjective@a4].",
+    cast: [{ sprite: "dinosaur", verb: "v2", adverb: "d1" }, { sprite: "knight", verb: "v5" }],
+  },
+
+  /* ---------------------------------------------------------------- 6-8 (Short, Long, Long) */
+  {
+    id: "overdue-book",
+    title: "The Overdue Library Book",
+    band: "6-8",
+    length: "short",
+    bg: "library",
+    blurb: "A quick one: this book is twenty-five years late.",
+    template:
+      "My library book was due back in 1999. Grandpa had hidden it [preposition@p1] the couch for twenty-five years. " +
+      "When I returned it, the librarian gasped, \"[sound@x1]!\" [pronoun-subject@r1] said the fine was [comparative@m1] than a mountain of " +
+      "[plural-noun@n1]. Then she laughed and said I could pay it by reading to the library's pet [noun:animal@n2] every Saturday. " +
+      "Now it is the [superlative@s1] reader in town, and it [verb-past@v1] through every book on the shelf.",
+    cast: [{ sprite: "teacher", anim: "laugh" }, { noun: "n2", adj: ["s1"], verb: "v1" }, { sprite: "book", anim: "float" }],
+  },
+  {
+    id: "time-machine",
+    title: "The Time Machine Project",
+    band: "6-8",
+    length: "long",
+    bg: "lab",
+    blurb: "A long one: a science fair, a dinosaur and the year 3000.",
+    template:
+      "For the science fair, my lab partner Dev and I built a time machine out of {a} [noun@n1], two hair dryers and [number@c1] [plural-noun@n2]. " +
+      "It was [comparative@m1] than a refrigerator and smelled like burnt toast. Ms. Ortiz, our science teacher, looked at it [adverb@d1]. " +
+      "[pronoun-subject@r1] asked, \"Does it work?\"\n\n" +
+      "Dev pressed the big [color@a1] button. [sound@x1]! Suddenly we were standing [preposition@p1] a giant fern in the age of the dinosaurs. " +
+      "{A} [adjective@a2] [noun:animal@n3] was [verb-ing@v1] next to a volcano, and it did not look friendly. " +
+      "\"Quick, hand [pronoun-object@r2] the remote!\" Dev yelled.\n\n" +
+      "I twisted the dial too far. Next we landed in the year 3000, where robots [verb-past@v2] in the streets and everyone ate " +
+      "[plural-noun@n4] for breakfast. One robot gave us the [superlative@s1] souvenir ever: {a} [adjective@a3] [noun@n5].\n\n" +
+      "We zoomed back just in time for judging. Our machine [verb-past@v3] once, sparked twice and fell apart. We got second place. " +
+      "First place went to a potato battery. Science is [adjective@a4].",
+    cast: [{ sprite: "robot", adj: ["m1"], verb: "v3" }, { sprite: "teacher", adverb: "d1", anim: "think" }, { sprite: "kid", anim: "jump" }],
+  },
+  {
+    id: "robot-referee",
+    title: "The Robot Referee",
+    band: "6-8",
+    length: "long",
+    bg: "stadium",
+    blurb: "A long one: the new soccer referee runs on batteries.",
+    template:
+      "The Wobbleton Wombats had not won a soccer game in [number@c1] years. This season, the league replaced the human referee with " +
+      "RefBot 5000, a robot that was [comparative@m1] than a vending machine and twice as loud.\n\n" +
+      "In the first minute, RefBot blew its whistle and shouted, \"[sound@x1]! Foul on the [noun:animal@n1]!\" Nobody knew what it meant. " +
+      "Then it gave a yellow card to {a} [noun@n2] that was just sitting [preposition@p1] the bench.\n\n" +
+      "Our goalie, Priya, was the [superlative@s1] player on the team. When the other team kicked the ball, [pronoun-subject@r1] " +
+      "[verb-past@v1] [adverb@d1] and caught it with one hand. The crowd [verb-past@v2]. Even our mascot, {a} [adjective@a1] " +
+      "[noun:animal@n3] in {a} [color@a2] costume, started [verb-ing@v3].\n\n" +
+      "With ten seconds left, RefBot's batteries ran low. It began to [verb@v4] in circles and called a penalty on the snack bar for selling " +
+      "[adjective@a3] [plural-noun@n4]. Our striker took the penalty kick, and the ball flew past the goalie and into the [noun:place@n5]. " +
+      "Goal! The Wombats won, and RefBot handed the trophy to [pronoun-object@r2], then gave everyone in the stands a free [noun:food@n6].",
+    cast: [{ sprite: "robot", adj: ["m1"], verb: "v4" }, { sprite: "kid", adj: ["s1"], verb: "v1", adverb: "d1" }, { sprite: "ball", anim: "jump" }],
+  },
+
+  /* ---------------------------------------------------------------- 9-12 (Long, Long) */
+  {
+    id: "food-truck-rivalry",
+    title: "The Food Truck Rivalry",
+    band: "9-12",
+    length: "long",
+    bg: "market",
+    blurb: "A long one: two food trucks, one parking spot and a terrible secret ingredient.",
+    template:
+      "On Maple Avenue, two food trucks parked side by side every Saturday. Abuela Rosa's Taco Wagon served [plural-noun@n1] so " +
+      "[vocab:tasty@a1] that people lined up around the block. Across the street, Chef Brock's Burger Blaster served burgers that were, " +
+      "honestly, [adjective@a2].\n\n" +
+      "Chef Brock was [vocab:confident-negative@a3]. \"My burgers are [comparative@m1] than anything on this street!\" he " +
+      "[vocab:shout@v1] through a megaphone. Abuela Rosa just [vocab:laugh@v2] and kept flipping tortillas, [simile:fast@m2].\n\n" +
+      "Then Brock tried a new secret ingredient: [plural-noun@n2]. {A} [vocab:smell-bad@n3] drifted down the block. A pigeon fainted. " +
+      "Customers [vocab:run-fast@v3] to the Taco Wagon, where Rosa handed out [number@c1] free [plural-noun:food@n4] while the line grew " +
+      "[simile:big@m3].\n\n" +
+      "By sunset, Brock was [vocab:angry-strong@a4], then [vocab:tired@a5], then just sad. Rosa walked over with a plate of her famous " +
+      "[noun:food@n5]. He [vocab:eat-fast@v4] it in four bites. \"Teach me,\" he [vocab:speak-quiet@v5]. Now the two trucks share one " +
+      "parking spot and one name: the Taco Blaster. Business is [adverb@d1] booming.",
+    cast: [{ sprite: "grandma", verb: "v2" }, { sprite: "chef", adj: ["a3"], verb: "v1" }, { sprite: "truck", anim: "bob" }],
+  },
+  {
+    id: "lighthouse-week",
+    title: "The Lighthouse Keeper's Week",
+    band: "9-12",
+    length: "long",
+    bg: "lighthouse",
+    blurb: "A long one: a quiet summer job that is not quiet at all.",
+    template:
+      "Marisol took the summer job at Gull Point Lighthouse because the ad promised \"peace, quiet and ocean views.\" The previous keeper, " +
+      "{a} [vocab:old-positive@a1] sailor named Captain Finch, handed her the keys and a list of rules. Rule one: never let the light go out. " +
+      "Rule two: never feed anything that knocks.\n\n" +
+      "On Monday, a fog rolled in [simile:quiet@m1]. Marisol climbed all [number@c1] steps and [vocab:walk-slow@v1] back down, " +
+      "[vocab:tired@a2]. On Tuesday, {a} [adjective@a3] [noun:animal@n2] knocked on the door, [verb-ing@v2] [adverb@d1] and demanding " +
+      "breakfast. Marisol felt sorry for it and gave it a bowl of [plural-noun@n3]. That was a mistake.\n\n" +
+      "By Wednesday there were [number@c2] of them, and they had invited their cousins, the [plural-noun@n4]. The guests " +
+      "[vocab:eat-fast@v3] everything in the pantry, including the [noun@n6].\n\n" +
+      "On Thursday, a storm hit. Waves crashed [simile:loud@m2] against the rocks, and the light flickered. Marisol [vocab:shout@v4] for help. " +
+      "To her surprise, the animals formed a line and passed buckets up the stairs, working together [simile:team@m3]. The light stayed on.\n\n" +
+      "When Captain Finch returned on Friday, he found the lighthouse spotless and Marisol [vocab:happy-strong@a4]. \"I see you broke rule two,\" " +
+      "he said, raising {a} [color@a5] eyebrow. \"Good. Rule two was a test.\"",
+    cast: [{ sprite: "zookeeper", adj: ["a4"], verb: "v4" }, { sprite: "pirate", adj: ["a1"], anim: "wave" }],
+  },
+  {
+    id: "pet-rock-audition",
+    title: "The Pet Rock's Big Audition",
+    band: "9-12",
+    length: "short",
+    bg: "stage",
+    blurb: "A quick one: a very old rock wants to be a star.",
+    template:
+      "My pet rock, Gerald, auditioned for the school musical. He is {a} [vocab:old-positive@a1] rock, millions of years old, and frankly " +
+      "[vocab:confident-negative@a2]. When the music started, Gerald sat there [simile:quiet@m1]. The director [vocab:speak-quiet@v1], " +
+      "\"Is he doing anything?\" I explained that Gerald was [verb-ing@v2] on the inside. She cast him as {a} [noun@n1] in the second act. " +
+      "On opening night, the audience [vocab:laugh@v3] so hard that Gerald got [number@c1] standing ovations. " +
+      "He is now [vocab:happy-strong@a3], though you would never know it.",
+    cast: [{ sprite: "rock", adj: ["a1"], anim: "bob" }, { sprite: "teacher", verb: "v1" }],
   },
 ];
 
