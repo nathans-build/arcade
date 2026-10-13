@@ -11,10 +11,19 @@ import type { Band } from "./qmake";
  *   boss blocks: no damage either way. So a boss can only ever lose HP, and the fight always
  *   ends in a win; wrong answers just make it take longer.
  * - On the floors, a full meter can be spent with T (or the ⚡ button) to clear the screen.
+ * - Ink stars: poofing STAR_GOAL star-throwing ninjas grants a short burst (STAR_BURST seconds of
+ *   running time) of foam ink stars, thrown with S. Only throwers count, and not during a burst;
+ *   the counter resets when the burst ends. Ink stars only poof ninjas and blobs on the floors:
+ *   floor masters are only ever beaten by answering.
  */
 
 export const METER_MAX = 3;
-export const FLOORS = 5;
+export const FLOORS = 10;
+/** A game over on this floor or higher can continue from here. */
+export const CHECKPOINT = 6;
+export const STAR_GOAL = 5;
+export const STAR_BURST = 8;
+export const STAR_COOLDOWN = 0.35;
 
 export interface Streak {
   streak: number;
@@ -57,9 +66,21 @@ export function spendThunder(s: Streak): Streak | null {
   return s.meter >= METER_MAX ? { ...s, meter: 0 } : null;
 }
 
+/**
+ * Boss HP: floors 1-4 as before (K-2: 3, others 4), the floor-5 master +1, floors 6-9 +1, the final
+ * master +2. K-2 stays gentler: 3, then 4 from floor 5, and 5 at the top.
+ */
 export function bossHpFor(band: Band, floor: number): number {
   const base = band === "k2" ? 3 : 4;
-  return floor >= FLOORS ? base + 1 : base;
+  if (floor >= FLOORS) return base + 2;
+  return floor >= 5 ? base + 1 : base;
+}
+
+/** A star-throwing ninja was poofed: count it toward the ink-star burst (not while one is on). */
+export function onThrowerDefeated(count: number, burstOn: boolean): { count: number; burst: boolean } {
+  if (burstOn) return { count, burst: false };
+  const n = Math.min(STAR_GOAL, count + 1);
+  return { count: n, burst: n >= STAR_GOAL };
 }
 
 export function newFight(band: Band, floor: number): Fight {

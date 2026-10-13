@@ -7,7 +7,7 @@ import { FORCES } from "./forces";
 import { bandOf } from "./qmake";
 
 /*
- * One subject (and optionally one topic) for the whole run (all five floor masters and every
+ * One subject (and optionally one topic) for the whole run (all ten floor masters and every
  * gold-scroll ninja). MIXED (the default) is the classic tower: ELA, math, civics, forces, mixed.
  *
  * Topic ids are the arcade menu's ids, so the menu can deep-link with ?topic=<id>.
@@ -82,7 +82,7 @@ export function topicsOf(subject: FocusSubject): FocusTopic[] {
   return FOCUS_TOPICS.filter((t) => t.subject === subject);
 }
 
-/** A focus pool needs this many different questions to be offered (a 5-floor run sees ~25). */
+/** A focus pool needs this many different questions to be offered (a 10-floor run sees ~50; decks reshuffle). */
 export const MIN_DISTINCT = 8;
 /** Written pools borrow from nearby grades until they reach this size. */
 export const POOL_TARGET = 12;

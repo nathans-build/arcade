@@ -1,8 +1,13 @@
-import { FLOOR_INFO } from "./floors";
+import { towerPlan, type FloorPlan } from "./bosses";
+import { MIXED } from "./focus";
 import type { Band } from "./qmake";
 import {
   FLOORS,
   METER_MAX,
+  STAR_BURST,
+  STAR_COOLDOWN,
+  STAR_GOAL,
+  onThrowerDefeated,
   applyAnswer,
   enemyPoints,
   floorBonus,
@@ -22,6 +27,9 @@ import {
  * No DOM or canvas here, so scripts/check-rules.ts can play it headlessly. Heights (`y`) are
  * measured up from the floor; `x` is the position along the floor (world pixels, 320 per screen).
  * Odd floors are crossed left to right, even floors right to left, like the classic tower climbs.
+ * Ten floors; floors 6-10 bring slightly busier, quicker waves (gentler for K-2).
+ * Ink-star burst: poof STAR_GOAL star-throwing ninjas and the student can throw foam ink stars with S
+ * for STAR_BURST seconds of running time. They poof ninjas, blobs and incoming stars, never a master.
  */
 
 export const VIEW_W = 320;
@@ -36,12 +44,14 @@ const GRAVITY = 720;
 const PLAYER_HW = 6;
 const PLAYER_H = 28;
 const DUCK_H = 17;
+const STAR_SPEED = 210;
+const STAR_GOAL_N = STAR_GOAL;
 
 export type Mode = "intro" | "run" | "scroll" | "bossIntro" | "boss" | "bossDown" | "dying" | "over" | "won";
-export type Press = "jump" | "punch" | "kick" | "thunder";
+export type Press = "jump" | "punch" | "kick" | "thunder" | "star";
 export type SoundName =
   | "punch" | "kick" | "hit" | "hurt" | "jump" | "thunder" | "scroll" | "correct" | "wrong" | "block"
-  | "bossDown" | "floor" | "over" | "won" | "ready" | "throw" | "deflect" | "bossIn";
+  | "bossDown" | "floor" | "over" | "won" | "ready" | "throw" | "deflect" | "bossIn" | "star" | "burst";
 
 export type SimEvent =
   | { type: "sound"; name: SoundName }
@@ -55,7 +65,9 @@ export type SimEvent =
   | { type: "floorStart"; floor: number }
   | { type: "lifeLost" }
   | { type: "gameOver" }
-  | { type: "towerCleared" };
+  | { type: "towerCleared" }
+  | { type: "starBurst" }
+  | { type: "burstEnd" };
 
 export interface Attack {
   kind: "punch" | "kick";
@@ -76,6 +88,8 @@ export interface Player {
   attack: Attack | null;
   invuln: number;
   hurtT: number;
+  /** Throwing-arm pose timer (ink stars). */
+  throwT: number;
 }
 
 export interface Enemy {
@@ -102,6 +116,14 @@ export interface Shot {
   high: boolean;
 }
 
+/** A foam ink star thrown by the student. `y` is its height above the floor. */
+export interface InkStar {
+  id: number;
+  x: number;
+  y: number;
+  vx: number;
+}
+
 export type BossAnimKind = "enter" | "combo" | "thunder" | "block" | "down";
 export interface BossAnim {
   kind: BossAnimKind;
@@ -120,6 +142,10 @@ export interface Hud {
   bossHp: number;
   bossMaxHp: number;
   progress: number;
+  /** Star-throwers poofed toward the next ink-star burst (0..STAR_GOAL). */
+  stars: number;
+  /** Seconds of ink-star burst left (0 = none). */
+  burst: number;
 }
 
 interface BandCfg {
@@ -137,6 +163,11 @@ const CFG: Record<Band, BandCfg> = {
   g68: { len: 1220, spawn: 1.55, maxOn: 4, speed: 44, shot: 88, throwEvery: 1.9 },
   hs: { len: 1300, spawn: 1.35, maxOn: 5, speed: 48, shot: 96, throwEvery: 1.7 },
 };
+
+/** Floors 1-5 play as they always did; each floor above adds a little (less for K-2). */
+function extraFloors(floor: number): number {
+  return Math.max(0, floor - 5);
+}
 
 interface Beat {
   at: number;
@@ -162,6 +193,14 @@ export class DojoSim {
   lastBoss: BossResult | null = null;
   /** Test hook: no damage from ninjas. */
   invincible = false;
+  /** The ten floors: scenery, hall and floor master (MIXED unless a subject was picked). */
+  readonly plan: FloorPlan[];
+  /** Star-throwers poofed toward the next ink-star burst. */
+  starCount = 0;
+  /** Seconds of ink-star burst left (counts down only while running the floor). */
+  burstT = 0;
+  stars: InkStar[] = [];
+  private starCD = 0;
 
   player: Player = this.freshPlayer(0);
   enemies: Enemy[] = [];
@@ -179,16 +218,37 @@ export class DojoSim {
   private advance = false;
   private time = 0;
 
-  constructor(band: Band, opts: { rng?: () => number } = {}) {
+  constructor(band: Band, opts: { rng?: () => number; plan?: FloorPlan[]; floor?: number } = {}) {
     this.band = band;
     this.cfg = CFG[band];
     this.len = this.cfg.len;
     this.rng = opts.rng ?? Math.random;
-    this.startFloor(1);
+    this.plan = opts.plan ?? towerPlan(MIXED);
+    this.startFloor(Math.max(1, Math.min(FLOORS, opts.floor ?? 1)));
   }
 
-  get info() {
-    return FLOOR_INFO[this.floor - 1];
+  /** This floor's plan: scenery, hall and floor master. */
+  get info(): FloorPlan {
+    return this.plan[this.floor - 1];
+  }
+
+  /** Ninjas at a time on this floor. */
+  get maxOn(): number {
+    const x = extraFloors(this.floor);
+    return this.cfg.maxOn + (this.band !== "k2" && x >= 2 ? 1 : 0);
+  }
+
+  /** Ninja walking speed on this floor. */
+  get enemySpeed(): number {
+    const x = extraFloors(this.floor);
+    return this.cfg.speed + (Math.min(this.floor, 5) - 1) * 3 + x * (this.band === "k2" ? 1 : 2.5);
+  }
+
+  /** Seconds between ninjas on this floor (before the random spread). */
+  spawnGap(r: number): number {
+    const x = extraFloors(this.floor);
+    const gap = this.cfg.spawn * (0.75 + r * 0.5) - (Math.min(this.floor, 5) - 1) * 0.08 - x * (this.band === "k2" ? 0.02 : 0.06);
+    return Math.max(this.band === "k2" ? 1.4 : 0.6, gap);
   }
 
   /** Distance travelled along this floor (0 at the start, len at the boss end). */
@@ -201,7 +261,7 @@ export class DojoSim {
   }
 
   private freshPlayer(x: number): Player {
-    return { x, y: 0, vy: 0, facing: 1, ducking: false, walking: false, walkT: 0, attack: null, invuln: 0, hurtT: 0 };
+    return { x, y: 0, vy: 0, facing: 1, ducking: false, walking: false, walkT: 0, attack: null, invuln: 0, hurtT: 0, throwT: 0 };
   }
 
   private emit(...ev: SimEvent[]) {
@@ -216,13 +276,14 @@ export class DojoSim {
   startFloor(n: number) {
     this.floor = n;
     this.dir = n % 2 === 1 ? 1 : -1;
-    this.len = this.cfg.len + (n - 1) * 40;
+    this.len = this.cfg.len + (Math.min(n, 5) - 1) * 40 + extraFloors(n) * (this.band === "k2" ? 20 : 40);
     const startX = this.dir > 0 ? 36 : this.len - 36;
     this.player = this.freshPlayer(startX);
     this.player.facing = this.dir;
     this.energy = MAX_ENERGY;
     this.enemies = [];
     this.shots = [];
+    this.stars = [];
     this.fight = null;
     this.lastBoss = null;
     this.bossAnim = null;
@@ -256,6 +317,10 @@ export class DojoSim {
       this.thunder();
       return;
     }
+    if (a === "star") {
+      this.throwStar();
+      return;
+    }
     if (p.attack) return;
     const air = p.y > 0;
     p.attack = { kind: a, t: 0, dur: a === "punch" ? 0.22 : 0.3, low: p.ducking && !air, air };
@@ -274,6 +339,25 @@ export class DojoSim {
     const visible = this.enemies.filter((e) => e.x > this.camX - 10 && e.x < this.camX + VIEW_W + 10);
     for (const e of visible) this.defeat(e, true);
     this.shots = [];
+  }
+
+  /** S: throw a foam ink star along the floor (only during a burst, with a short cooldown). */
+  private throwStar() {
+    const p = this.player;
+    if (this.burstT <= 0) {
+      this.emit({ type: "floater", text: `POOF ${this.starGoalLeft()} MORE STAR NINJAS!`, x: p.x, y: 50, color: "#9ae8ff" });
+      return;
+    }
+    if (this.starCD > 0) return;
+    this.starCD = STAR_COOLDOWN;
+    p.throwT = 0.16;
+    const y = p.ducking ? 7 : p.y + 13;
+    this.stars.push({ id: this.nextId++, x: p.x + p.facing * 8, y, vx: p.facing * STAR_SPEED });
+    this.emit({ type: "sound", name: "star" });
+  }
+
+  private starGoalLeft(): number {
+    return Math.max(1, STAR_GOAL_N - this.starCount);
   }
 
   // ------------------------------------------------------------------ answers
@@ -346,6 +430,7 @@ export class DojoSim {
     const p = this.player;
     p.invuln = Math.max(0, p.invuln - dt);
     p.hurtT = Math.max(0, p.hurtT - dt);
+    p.throwT = Math.max(0, p.throwT - dt);
     if (this.bossAnim) {
       this.bossAnim.t += dt;
       const due = this.beats.filter((b) => b.at <= this.bossAnim!.t);
@@ -392,6 +477,7 @@ export class DojoSim {
         }
         if (!this.bossAnim && this.advance) {
           if (this.floor >= FLOORS) {
+            this.burstT = 0;
             this.score += this.lives * 1000;
             this.setMode("won");
             this.emit({ type: "sound", name: "won" }, { type: "towerCleared" });
@@ -411,6 +497,7 @@ export class DojoSim {
             this.energy = MAX_ENERGY;
             this.enemies = [];
             this.shots = [];
+            this.stars = [];
             p.invuln = 2.5;
             p.attack = null;
             p.y = 0;
@@ -464,7 +551,6 @@ export class DojoSim {
 
   private updateRun(dt: number) {
     const p = this.player;
-    const cfg = this.cfg;
 
     // Player movement
     const onGround = p.y === 0;
@@ -496,9 +582,9 @@ export class DojoSim {
     const prog = this.progressOf(p.x);
     if (prog < this.len - ARENA - 60) {
       this.spawnT -= dt;
-      if (this.spawnT <= 0 && this.enemies.filter((e) => e.kind !== "scroll").length < cfg.maxOn) {
+      if (this.spawnT <= 0 && this.enemies.filter((e) => e.kind !== "scroll").length < this.maxOn) {
         this.spawn(this.pickKind(), this.rng() < 0.7);
-        this.spawnT = cfg.spawn * (0.75 + this.rng() * 0.5) - (this.floor - 1) * 0.08;
+        this.spawnT = this.spawnGap(this.rng());
       }
       if (this.scrollsLeft.length && prog >= this.scrollsLeft[0]) {
         this.scrollsLeft.shift();
@@ -513,6 +599,15 @@ export class DojoSim {
     // Shots
     for (const s of this.shots) s.x += s.vx * dt;
     this.shots = this.shots.filter((s) => s.x > this.camX - 20 && s.x < this.camX + VIEW_W + 20);
+
+    // The student's ink stars (burst time only drains while running the floor)
+    this.starCD = Math.max(0, this.starCD - dt);
+    if (this.burstT > 0) {
+      this.burstT = Math.max(0, this.burstT - dt);
+      if (this.burstT === 0) this.endBurst();
+    }
+    this.updateStars(dt);
+    if (this.mode !== "run") return;
 
     // Attacks land
     const ab = this.attackBox();
@@ -560,6 +655,7 @@ export class DojoSim {
       for (const e of this.enemies) this.emit({ type: "poof", x: e.x, y: e.h / 2, ink: true });
       this.enemies = [];
       this.shots = [];
+      this.stars = [];
       p.attack = null;
       p.ducking = false;
       this.bossVisible = true;
@@ -567,6 +663,36 @@ export class DojoSim {
       this.beats = [];
       this.emit({ type: "sound", name: "bossIn" });
     }
+  }
+
+  private updateStars(dt: number) {
+    for (const st of [...this.stars]) {
+      st.x += st.vx * dt;
+      const box = { x0: st.x - 4, x1: st.x + 4, y0: st.y - 5, y1: st.y + 5 };
+      const hitE = this.enemies.find((e) => overlap(box, { x0: e.x - e.hw, x1: e.x + e.hw, y0: e.y, y1: e.y + e.h }));
+      if (hitE) {
+        this.stars = this.stars.filter((o) => o !== st);
+        this.defeat(hitE, false);
+        if (this.mode !== "run") return;
+        continue;
+      }
+      // Foam stars knock any incoming ink star they cross out of the air, high or low.
+      const hitS = this.shots.find((s) => Math.abs(s.x - st.x) < 7);
+      if (hitS) {
+        this.stars = this.stars.filter((o) => o !== st);
+        this.shots = this.shots.filter((o) => o !== hitS);
+        this.score += 20;
+        this.emit({ type: "sound", name: "deflect" }, { type: "poof", x: hitS.x, y: hitS.y, ink: true });
+      }
+    }
+    this.stars = this.stars.filter((s) => s.x > this.camX - 20 && s.x < this.camX + VIEW_W + 20);
+  }
+
+  private endBurst() {
+    this.burstT = 0;
+    this.starCount = 0;
+    this.stars = [];
+    this.emit({ type: "floater", text: "INK STARS USED UP!", x: this.player.x, y: 52, color: "#9ae8ff" }, { type: "burstEnd" });
   }
 
   /** `from` is the side the bump came from (+1 = right). */
@@ -588,13 +714,15 @@ export class DojoSim {
     const r = this.rng();
     if (this.floor === 1) return r < 0.8 ? "ninja" : "blob";
     if (this.band === "k2" && this.floor === 2) return r < 0.7 ? "ninja" : "blob";
+    // Higher floors send a few more star-throwers (they also fill the ink-star counter).
+    if (this.floor >= 6) return this.band === "k2" ? (r < 0.48 ? "ninja" : r < 0.7 ? "blob" : "thrower") : r < 0.42 ? "ninja" : r < 0.62 ? "blob" : "thrower";
     return r < 0.5 ? "ninja" : r < 0.72 ? "blob" : "thrower";
   }
 
   spawn(kind: EnemyKind, ahead: boolean): Enemy {
     const side = (ahead ? this.dir : -this.dir) as 1 | -1;
     const x = side > 0 ? this.camX + VIEW_W + 12 : this.camX - 12;
-    const base = this.cfg.speed + (this.floor - 1) * 3;
+    const base = this.enemySpeed;
     const e: Enemy = {
       id: this.nextId++,
       kind,
@@ -641,7 +769,7 @@ export class DojoSim {
             const high = this.band === "k2" ? this.rng() < 0.6 : this.rng() < 0.5;
             this.shots.push({ id: this.nextId++, x: e.x + e.facing * 8, y: high ? 22 : 4, vx: e.facing * this.cfg.shot, high });
             this.emit({ type: "sound", name: "throw" });
-            e.throwT = this.cfg.throwEvery * (0.85 + this.rng() * 0.3);
+            e.throwT = this.cfg.throwEvery * (0.85 + this.rng() * 0.3) * (this.band === "k2" ? 1 : Math.pow(0.97, extraFloors(this.floor)));
           }
         } else {
           e.throwT -= dt;
@@ -662,6 +790,21 @@ export class DojoSim {
       { type: "sound", name: "hit" },
       { type: "floater", text: `+${pts}`, x: e.x, y: GROUND - e.h - 14, color: "#f2f4ff" },
     );
+    if (e.kind === "thrower") {
+      const r = onThrowerDefeated(this.starCount, this.burstT > 0);
+      this.starCount = r.count;
+      if (r.burst) {
+        this.burstT = STAR_BURST;
+        this.starCD = 0;
+        this.emit(
+          { type: "floater", text: "INK STARS! PRESS S", x: this.player.x, y: 40, color: "#ffd23f" },
+          { type: "sound", name: "burst" },
+          { type: "starBurst" },
+        );
+      } else if (this.burstT <= 0) {
+        this.emit({ type: "floater", text: `STAR ${r.count}/${STAR_GOAL_N}`, x: e.x, y: GROUND - e.h - 24, color: "#9ae8ff" });
+      }
+    }
     if (e.kind === "scroll" && !byThunder) {
       this.player.attack = null;
       this.player.y = 0;
@@ -724,6 +867,8 @@ export class DojoSim {
       bossHp: this.fight?.hp ?? 0,
       bossMaxHp: this.fight?.maxHp ?? 0,
       progress: Math.max(0, Math.min(1, this.progressOf(this.player.x) / (this.len - ARENA))),
+      stars: this.starCount,
+      burst: this.burstT,
     };
   }
 

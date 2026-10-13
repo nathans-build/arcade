@@ -1,11 +1,13 @@
-import { FLOOR_INFO, type BossId } from "./floors";
-import { METER_MAX } from "./rules";
+import { lineOf, type BossLook, type LegacySprite } from "./bosses";
+import type { FloorTheme } from "./floors";
+import { FLOORS, METER_MAX, STAR_BURST, STAR_GOAL } from "./rules";
 import { DojoSim, GROUND, MAX_ENERGY, VIEW_H, VIEW_W, type Enemy, type SimEvent } from "./sim";
 
 /*
  * Draws Dojo Tower on a 640x400 canvas (the 320x200 game world at 2x). All art is original pixel
  * art made of rectangles, drawn in code: the student in a white gi, cartoon Ink Ninjas, ink blobs
- * and the five floor masters. Defeated ninjas poof into confetti and ink splats.
+ * and the floor masters (the five original sprites, and the rest built from a body, head, hat, prop,
+ * palette and size). Ten sceneries, one per floor. Defeated ninjas poof into confetti and ink splats.
  */
 
 export const SCALE = 2;
@@ -32,7 +34,6 @@ const C = {
   wood: "#5a3a22",
 };
 
-const BELTS = ["#f2f4ff", "#ffd23f", "#ff9a3c", "#5fff8a", "#2456e8", "#05060f"];
 const CONFETTI = ["#ffd23f", "#e3262f", "#6ea0ff", "#5fff8a", "#ff8ad8", "#f2f4ff"];
 
 interface Particle {
@@ -152,6 +153,7 @@ export class Renderer {
     this.arenaDoor(sim);
     for (const e of sim.enemies) this.enemy(e, sim);
     for (const s of sim.shots) this.shot(s.x, GROUND - s.y, s.vx);
+    for (const s of sim.stars) this.inkStar(s.x, GROUND - s.y);
     if (sim.bossVisible) this.boss(sim);
     this.player(sim);
     if (sim.bossAnim?.kind === "thunder") this.bolt(sim);
@@ -232,9 +234,13 @@ export class Renderer {
 
   private background(sim: DojoSim, cam: number) {
     const ctx = this.ctx;
-    const f = FLOOR_INFO[sim.floor - 1];
-    const roof = sim.floor === 5;
-    if (roof) {
+    const f = sim.info.theme;
+    if (f.kind === "bamboo") return this.bambooScene(f, cam);
+    if (f.kind === "lanterns") this.lanternScene(f, cam);
+    else if (f.kind === "waterfall") return this.waterfallScene(f, cam);
+    else if (f.kind === "snow") return this.snowScene(f, cam);
+    else if (f.kind === "sky") return this.skyScene(f, cam);
+    else if (f.kind === "roof") {
       const g = ctx.createLinearGradient(0, 18, 0, 150);
       g.addColorStop(0, "#070b26");
       g.addColorStop(1, "#3a1f5a");
@@ -336,10 +342,280 @@ export class Renderer {
       ctx.fillStyle = f.trim;
       ctx.fillRect(0, 26, VIEW_W, 2);
     }
-    // wooden floor
+    this.boards(f.floor, f.floorDark, cam);
+  }
+
+  private sky(top: string, bottom: string, y0 = 18, y1 = 150) {
+    const ctx = this.ctx;
+    const g = ctx.createLinearGradient(0, y0, 0, y1);
+    g.addColorStop(0, top);
+    g.addColorStop(1, bottom);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, VIEW_W, y1);
+  }
+
+  /** Repeating world-space items: calls fn(screenX, index) for each slot visible at this parallax. */
+  private each(cam: number, par: number, step: number, fn: (x: number, i: number) => void) {
+    const off = cam * par;
+    for (let wx = Math.floor(off / step) * step - step; wx < off + VIEW_W + step; wx += step) fn(Math.round(wx - off), Math.round(wx / step));
+  }
+
+  private cloud(x: number, y: number, w: number, c: string) {
+    const ctx = this.ctx;
+    ctx.fillStyle = c;
+    ctx.fillRect(x, y + 4, w, 5);
+    ctx.fillRect(x + 4, y + 1, w * 0.45, 6);
+    ctx.fillRect(x + w * 0.4, y - 1, w * 0.35, 7);
+    ctx.fillRect(x + 2, y + 7, w - 4, 3);
+  }
+
+  /** Floor 6: a sunny bamboo garden with a wooden deck. */
+  private bambooScene(f: FloorTheme, cam: number) {
+    const ctx = this.ctx;
+    this.sky("#a8dcff", "#e8f8d8");
+    ctx.fillStyle = "#fff3a0";
+    ctx.fillRect(36, 30, 14, 14);
+    ctx.fillRect(34, 33, 18, 8);
+    ctx.fillRect(39, 28, 8, 18);
+    // rolling hills
+    ctx.fillStyle = "#8acc8a";
+    for (let x = 0; x < VIEW_W; x += 4) {
+      const wx = x + cam * 0.2;
+      const h = 30 + Math.round(10 * Math.sin(wx / 41) + 6 * Math.sin(wx / 17));
+      ctx.fillRect(x, 150 - h, 4, h);
+    }
+    // bamboo groves (two depths)
+    for (const [par, step, col, node] of [[0.45, 26, "#5aa84a", "#3a7a2a"], [0.75, 38, "#3f9a3a", "#256a22"]] as const) {
+      this.each(cam, par, step, (x, i) => {
+        const w = par > 0.5 ? 5 : 3;
+        ctx.fillStyle = col;
+        ctx.fillRect(x, 18, w, 132);
+        ctx.fillStyle = node;
+        for (let y = 26 + (i % 3) * 5; y < 150; y += 20) ctx.fillRect(x - 1, y, w + 2, 2);
+        ctx.fillStyle = "#7cd86a";
+        const sway = Math.round(Math.sin(this.time * 1.5 + i) * 1);
+        ctx.fillRect(x + w, 40 + (i % 4) * 9 + sway, 7, 2);
+        ctx.fillRect(x + w + 3, 42 + (i % 4) * 9 + sway, 5, 2);
+        ctx.fillRect(x - 7, 60 + (i % 5) * 7 - sway, 7, 2);
+      });
+    }
+    // garden fence
+    ctx.fillStyle = "#c89a5a";
+    ctx.fillRect(0, 132, VIEW_W, 3);
+    ctx.fillRect(0, 141, VIEW_W, 2);
+    this.each(cam, 1, 30, (x) => {
+      ctx.fillStyle = "#a07a40";
+      ctx.fillRect(x, 128, 3, 22);
+    });
+    this.boards(f.floor, f.floorDark, cam);
+  }
+
+  /** Floor 7: an evening hall full of swinging paper lanterns. */
+  private lanternScene(f: FloorTheme, cam: number) {
+    const ctx = this.ctx;
+    ctx.fillStyle = f.wall;
+    ctx.fillRect(0, 0, VIEW_W, 150);
+    ctx.fillStyle = f.wallDark;
+    ctx.fillRect(0, 18, VIEW_W, 10);
+    ctx.fillRect(0, 140, VIEW_W, 10);
+    // lattice windows
+    this.each(cam, 1, 96, (x) => {
+      ctx.fillStyle = "#5a2440";
+      ctx.fillRect(x + 22, 52, 52, 60);
+      ctx.fillStyle = "#ffcf7a";
+      for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) ctx.fillRect(x + 24 + i * 13, 54 + j * 15, 11, 13);
+      ctx.fillStyle = "#8a1a22";
+      ctx.fillRect(x, 28, 7, 112);
+    });
+    ctx.fillStyle = f.trim;
+    ctx.fillRect(0, 26, VIEW_W, 2);
+    // two rows of lanterns
+    for (const [par, step, y0, big] of [[0.85, 34, 32, 0], [1, 48, 30, 1]] as const) {
+      this.each(cam, par, step, (x, i) => {
+        const ly = y0 + (i % 2) * 14 + Math.round(Math.sin(this.time * 2 + i) * 1.5);
+        const w = big ? 10 : 7;
+        ctx.fillStyle = "rgba(255,176,58,0.14)";
+        ctx.fillRect(x - 6, ly + 2, w + 12, w + 12);
+        ctx.fillStyle = "#2a1a10";
+        ctx.fillRect(x + w / 2, 28, 1, ly - 28 + 3);
+        ctx.fillStyle = i % 3 === 0 ? "#ffd23f" : C.red;
+        ctx.fillRect(x, ly + 4, w, w + 2);
+        ctx.fillRect(x - 1, ly + 6, w + 2, w - 2);
+        ctx.fillStyle = "#ffef9a";
+        ctx.fillRect(x + 2, ly + 7, w - 4, w - 4);
+        ctx.fillStyle = "#2a1a10";
+        ctx.fillRect(x, ly + 3, w, 1);
+        ctx.fillRect(x, ly + w + 6, w, 1);
+      });
+    }
+  }
+
+  /** Floor 8: a rope bridge in front of waterfalls, a river underneath. */
+  private waterfallScene(f: FloorTheme, cam: number) {
+    const ctx = this.ctx;
+    this.sky("#78c4f4", "#d8f0ff", 18, 110);
+    // cliffs
+    ctx.fillStyle = f.wall;
+    ctx.fillRect(0, 60, VIEW_W, 90);
+    for (let x = 0; x < VIEW_W; x += 4) {
+      const wx = x + cam * 0.4;
+      const h = 70 + Math.round(16 * Math.sin(wx / 33) + 8 * Math.sin(wx / 11));
+      ctx.fillStyle = f.wall;
+      ctx.fillRect(x, 150 - h, 4, h);
+      ctx.fillStyle = f.wallDark;
+      ctx.fillRect(x, 150 - h + 6 + ((Math.floor(wx / 4) * 7) % 13), 4, 3);
+    }
+    // waterfalls
+    this.each(cam, 0.4, 150, (x) => {
+      ctx.fillStyle = "#bfe8ff";
+      ctx.fillRect(x + 40, 40, 20, 110);
+      ctx.fillStyle = "#f2fbff";
+      for (let k = 0; k < 6; k++) {
+        const yy = 40 + ((Math.floor(this.time * 60) + k * 19) % 110);
+        ctx.fillRect(x + 42 + (k % 3) * 6, yy, 2, 10);
+      }
+      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      ctx.fillRect(x + 34, 140, 32, 10);
+    });
+    // rope rails and posts
+    this.each(cam, 1, 40, (x) => {
+      ctx.fillStyle = "#6a4a26";
+      ctx.fillRect(x, 120, 3, 32);
+      ctx.fillStyle = "#c8a060";
+      for (let i = 0; i < 40; i += 2) {
+        const sag = Math.round(Math.sin((i / 40) * Math.PI) * 4);
+        ctx.fillRect(x + i, 122 + sag, 2, 1);
+        ctx.fillRect(x + i, 134 + sag, 2, 1);
+      }
+    });
+    // river
+    ctx.fillStyle = "#2a7ab0";
+    ctx.fillRect(0, 150, VIEW_W, 50);
+    ctx.fillStyle = "#6ac0f0";
+    for (let k = 0; k < 14; k++) {
+      const xx = ((k * 53 - Math.floor(this.time * 30)) % (VIEW_W + 20) + VIEW_W + 20) % (VIEW_W + 20) - 10;
+      ctx.fillRect(xx, 170 + (k % 4) * 7, 12, 1);
+    }
+    // bridge planks (the walking surface)
+    ctx.fillStyle = f.floorDark;
+    ctx.fillRect(0, 150, VIEW_W, 14);
+    this.each(cam, 1, 10, (x) => {
+      ctx.fillStyle = f.floor;
+      ctx.fillRect(x, 150, 9, 12);
+    });
+    ctx.fillStyle = "#c8a060";
+    ctx.fillRect(0, 163, VIEW_W, 1);
+    ctx.fillStyle = "rgba(0,0,0,0.25)";
+    ctx.fillRect(0, 150, VIEW_W, 3);
+  }
+
+  /** Floor 9: a temple courtyard at dusk with falling snow. */
+  private snowScene(f: FloorTheme, cam: number) {
+    const ctx = this.ctx;
+    this.sky("#1f2850", "#6a7aa8");
+    // snowy mountains
+    for (let x = 0; x < VIEW_W; x += 4) {
+      const wx = x + cam * 0.25;
+      const h = 40 + Math.round(18 * Math.sin(wx / 47) + 9 * Math.sin(wx / 19));
+      ctx.fillStyle = "#4a5a88";
+      ctx.fillRect(x, 150 - h, 4, h);
+      ctx.fillStyle = "#e8f0ff";
+      ctx.fillRect(x, 150 - h, 4, 4);
+    }
+    // temple front
+    this.each(cam, 1, 120, (x) => {
+      ctx.fillStyle = f.wall;
+      ctx.fillRect(x, 74, 120, 76);
+      ctx.fillStyle = "#ffd07a";
+      ctx.fillRect(x + 22, 92, 28, 30);
+      ctx.fillRect(x + 70, 92, 28, 30);
+      ctx.fillStyle = f.wallDark;
+      ctx.fillRect(x + 35, 92, 2, 30);
+      ctx.fillRect(x + 22, 106, 28, 2);
+      ctx.fillRect(x + 83, 92, 2, 30);
+      ctx.fillRect(x + 70, 106, 28, 2);
+      ctx.fillStyle = "#a01a22";
+      ctx.fillRect(x + 4, 74, 6, 76);
+      ctx.fillRect(x + 58, 74, 6, 76);
+      // roof eaves with snow
+      ctx.fillStyle = "#1a1f3a";
+      ctx.fillRect(x - 6, 64, 132, 10);
+      ctx.fillRect(x - 10, 70, 8, 4);
+      ctx.fillStyle = "#f2f8ff";
+      ctx.fillRect(x - 6, 62, 132, 3);
+      ctx.fillRect(x + 20, 61, 30, 2);
+    });
+    // falling snow
+    ctx.fillStyle = "#ffffff";
+    for (let i = 0; i < 60; i++) {
+      const sp = 14 + (i % 4) * 6;
+      const y = (i * 37 + this.time * sp) % 150;
+      const x = (((i * 53 - cam * (0.3 + (i % 3) * 0.2) + Math.sin(this.time + i) * 4) % VIEW_W) + VIEW_W) % VIEW_W;
+      ctx.fillRect(Math.round(x), Math.round(y) + 18, i % 5 === 0 ? 2 : 1, i % 5 === 0 ? 2 : 1);
+    }
+    // snowy stone floor
     ctx.fillStyle = f.floor;
     ctx.fillRect(0, 150, VIEW_W, 50);
     ctx.fillStyle = f.floorDark;
+    for (let y = 158; y < 200; y += 12) ctx.fillRect(0, y, VIEW_W, 1);
+    this.each(cam, 1, 36, (x, i) => {
+      ctx.fillRect(x + (i % 2) * 18, 158, 1, 42);
+    });
+    ctx.fillStyle = "#ffffff";
+    this.each(cam, 1, 70, (x) => {
+      ctx.fillRect(x, 150, 22, 2);
+      ctx.fillRect(x + 4, 149, 12, 1);
+    });
+    ctx.fillStyle = "rgba(20,30,70,0.18)";
+    ctx.fillRect(0, 150, VIEW_W, 3);
+  }
+
+  /** Floor 10: the sky dojo on the cloud peak, a golden platform above the clouds. */
+  private skyScene(f: FloorTheme, cam: number) {
+    const ctx = this.ctx;
+    this.sky("#2a86e0", "#cfeeff");
+    // sun and rays
+    ctx.fillStyle = "rgba(255,240,170,0.35)";
+    ctx.fillRect(244, 22, 40, 40);
+    ctx.fillStyle = "#fff6c0";
+    ctx.fillRect(254, 30, 20, 20);
+    ctx.fillRect(250, 34, 28, 12);
+    ctx.fillRect(258, 26, 12, 28);
+    // drifting clouds
+    for (const [par, step, y, w, c] of [[0.12, 110, 40, 46, "#e8f6ff"], [0.3, 90, 78, 60, "#ffffff"], [0.55, 140, 112, 70, "#f4fbff"]] as const) {
+      const drift = this.time * (4 + par * 10);
+      this.each(cam + drift / par, par, step, (x, i) => this.cloud(x, y + (i % 3) * 6, w, c));
+    }
+    // golden railing
+    ctx.fillStyle = f.trim;
+    ctx.fillRect(0, 128, VIEW_W, 3);
+    ctx.fillRect(0, 140, VIEW_W, 2);
+    this.each(cam, 1, 24, (x, i) => {
+      ctx.fillStyle = f.trim;
+      ctx.fillRect(x, 128, 3, 22);
+      if (i % 4 === 0) {
+        ctx.fillStyle = "#fff3c4";
+        ctx.fillRect(x - 1, 124, 5, 4);
+      }
+    });
+    // marble platform
+    ctx.fillStyle = f.floor;
+    ctx.fillRect(0, 150, VIEW_W, 40);
+    ctx.fillStyle = f.floorDark;
+    ctx.fillRect(0, 150, VIEW_W, 2);
+    for (let y = 160; y < 190; y += 10) ctx.fillRect(0, y, VIEW_W, 1);
+    this.each(cam, 1, 32, (x, i) => ctx.fillRect(x + (i % 2) * 16, 152, 1, 38));
+    ctx.fillStyle = "#cfeeff";
+    ctx.fillRect(0, 190, VIEW_W, 10);
+    this.each(cam, 1, 30, (x, i) => this.cloud(x - 6, 184 + (i % 2) * 3, 34, "#ffffff"));
+  }
+
+  /** Wooden floor boards (staggered planks). */
+  private boards(light: string, dark: string, cam: number) {
+    const ctx = this.ctx;
+    ctx.fillStyle = light;
+    ctx.fillRect(0, 150, VIEW_W, 50);
+    ctx.fillStyle = dark;
     for (let y = 150; y < 200; y += 7) ctx.fillRect(0, y, VIEW_W, 1);
     let row = 0;
     for (let y = 150; y < 200; y += 7, row++) {
@@ -354,7 +630,7 @@ export class Renderer {
 
   private arenaDoor(sim: DojoSim) {
     const ctx = this.ctx;
-    const f = FLOOR_INFO[sim.floor - 1];
+    const f = sim.info.theme;
     // at the far wall, just behind where the floor master stands
     const x = Math.round(sim.dir > 0 ? sim.len - 46 : 2);
     // gong on a frame behind the floor master
@@ -427,7 +703,8 @@ export class Renderer {
       }
       return { x, y, pose, frame, facing: sim.dir as 1 | -1 };
     } else if (p.hurtT > 0) pose = "hurt";
-    else if (p.y > 0) pose = p.attack ? (p.attack.kind === "kick" ? "airkick" : "airpunch") : "air";
+    else if (p.y > 0) pose = p.attack ? (p.attack.kind === "kick" ? "airkick" : "airpunch") : p.throwT > 0 ? "airpunch" : "air";
+    else if (p.throwT > 0) pose = p.ducking ? "lowpunch" : "punch";
     else if (p.attack) pose = p.attack.low ? (p.attack.kind === "kick" ? "lowkick" : "lowpunch") : p.attack.kind;
     else if (p.ducking) pose = "duck";
     else if (p.walking) pose = "walk";
@@ -440,7 +717,7 @@ export class Renderer {
     const { x, y, pose, frame, facing } = this.playerPose(sim);
     this.shadow(x, 14);
     if (p.invuln > 0 && sim.mode === "run" && Math.floor(this.time * 14) % 2 === 0) return;
-    const belt = BELTS[Math.min(BELTS.length - 1, sim.floor - 1)];
+    const belt = sim.info.theme.belt;
     const tail = Math.floor(this.time * 6) % 2;
     this.puppet(x, GROUND - y, facing, 1, (r) => drawStudent(r, pose, frame, belt, tail));
     if (pose === "down") {
@@ -482,6 +759,27 @@ export class Renderer {
     ctx.fillRect(Math.round(x - Math.sign(vx) * 6) - 1, Math.round(y), 3, 1);
   }
 
+  /** The student's foam ink star: a spinning white-and-gold four-point star. */
+  private inkStar(x: number, y: number) {
+    const ctx = this.ctx;
+    const cx = Math.round(x);
+    const cy = Math.round(y);
+    const spin = Math.floor(this.time * 16) % 2;
+    ctx.fillStyle = C.yellow;
+    if (spin) {
+      ctx.fillRect(cx - 4, cy - 1, 9, 3);
+      ctx.fillRect(cx - 1, cy - 4, 3, 9);
+    } else {
+      ctx.fillRect(cx - 3, cy - 3, 2, 2);
+      ctx.fillRect(cx + 2, cy - 3, 2, 2);
+      ctx.fillRect(cx - 3, cy + 2, 2, 2);
+      ctx.fillRect(cx + 2, cy + 2, 2, 2);
+      ctx.fillRect(cx - 2, cy - 2, 5, 5);
+    }
+    ctx.fillStyle = C.white;
+    ctx.fillRect(cx, cy, 1, 1);
+  }
+
   private boss(sim: DojoSim) {
     const a = sim.bossAnim;
     let x = sim.bossDrawX();
@@ -497,15 +795,16 @@ export class Renderer {
       }
     }
     if (sim.mode === "bossDown" && !a) return;
-    const id = FLOOR_INFO[sim.floor - 1].boss;
-    this.shadow(x, 26);
+    const lk = sim.info.boss.look;
+    this.shadow(x, Math.round(17 * lk.size));
     const facing = (-sim.dir) as 1 | -1;
     const flashWhite = pose === "hit" && Math.floor(this.time * 20) % 2 === 0;
-    this.puppet(x, GROUND, facing, 1.5, (r) => drawBoss(r, id, pose, flashWhite));
+    const t = this.time;
+    this.puppet(x, GROUND, facing, lk.size, (r) => (lk.sprite ? drawBoss(r, lk.sprite, pose, flashWhite) : drawLook(r, lk, pose, flashWhite, t)));
     if (pose === "block") {
       // shimmering ink shield
       const ctx = this.ctx;
-      const sxp = Math.round(x + facing * 22);
+      const sxp = Math.round(x + facing * 15 * lk.size);
       ctx.fillStyle = Math.floor(this.time * 16) % 2 ? C.cyan : C.white;
       for (let i = -5; i <= 5; i++) ctx.fillRect(sxp + Math.round(Math.cos((i / 5) * 1.2) * 4 * facing) - 1, GROUND - 26 + i * 4, 2, 3);
     }
@@ -555,14 +854,31 @@ export class Renderer {
     if (full && sim.mode === "run") this.text("T!", 94, 9, 4, C.white);
 
     // tower floors
-    this.text("FLOOR", 112, 3, 4, C.cyan);
-    for (let i = 1; i <= 5; i++) {
+    this.text(`FLOOR ${sim.floor}`, 104, 3, 4, C.cyan);
+    for (let i = 1; i <= FLOORS; i++) {
       ctx.fillStyle = i < sim.floor ? C.green : i === sim.floor ? C.yellow : "#1c2450";
-      ctx.fillRect(112 + (i - 1) * 7, 9, 6, 5);
+      ctx.fillRect(104 + (i - 1) * 5, 9, 4, 5);
     }
+
+    // ink-star counter, or the burst's draining timer bar
+    this.starIcon(160, 3, sim.burstT > 0 ? C.yellow : "#9ae8ff");
+    if (sim.burstT > 0) {
+      const k = sim.burstT / STAR_BURST;
+      this.text(Math.floor(this.time * 4) % 2 ? "S!" : "S", 167, 3, 4, C.yellow);
+      ctx.fillStyle = "#1c2450";
+      ctx.fillRect(160, 10, 40, 4);
+      ctx.fillStyle = k < 0.25 && Math.floor(this.time * 8) % 2 ? C.white : C.yellow;
+      ctx.fillRect(160, 10, Math.max(1, Math.round(40 * k)), 4);
+    } else {
+      this.text(`${sim.starCount}/${STAR_GOAL}`, 167, 3, 4, "#9ae8ff");
+      for (let i = 0; i < STAR_GOAL; i++) {
+        ctx.fillStyle = i < sim.starCount ? "#9ae8ff" : "#1c2450";
+        ctx.fillRect(160 + i * 8, 10, 6, 4);
+      }
+    }
+
     if (sim.fight && (sim.mode === "boss" || sim.mode === "bossDown")) {
-      const f = FLOOR_INFO[sim.floor - 1];
-      this.text(f.bossName, VIEW_W - 4, 3, 4, C.red, "right");
+      this.text(this.fit(sim.info.boss.name, 110, 4), VIEW_W - 4, 3, 4, C.red, "right");
       const n = sim.fight.maxHp;
       const w = 12;
       for (let i = 0; i < n; i++) {
@@ -574,19 +890,30 @@ export class Renderer {
       const prog = sim.hud().progress;
       this.text("MASTER", VIEW_W - 4, 3, 4, C.red, "right");
       ctx.fillStyle = "#1c2450";
-      ctx.fillRect(170, 10, 120, 3);
+      ctx.fillRect(208, 10, 82, 3);
       ctx.fillStyle = C.red;
-      ctx.fillRect(170, 10, Math.round(120 * prog), 3);
+      ctx.fillRect(208, 10, Math.round(82 * prog), 3);
       ctx.fillStyle = C.white;
-      ctx.fillRect(170 + Math.round(120 * prog) - 1, 8, 3, 7);
+      ctx.fillRect(208 + Math.round(82 * prog) - 1, 8, 3, 7);
       ctx.fillStyle = C.red;
       ctx.fillRect(VIEW_W - 26, 8, 7, 7);
     }
   }
 
+  private starIcon(x: number, y: number, color: string) {
+    const ctx = this.ctx;
+    ctx.fillStyle = color;
+    ctx.fillRect(x + 2, y, 1, 5);
+    ctx.fillRect(x, y + 2, 5, 1);
+    ctx.fillRect(x + 1, y + 1, 3, 3);
+  }
+
   private banners(sim: DojoSim) {
     const ctx = this.ctx;
-    const f = FLOOR_INFO[sim.floor - 1];
+    const plan = sim.info;
+    const f = plan.theme;
+    const b = plan.boss;
+    const bubbleY = GROUND - Math.round(b.look.size * 40);
     if (sim.mode === "intro") {
       const k = Math.min(1, sim.modeT / 0.3);
       ctx.fillStyle = `rgba(5,8,24,${0.75 * k})`;
@@ -594,28 +921,32 @@ export class Renderer {
       ctx.fillStyle = f.trim;
       ctx.fillRect(0, 50, VIEW_W, 2);
       ctx.fillRect(0, 124, VIEW_W, 2);
-      this.text(`FLOOR ${sim.floor}`, VIEW_W / 2, 60, 12, C.yellow, "center", true);
-      this.text(f.hall, VIEW_W / 2, this.focusTag ? 76 : 80, 7, C.white, "center", true);
+      this.text(`FLOOR ${sim.floor}`, VIEW_W / 2, 56, 12, C.yellow, "center", true);
+      this.text(`${f.scene}${sim.floor === FLOORS ? " · TOP FLOOR" : ""}`, VIEW_W / 2, 70, 4, f.trim, "center", true);
+      this.text(this.fit(plan.hall, VIEW_W - 20, 7), VIEW_W / 2, this.focusTag ? 77 : 80, 7, C.white, "center", true);
       if (this.focusTag) this.text(this.fit(`FOCUS: ${this.focusTag}`, VIEW_W - 20, 5), VIEW_W / 2, 87, 5, C.cyan, "center", true);
-      this.text(`MASTER: ${f.bossName}`, VIEW_W / 2, 96, 5, C.red, "center", true);
+      this.text(this.fit(`MASTER: ${b.name}`, VIEW_W - 20, 5), VIEW_W / 2, 96, 5, C.red, "center", true);
       this.text(sim.dir > 0 ? "GO RIGHT >>" : "<< GO LEFT", VIEW_W / 2, 110, 5, Math.floor(this.time * 3) % 2 ? C.cyan : C.white, "center");
     }
     if (sim.mode === "bossIntro") {
       const bx = sim.bossDrawX();
-      this.bubble(f.taunt, bx - sim.camX - sim.dir * 30, GROUND - 58, 170);
+      this.bubble(b.intro, bx - sim.camX - sim.dir * 30, bubbleY, 170);
       ctx.fillStyle = "rgba(5,8,24,0.8)";
       ctx.fillRect(0, 26, VIEW_W, this.focusTag ? 30 : 20);
-      this.text(f.bossName, VIEW_W / 2, 32, 8, C.red, "center", true);
+      this.text(this.fit(b.name, VIEW_W - 12, 8), VIEW_W / 2, 32, 8, C.red, "center", true);
       if (this.focusTag) this.text(this.fit(this.focusTag, VIEW_W - 20, 5), VIEW_W / 2, 45, 5, C.cyan, "center", true);
     }
     if (sim.mode === "boss" && !sim.bossAnim) {
       const last = sim.lastBoss;
-      const say = last && !last.correct ? f.block : !last ? "Answer right to land a hit!" : last.thunder ? "Ooof! What a kick!" : "Hmph! Lucky shot!";
-      this.bubble(say, sim.bossX - sim.camX - sim.dir * 26, GROUND - 58, 150);
+      const fight = sim.fight;
+      const say = last && !last.correct
+        ? lineOf(b.block, (fight?.asked ?? 1) - 1)
+        : !last ? "Answer right to land a hit!" : last.thunder ? "Ooof! What a THUNDER KICK!" : lineOf(b.hit, (fight?.right ?? 1) - 1);
+      this.bubble(say, sim.bossX - sim.camX - sim.dir * 26, bubbleY, 150);
       if (!this.card && Math.floor(this.time * 2) % 2) this.text("ANSWER WITH 1-4 OR A-D", VIEW_W / 2, 24, 5, C.yellow, "center", true);
     }
     if (sim.mode === "bossDown") {
-      this.bubble(f.bow, sim.bossX - sim.camX - sim.dir * 26, GROUND - 58, 150);
+      this.bubble(lineOf(b.defeat, sim.fight?.asked ?? 0), sim.bossX - sim.camX - sim.dir * 26, bubbleY, 150);
     }
     if (sim.mode === "scroll") {
       ctx.fillStyle = "rgba(5,8,24,0.55)";
@@ -629,7 +960,8 @@ export class Renderer {
     if (this.card && (sim.mode === "boss" || sim.mode === "scroll" || sim.mode === "bossDown")) this.questionCard(this.card);
     if (sim.mode === "dying") this.text("OOF! GET UP!", VIEW_W / 2, 80, 8, C.yellow, "center", true);
     if (sim.mode === "won") {
-      this.text("TOWER CLEARED!", VIEW_W / 2, 60, 10, C.yellow, "center", true);
+      this.text("TOWER CLEARED!", VIEW_W / 2, 52, 10, C.yellow, "center", true);
+      this.text(`ALL ${FLOORS} MASTERS BOW TO YOU`, VIEW_W / 2, 68, 5, C.white, "center", true);
     }
   }
 
@@ -894,7 +1226,7 @@ function drawBlob(r: Rect, frame: number) {
 
 type BossPose = "idle" | "idle2" | "block" | "hit";
 
-function drawBoss(r: Rect, id: BossId, pose: BossPose, flashWhite: boolean) {
+function drawBoss(r: Rect, id: LegacySprite, pose: BossPose, flashWhite: boolean) {
   const bob = pose === "idle2" ? 1 : 0;
   const lean = pose === "hit" ? -2 : 0;
   const W = (c: string) => (flashWhite ? C.white : c);
@@ -1036,4 +1368,591 @@ function drawBoss(r: Rect, id: BossId, pose: BossPose, flashWhite: boolean) {
       break;
     }
   }
+}
+
+/**
+ * The floor masters without a hand-made sprite: a body, a head, a hat and a prop, in the master's own
+ * colours (puppet() scales it by the master's size). Facing +x is toward the student.
+ */
+function drawLook(r: Rect, L: BossLook, pose: BossPose, flashWhite: boolean, t: number) {
+  const bob = pose === "idle2" ? 1 : 0;
+  const lean = pose === "hit" ? -2 : 0;
+  const W = (c: string) => (flashWhite ? C.white : c);
+  const { robe, robe2, trim, skin, hair } = L;
+  const black = C.black;
+  const wood = "#8a5a2b";
+  let headY = -31 + bob;
+  const armY = -20 + bob;
+
+  // ---- body
+  switch (L.body) {
+    case "robe":
+      r(-6, -22 + bob, 12, 22 - bob, W(robe));
+      r(-7, -6, 14, 6, W(robe2));
+      r(-6, -14 + bob, 12, 2, W(trim));
+      r(-1, -22 + bob, 2, 7, W(robe2));
+      r(-6, -22 + bob, 1, 16, W(robe2));
+      break;
+    case "gi":
+      r(-5, -11, 4, 11, W(robe2));
+      r(1, -11, 4, 11, W(robe2));
+      r(-6, -1, 5, 1, W("#2a1a10"));
+      r(1, -1, 5, 1, W("#2a1a10"));
+      r(-7, -24 + bob, 14, 13, W(robe));
+      r(-7, -13 + bob, 14, 2, W(trim));
+      r(-1, -24 + bob, 2, 7, W(robe2));
+      r(-9, -13 + bob, 2, 4, W(trim));
+      break;
+    case "coat":
+      r(-5, -10, 4, 10, W("#2a2a3a"));
+      r(1, -10, 4, 10, W("#2a2a3a"));
+      r(-6, -1, 5, 1, W(black));
+      r(1, -1, 5, 1, W(black));
+      r(-6, -24 + bob, 12, 16, W(robe));
+      r(-7, -10, 3, 4, W(robe));
+      r(4, -10, 3, 4, W(robe));
+      r(-1, -24 + bob, 2, 13, W(trim));
+      r(2, -20 + bob, 1, 1, W(trim));
+      r(2, -16 + bob, 1, 1, W(trim));
+      r(-6, -24 + bob, 1, 14, W(robe2));
+      break;
+    case "armor":
+      r(-5, -11, 4, 11, W(robe2));
+      r(1, -11, 4, 11, W(robe2));
+      r(-6, -3, 5, 3, W(trim));
+      r(1, -3, 5, 3, W(trim));
+      r(-7, -25 + bob, 14, 15, W(robe));
+      r(-9, -26 + bob, 4, 4, W(trim));
+      r(5, -26 + bob, 4, 4, W(trim));
+      r(-4, -22 + bob, 8, 6, W(robe2));
+      r(-1, -21 + bob, 2, 4, W(trim));
+      r(-7, -12 + bob, 14, 2, W(trim));
+      headY = -32 + bob;
+      break;
+    case "beast":
+      r(-9, -25 + bob, 18, 23, W(robe));
+      r(-6, -21 + bob, 12, 15, W(L.head === "panda" ? robe : robe2));
+      r(-8, -3, 6, 3, W(robe2));
+      r(2, -3, 6, 3, W(robe2));
+      r(-9, -12 + bob, 18, 2, W(trim));
+      if (L.head === "panda") {
+        r(-9, -25 + bob, 18, 5, W(robe2));
+        r(-9, -8, 18, 5, W(robe2));
+      }
+      headY = -32 + bob;
+      break;
+  }
+
+  // ---- head
+  const hx = -3 + lean;
+  const hy = headY;
+  const eyes = (x: number, y: number) => {
+    r(x, y, 1, 2, W(black));
+    r(x + 3, y, 1, 2, W(black));
+  };
+  let hand = skin;
+  switch (L.head) {
+    case "human":
+      r(hx, hy, 7, 7, W(skin));
+      eyes(hx + 2, hy + 3);
+      r(hx + 3, hy + 6, 3, 1, W("#5a2a1a"));
+      break;
+    case "goblin":
+      r(hx, hy, 7, 7, W(skin));
+      r(hx - 3, hy + 1, 3, 2, W(skin));
+      r(hx - 4, hy, 1, 1, W(skin));
+      r(hx + 2, hy + 2, 2, 2, W(C.yellow));
+      r(hx + 5, hy + 2, 2, 2, W(C.yellow));
+      r(hx + 3, hy + 3, 1, 1, W(black));
+      r(hx + 6, hy + 3, 1, 1, W(black));
+      r(hx + 2, hy + 5, 5, 1, W("#2a1a10"));
+      r(hx + 4, hy + 6, 1, 1, W(C.white));
+      break;
+    case "fox":
+      hand = hair;
+      r(hx - 1, hy, 8, 7, W(hair));
+      r(hx - 1, hy - 3, 2, 3, W(hair));
+      r(hx + 4, hy - 3, 2, 3, W(hair));
+      r(hx, hy - 2, 1, 1, W("#ffe0c0"));
+      r(hx + 5, hy + 3, 4, 3, W("#fff3e0"));
+      r(hx, hy + 4, 3, 3, W("#fff3e0"));
+      r(hx + 8, hy + 3, 1, 1, W(black));
+      r(hx + 3, hy + 2, 1, 2, W(black));
+      r(hx + 6, hy + 2, 1, 1, W(black));
+      // tail
+      r(-11, -14 + bob, 4, 3, W(hair));
+      r(-13, -16 + bob, 3, 3, W(hair));
+      r(-14, -18 + bob, 2, 2, W("#fff3e0"));
+      break;
+    case "owl":
+      hand = hair;
+      r(hx - 1, hy - 1, 9, 9, W(hair));
+      r(hx - 1, hy - 3, 2, 2, W(hair));
+      r(hx + 6, hy - 3, 2, 2, W(hair));
+      r(hx, hy + 1, 3, 3, W(C.white));
+      r(hx + 4, hy + 1, 3, 3, W(C.white));
+      r(hx + 1, hy + 2, 1, 1, W(black));
+      r(hx + 5, hy + 2, 1, 1, W(black));
+      r(hx + 3, hy + 4, 2, 2, W(C.yellow));
+      // little wing
+      r(-8, -22 + bob, 2, 9, W(hair));
+      break;
+    case "panda":
+      hand = robe2;
+      r(hx - 1, hy, 9, 8, W("#f2f4ff"));
+      r(hx - 2, hy - 2, 3, 3, W(black));
+      r(hx + 6, hy - 2, 3, 3, W(black));
+      r(hx + 1, hy + 2, 2, 3, W(black));
+      r(hx + 5, hy + 2, 2, 3, W(black));
+      r(hx + 2, hy + 3, 1, 1, W(C.white));
+      r(hx + 6, hy + 3, 1, 1, W(C.white));
+      r(hx + 3, hy + 6, 2, 1, W(black));
+      break;
+    case "bear":
+      hand = robe;
+      r(hx - 1, hy, 9, 8, W(robe));
+      r(hx - 2, hy - 2, 3, 3, W(robe));
+      r(hx + 6, hy - 2, 3, 3, W(robe));
+      r(hx - 1, hy - 1, 1, 1, W(robe2));
+      r(hx + 7, hy - 1, 1, 1, W(robe2));
+      r(hx + 3, hy + 4, 5, 3, W(robe2));
+      r(hx + 6, hy + 4, 2, 1, W(black));
+      eyes(hx + 2, hy + 2);
+      break;
+    case "ox":
+      r(hx - 1, hy, 9, 8, W(skin));
+      eyes(hx + 2, hy + 2);
+      break;
+  }
+
+  // ---- hat / hair
+  const hairCap = () => {
+    r(hx, hy - 1, 7, 2, W(hair));
+    r(hx - 1, hy, 2, 4, W(hair));
+  };
+  switch (L.hat) {
+    case "none":
+      if (L.head === "human") hairCap();
+      break;
+    case "bun":
+      r(hx - 1, hy - 2, 9, 3, W(hair));
+      r(hx + 1, hy - 5, 5, 3, W(hair));
+      r(hx - 1, hy, 2, 5, W(hair));
+      r(hx + 5, hy - 5, 1, 1, W(trim));
+      break;
+    case "wig":
+      r(hx - 2, hy - 3, 10, 4, W(hair));
+      r(hx - 2, hy, 2, 8, W(hair));
+      break;
+    case "crown":
+      r(hx - 1, hy - 1, 9, 2, W(hair));
+      r(hx - 1, hy, 2, 7, W(hair));
+      r(hx - 1, hy - 3, 9, 2, W(C.yellow));
+      r(hx - 1, hy - 5, 1, 2, W(C.yellow));
+      r(hx + 3, hy - 6, 1, 3, W(C.yellow));
+      r(hx + 7, hy - 5, 1, 2, W(C.yellow));
+      r(hx + 3, hy - 3, 1, 1, W(C.red));
+      break;
+    case "wizard":
+      r(hx - 1, hy + 1, 2, 6, W(hair));
+      r(hx - 2, hy - 1, 11, 2, W(robe2));
+      r(hx, hy - 4, 7, 3, W(robe));
+      r(hx + 1, hy - 7, 5, 3, W(robe));
+      r(hx + 2, hy - 10, 3, 3, W(robe));
+      r(hx + 3, hy - 12, 3, 2, W(robe));
+      r(hx, hy - 2, 7, 1, W(trim));
+      r(hx + 3, hy - 6, 1, 1, W(trim));
+      break;
+    case "tophat":
+      r(hx - 1, hy, 2, 3, W(hair));
+      r(hx - 2, hy - 1, 11, 2, W(black));
+      r(hx, hy - 8, 7, 7, W(black));
+      r(hx, hy - 3, 7, 1, W(trim));
+      break;
+    case "helmet":
+      r(hx - 1, hy - 2, 9, 4, W("#c0c8d8"));
+      r(hx - 1, hy + 2, 2, 4, W("#c0c8d8"));
+      r(hx - 1, hy - 2, 9, 1, W("#e8eef8"));
+      r(hx + 1, hy - 5, 4, 3, W(trim));
+      r(hx - 1, hy - 4, 2, 2, W(trim));
+      break;
+    case "beret":
+      r(hx - 1, hy, 2, 4, W(hair));
+      r(hx - 1, hy - 2, 9, 2, W(robe2));
+      r(hx + 1, hy - 3, 6, 1, W(robe2));
+      r(hx + 3, hy - 4, 1, 1, W(robe2));
+      break;
+    case "mortarboard":
+      r(hx - 1, hy, 2, 4, W(hair));
+      r(hx, hy - 1, 7, 2, W(black));
+      r(hx - 3, hy - 3, 13, 2, W(black));
+      r(hx + 8, hy - 2, 1, 4, W(C.yellow));
+      break;
+    case "headband":
+      if (L.head === "human") hairCap();
+      r(hx - 1, hy + 1, 9, 1, W(trim));
+      r(hx - 4, hy + 1 + bob, 3, 1, W(trim));
+      r(hx - 6, hy + 2 - bob, 2, 1, W(trim));
+      break;
+    case "hood":
+      r(hx - 1, hy - 2, 9, 3, W(robe));
+      r(hx - 1, hy, 2, 7, W(robe));
+      r(hx - 2, hy + 1, 1, 6, W(robe2));
+      break;
+    case "leafcrown":
+      hairCap();
+      r(hx - 1, hy - 2, 2, 1, W("#5fbf4a"));
+      r(hx + 2, hy - 3, 2, 1, W("#5fbf4a"));
+      r(hx + 5, hy - 2, 2, 1, W("#5fbf4a"));
+      r(hx + 7, hy - 1, 1, 1, W("#5fbf4a"));
+      r(hx + 3, hy - 2, 1, 1, W(trim));
+      break;
+    case "tricorn":
+      r(hx - 1, hy, 2, 4, W(hair));
+      r(hx - 3, hy - 2, 13, 2, W(black));
+      r(hx - 1, hy - 4, 9, 2, W(black));
+      r(hx - 3, hy - 1, 13, 1, W(trim));
+      r(hx + 1, hy - 6, 3, 2, W(C.white));
+      break;
+    case "goggles":
+      for (let i = 0; i < 5; i++) r(hx - 2 + i * 2, hy - 4 - (i % 2), 2, 4, W(hair));
+      r(hx, hy + 1, 8, 2, W("#3a3a4a"));
+      r(hx + 2, hy + 1, 2, 2, W(C.cyan));
+      r(hx + 5, hy + 1, 2, 2, W(C.cyan));
+      break;
+    case "cap":
+      r(hx - 1, hy, 2, 4, W(hair));
+      r(hx - 1, hy - 2, 8, 3, W(trim));
+      r(hx + 6, hy, 4, 1, W(trim));
+      break;
+    case "flame": {
+      const fl = Math.floor(t * 8) % 2;
+      r(hx - 1, hy - 2, 9, 3, W("#ff6a1a"));
+      r(hx, hy - 5 + fl, 2, 3, W("#ffb03a"));
+      r(hx + 3, hy - 7 + fl, 2, 5, W("#ffd23f"));
+      r(hx + 6, hy - 4 - fl, 2, 2, W("#e3262f"));
+      r(hx - 1, hy, 2, 3, W("#ff6a1a"));
+      break;
+    }
+    case "bowler":
+      r(hx - 1, hy + 1, 2, 4, W(hair));
+      r(hx - 2, hy - 1, 11, 1, W(black));
+      r(hx, hy - 4, 7, 3, W(black));
+      r(hx, hy - 2, 7, 1, W(trim));
+      r(hx + 3, hy + 5, 4, 1, W(hair));
+      r(hx + 4, hy + 2, 3, 3, W(C.yellow));
+      r(hx + 5, hy + 3, 1, 1, W(skin));
+      break;
+    case "dome":
+      r(hx - 2, hy - 3, 11, 11, flashWhite ? C.white : "rgba(190,235,255,0.45)");
+      r(hx - 2, hy + 7, 11, 1, W(trim));
+      r(hx + 3, hy - 5, 1, 2, W(trim));
+      r(hx + 3, hy - 6, 1, 1, W(C.red));
+      break;
+    case "spiky":
+      for (let i = 0; i < 5; i++) r(hx - 1 + i * 2, hy - 3 - (i % 2) * 2, 2, 4 + (i % 2) * 2, W(hair));
+      r(hx + 2, hy + 2, 2, 2, W(C.cyan));
+      r(hx + 5, hy + 2, 2, 2, W(C.cyan));
+      r(hx + 4, hy + 2, 1, 1, W(black));
+      break;
+    case "topknot":
+      r(hx, hy - 1, 7, 2, W(hair));
+      r(hx - 1, hy, 2, 3, W(hair));
+      r(hx + 2, hy - 4, 3, 3, W(hair));
+      r(hx + 2, hy - 2, 3, 1, W(trim));
+      if (L.size >= 1.75) {
+        // a long white beard for the grand master
+        r(hx + 2, hy + 6, 5, 3, W(hair));
+        r(hx + 3, hy + 9, 3, 3, W(hair));
+      }
+      break;
+    case "beard":
+      r(hx - 1, hy + 2, 2, 3, W(hair));
+      r(hx + 1, hy + 2, 2, 1, W(hair));
+      r(hx + 5, hy + 2, 2, 1, W(hair));
+      r(hx + 1, hy + 5, 7, 4, W(hair));
+      r(hx + 2, hy + 9, 5, 2, W(hair));
+      r(hx + 2, hy + 3, 2, 2, W(C.cyan));
+      r(hx + 5, hy + 3, 2, 2, W(C.cyan));
+      break;
+    case "mask":
+      hairCap();
+      r(hx + 1, hy + 2, 7, 3, W(trim));
+      r(hx + 2, hy + 3, 1, 1, W(C.white));
+      r(hx + 5, hy + 3, 1, 1, W(C.white));
+      r(hx - 3, hy + 3 + bob, 3, 1, W(trim));
+      break;
+  }
+
+  // ---- guard while blocking / reeling
+  if (pose === "block") {
+    r(1 + lean, -20 + bob, 8, 2, W(robe));
+    r(1 + lean, -17 + bob, 8, 2, W(robe));
+    r(8 + lean, -21 + bob, 2, 6, W(hand));
+    return;
+  }
+  if (pose === "hit") {
+    r(-7, -24, 2, 6, W(robe));
+    r(4, -26, 2, 6, W(robe));
+    return;
+  }
+
+  // ---- arm and prop
+  r(4, armY, 4, 2, W(L.body === "beast" ? robe2 : robe));
+  const sp = Math.floor(t * 6) % 2;
+  switch (L.prop) {
+    case "tally":
+      r(8, -34 + bob, 11, 12, W(C.paper));
+      r(8, -34 + bob, 11, 1, W(wood));
+      for (let i = 0; i < 4; i++) r(10 + i * 2, -32 + bob, 1, 7, W(C.inkDark));
+      r(9, -29 + bob, 9, 1, W(C.red));
+      r(13, -22 + bob, 1, 3, W(wood));
+      break;
+    case "pie":
+      r(7, -24 + bob, 12, 2, W("#c0c8d8"));
+      r(8, -28 + bob, 10, 4, W("#d9a050"));
+      r(8, -28 + bob, 10, 1, W("#ffd08a"));
+      r(13, -28 + bob, 3, 4, W("#a0402a"));
+      break;
+    case "protractor":
+      r(6, -24 + bob, 13, 1, W("#bfefff"));
+      r(7, -25 + bob, 11, 1, W("#bfefff"));
+      r(8, -26 + bob, 9, 1, W("#bfefff"));
+      r(9, -27 + bob, 7, 1, W("#bfefff"));
+      r(11, -28 + bob, 3, 1, W("#bfefff"));
+      r(12, -25 + bob, 1, 1, W(C.inkDark));
+      r(9, -26 + bob, 1, 1, W(C.inkDark));
+      r(15, -26 + bob, 1, 1, W(C.inkDark));
+      break;
+    case "timessign":
+      r(10, -26 + bob, 1, 6, W(wood));
+      for (let i = 0; i < 7; i++) {
+        r(7 + i, -34 + bob + i, 2, 2, W(trim));
+        r(13 - i, -34 + bob + i, 2, 2, W(trim));
+      }
+      break;
+    case "scales":
+      r(10, -34 + bob, 1, 15, W(C.yellow));
+      r(5, -34 + bob, 11, 1, W(C.yellow));
+      r(5, -33 + bob, 1, 3, W(C.yellow));
+      r(15, -33 + bob, 1, 3, W(C.yellow));
+      r(3, -30 + bob + sp, 5, 1, W(C.yellow));
+      r(13, -30 + bob - sp, 5, 1, W(C.yellow));
+      break;
+    case "bamboo":
+      r(9, -42 + bob, 3, 40, W("#5fbf4a"));
+      for (let y = -36; y < -2; y += 9) r(9, y + bob, 3, 1, W("#2a7a2a"));
+      r(12, -40 + bob, 4, 2, W("#7cd86a"));
+      r(5, -30 + bob, 4, 2, W("#7cd86a"));
+      break;
+    case "slate":
+      r(7, -33 + bob, 12, 10, W("#2a3a2a"));
+      r(7, -33 + bob, 12, 1, W(wood));
+      r(7, -24 + bob, 12, 1, W(wood));
+      r(9, -30 + bob, 1, 1, W(C.white));
+      r(10, -29 + bob, 1, 1, W(C.white));
+      r(11, -28 + bob, 1, 1, W(C.white));
+      r(11, -30 + bob, 1, 1, W(C.white));
+      r(9, -28 + bob, 1, 1, W(C.white));
+      r(13, -30 + bob, 3, 1, W(C.white));
+      r(13, -28 + bob, 3, 1, W(C.white));
+      break;
+    case "staff":
+      r(9, -44 + bob, 2, 42, W(wood));
+      r(8, -48 + bob, 4, 4, W(trim));
+      r(9, -47 + bob, 1, 1, W(C.white));
+      break;
+    case "fan":
+      r(5, -31 + bob, 12, 2, W(trim));
+      r(6, -29 + bob, 10, 2, W(robe2));
+      r(7, -27 + bob, 8, 2, W(trim));
+      r(9, -25 + bob, 4, 2, W(robe2));
+      r(10, -23 + bob, 2, 3, W(wood));
+      break;
+    case "magnifier":
+      r(9, -24 + bob, 2, 6, W(wood));
+      r(7, -32 + bob, 6, 1, W("#c0c8d8"));
+      r(7, -26 + bob, 6, 1, W("#c0c8d8"));
+      r(6, -31 + bob, 1, 5, W("#c0c8d8"));
+      r(13, -31 + bob, 1, 5, W("#c0c8d8"));
+      r(7, -31 + bob, 6, 5, W("#bfefff"));
+      r(8, -30 + bob, 1, 2, W(C.white));
+      break;
+    case "volcano":
+      r(5, -22 + bob, 12, 2, W("#6a3a22"));
+      r(6, -24 + bob, 10, 2, W("#6a3a22"));
+      r(7, -26 + bob, 8, 2, W("#7a4a2a"));
+      r(9, -28 + bob, 4, 2, W("#7a4a2a"));
+      r(10, -29 + bob, 2, 1, W("#ff6a1a"));
+      r(9 + sp, -32 + bob, 1, 1, W(C.yellow));
+      r(12 - sp, -34 + bob, 1, 1, W("#ff6a1a"));
+      break;
+    case "cloud":
+      r(6, -37 + bob, 11, 4, W("#e8eef8"));
+      r(8, -39 + bob, 6, 2, W("#e8eef8"));
+      r(5, -35 + bob, 13, 2, W("#e8eef8"));
+      r(6, -33 + bob, 11, 1, W("#a0a8c0"));
+      r(7, -31 + bob + sp, 1, 2, W(C.cyan));
+      r(10, -30 + bob - sp, 1, 2, W(C.cyan));
+      r(14, -31 + bob + sp, 1, 2, W(C.cyan));
+      break;
+    case "magnet":
+      r(6, -32 + bob, 3, 9, W(C.red));
+      r(13, -32 + bob, 3, 9, W(C.red));
+      r(6, -24 + bob, 10, 3, W(C.red));
+      r(6, -34 + bob, 3, 2, W("#c0c8d8"));
+      r(13, -34 + bob, 3, 2, W("#c0c8d8"));
+      if (sp) {
+        r(7, -37 + bob, 1, 1, W(C.yellow));
+        r(14, -38 + bob, 1, 1, W(C.yellow));
+      }
+      break;
+    case "leaf":
+      r(8, -36 + bob, 6, 12, W("#5fbf4a"));
+      r(9, -38 + bob, 4, 2, W("#5fbf4a"));
+      r(9, -24 + bob, 4, 2, W("#5fbf4a"));
+      r(10, -37 + bob, 1, 16, W("#2a7a2a"));
+      break;
+    case "telescope":
+      r(6, -22 + bob, 4, 3, W(wood));
+      r(9, -25 + bob, 4, 3, W(trim));
+      r(12, -28 + bob, 5, 4, W(trim));
+      r(16, -28 + bob, 1, 4, W("#9ae8ff"));
+      break;
+    case "flask":
+      r(10, -33 + bob, 2, 5, W("#d8f0ff"));
+      r(7, -28 + bob, 8, 7, W("#d8f0ff"));
+      r(8, -26 + bob, 6, 4, W(trim));
+      r(10, -36 + bob - sp, 1, 1, W(trim));
+      r(12, -38 + bob + sp, 1, 1, W(trim));
+      r(9, -39 + bob, 1, 1, W(trim));
+      break;
+    case "bone":
+      r(6, -27 + bob, 10, 2, W("#f3e6c4"));
+      r(5, -28 + bob, 2, 2, W("#f3e6c4"));
+      r(5, -25 + bob, 2, 2, W("#f3e6c4"));
+      r(15, -28 + bob, 2, 2, W("#f3e6c4"));
+      r(15, -25 + bob, 2, 2, W("#f3e6c4"));
+      break;
+    case "atom":
+      r(10, -34 + bob, 3, 3, W(C.red));
+      r(6, -36 + bob, 11, 1, W(trim));
+      r(6, -32 + bob, 11, 1, W(trim));
+      r(5, -35 + bob, 1, 3, W(trim));
+      r(17, -35 + bob, 1, 3, W(trim));
+      r(10, -40 + bob, 3, 1, W(trim));
+      r(9, -39 + bob, 1, 9, W(trim));
+      r(13, -39 + bob, 1, 9, W(trim));
+      r(10, -30 + bob, 3, 1, W(trim));
+      r(sp ? 5 : 17, -34 + bob, 1, 1, W(C.white));
+      r(sp ? 13 : 9, (sp ? -31 : -40) + bob, 1, 1, W(C.white));
+      break;
+    case "pencil":
+      r(4, -21 + bob, 2, 3, W("#ff8ad8"));
+      r(6, -21 + bob, 1, 3, W("#c0c8d8"));
+      r(7, -21 + bob, 16, 3, W(C.yellow));
+      r(7, -21 + bob, 16, 1, W("#ffe58a"));
+      r(23, -21 + bob, 3, 3, W("#e8c090"));
+      r(26, -20 + bob, 1, 1, W(C.inkDark));
+      break;
+    case "book":
+      r(6, -27 + bob, 10, 10, W("#a01a22"));
+      r(7, -26 + bob, 8, 8, W(C.paper));
+      r(11, -27 + bob, 1, 10, W("#a01a22"));
+      for (let i = 0; i < 3; i++) {
+        r(8, -24 + i * 2 + bob, 2, 1, W(C.inkDark));
+        r(13, -24 + i * 2 + bob, 1, 1, W(C.inkDark));
+      }
+      break;
+    case "comma":
+      r(10, -25 + bob, 1, 6, W(wood));
+      r(7, -37 + bob, 7, 7, W(trim));
+      r(12, -30 + bob, 3, 3, W(trim));
+      r(11, -27 + bob, 2, 2, W(trim));
+      r(9, -36 + bob, 2, 2, W(C.white));
+      break;
+    case "scroll":
+      r(7, -35 + bob, 9, 2, W(wood));
+      r(8, -33 + bob, 7, 13, W(C.paper));
+      r(7, -20 + bob, 9, 2, W(wood));
+      for (let i = 0; i < 4; i++) r(9, -31 + i * 3 + bob, 5, 1, W(C.inkDark));
+      r(12, -24 + bob, 2, 2, W(C.red));
+      break;
+    case "drum":
+      r(5, -26 + bob, 11, 8, W(C.red));
+      r(5, -27 + bob, 11, 2, W(C.paper));
+      r(7, -25 + bob, 1, 7, W(C.yellow));
+      r(12, -25 + bob, 1, 7, W(C.yellow));
+      r(14, -33 + bob + sp, 1, 6, W(wood));
+      break;
+    case "map":
+      r(5, -33 + bob, 14, 11, W(C.paper));
+      r(9, -33 + bob, 1, 11, W(C.paperDark));
+      r(14, -33 + bob, 1, 11, W(C.paperDark));
+      r(6, -31 + bob, 3, 3, W("#5fbf4a"));
+      r(10, -28 + bob, 4, 4, W(C.cyan));
+      r(15, -31 + bob, 1, 1, W(C.red));
+      r(16, -30 + bob, 1, 1, W(C.red));
+      r(16, -31 + bob, 1, 1, W(C.red));
+      r(15, -30 + bob, 1, 1, W(C.red));
+      break;
+    case "ruler":
+      r(9, -42 + bob, 3, 24, W(C.yellow));
+      for (let i = 0; i < 8; i++) r(9, -40 + i * 3 + bob, i % 2 ? 1 : 2, 1, W(C.inkDark));
+      break;
+    case "coin":
+      r(6, -31 + bob, 9, 9, W(C.yellow));
+      r(8, -29 + bob, 5, 5, W("#e0a020"));
+      r(7, -30 + bob, 1, 2, W(C.white));
+      break;
+    case "compass":
+      r(6, -31 + bob, 9, 9, W("#c8a050"));
+      r(7, -30 + bob, 7, 7, W(C.white));
+      r(10, -29 + bob, 1, 3, W(C.red));
+      r(10, -26 + bob, 1, 2, W(C.inkDark));
+      r(10, -33 + bob, 1, 2, W("#c8a050"));
+      break;
+    case "apple":
+      r(7, -27 + bob, 7, 6, W(C.red));
+      r(8, -28 + bob, 5, 1, W(C.red));
+      r(10, -30 + bob, 1, 2, W(wood));
+      r(11, -30 + bob, 2, 1, W("#5fbf4a"));
+      r(8, -26 + bob, 1, 1, W(C.white));
+      break;
+    case "hourglass":
+      r(6, -35 + bob, 8, 2, W(wood));
+      r(7, -33 + bob, 6, 3, W("#d8f0ff"));
+      r(9, -30 + bob, 2, 2, W("#d8f0ff"));
+      r(7, -28 + bob, 6, 3, W("#d8f0ff"));
+      r(6, -25 + bob, 8, 2, W(wood));
+      r(8, -32 + bob, 4, 1, W(C.yellow));
+      r(8, -27 + bob, 4, 2, W(C.yellow));
+      r(9 + sp, -29 + bob, 1, 1, W(C.yellow));
+      break;
+    case "ballot":
+      r(5, -25 + bob, 12, 8, W(C.white));
+      r(7, -25 + bob, 8, 1, W(C.inkDark));
+      r(5, -21 + bob, 12, 1, W(trim));
+      r(9, -30 + bob + sp, 4, 5, W(C.paper));
+      r(10, -28 + bob + sp, 1, 1, W("#2a8a3a"));
+      r(11, -29 + bob + sp, 1, 1, W("#2a8a3a"));
+      break;
+    case "globe":
+      r(6, -34 + bob, 9, 9, W("#2456e8"));
+      r(7, -32 + bob, 3, 3, W("#5fbf4a"));
+      r(11, -30 + bob, 3, 3, W("#5fbf4a"));
+      r(9, -27 + bob, 2, 1, W("#5fbf4a"));
+      r(10, -25 + bob, 1, 3, W(wood));
+      r(8, -22 + bob, 5, 1, W(wood));
+      break;
+    case "brush":
+      r(9, -40 + bob, 2, 34, W("#e8d0a0"));
+      r(8, -8 + bob, 4, 5, W(C.inkDark));
+      r(9, -4 + bob, 2, 2, W("#6a4fc0"));
+      r(8, -41 + bob, 4, 2, W(trim));
+      break;
+    default:
+      break;
+  }
+  r(7, armY - 1, 2, 3, W(hand));
 }

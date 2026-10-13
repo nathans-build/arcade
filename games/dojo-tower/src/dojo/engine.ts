@@ -1,4 +1,5 @@
 import type { ChipAudio } from "@/kit";
+import type { FloorPlan } from "./bosses";
 import type { Band } from "./qmake";
 import type { BossResult } from "./rules";
 import { Renderer, type QuestionCard } from "./render";
@@ -39,26 +40,31 @@ export class DojoEngine {
     this.sim = this.makeDemo("g35");
   }
 
+  private plan: FloorPlan[] | undefined;
+
   private makeDemo(band: Band): DojoSim {
-    const s = new DojoSim(band);
+    const s = new DojoSim(band, { plan: this.plan });
     s.invincible = true;
     s.events = [];
     return s;
   }
 
-  /** Title-screen attract mode. */
-  showDemo(band: Band) {
+  /** Title-screen attract mode (with the chosen subject's floor masters). */
+  showDemo(band: Band, plan?: FloorPlan[]) {
+    if (plan) this.plan = plan;
     this.demo = true;
     this.renderer.card = null;
     this.paused = false;
     this.sim = this.makeDemo(band);
   }
 
-  newGame(band: Band) {
+  /** A new climb with this run's ten floors; `floor` > 1 continues from a checkpoint (score starts over). */
+  newGame(band: Band, plan: FloorPlan[], floor = 1) {
+    this.plan = plan;
     this.demo = false;
     this.renderer.card = null;
     this.paused = false;
-    this.sim = new DojoSim(band);
+    this.sim = new DojoSim(band, { plan, floor });
     this.cb.onHud(this.sim.hud());
   }
 
@@ -125,6 +131,7 @@ export class DojoEngine {
         s.held.down = near.kind === "blob";
         s.press(near.kind === "blob" ? "punch" : Math.random() < 0.5 ? "kick" : "punch");
       } else s.held.down = false;
+      if (s.burstT > 0 && s.enemies.some((e) => (e.x - s.player.x) * s.dir > 0 && Math.abs(e.x - s.player.x) < 150)) s.press("star");
     }
     if (s.mode === "boss" && !s.bossAnim) {
       this.demoT += dt;
@@ -207,6 +214,8 @@ export class DojoEngine {
       case "throw": a.tone(900, 0.06, "triangle", 0.12, 1400); break;
       case "deflect": a.tone(1500, 0.05, "square", 0.12); break;
       case "bossIn": a.tone(110, 0.5, "sawtooth", 0.25, 220); break;
+      case "star": a.tone(1200, 0.07, "triangle", 0.14, 1800); break;
+      case "burst": a.tone(784, 0.1, "square", 0.18); a.tone(1175, 0.1, "square", 0.18); a.tone(1568, 0.2, "square", 0.18); break;
     }
   }
 }
