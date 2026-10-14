@@ -150,12 +150,19 @@
   function shown(game, t, tp) {
     return inTab(game, t) && inTopic(game, tp === undefined ? topic : tp) && (!fitsOnly || supports(game, grade));
   }
+  // "New" = the latest batch: added in the last NEW_DAYS days AND within BATCH_DAYS of the newest
+  // game, so an older game drops off the New row as soon as a newer batch arrives.
+  var BATCH_DAYS = 7;
+  var newestAdded = games.reduce(function (m, g) {
+    var t = g.url && g.added ? Date.parse(g.added + "T00:00:00") : NaN;
+    return isFinite(t) && t > m ? t : m;
+  }, 0);
   function isNew(game) {
     if (game.new === true) return true;
     if (!game.added) return false;
     var t = Date.parse(game.added + "T00:00:00");
     var age = (Date.now() - t) / 864e5;
-    return isFinite(age) && age >= -1 && age < NEW_DAYS;
+    return isFinite(age) && age >= -1 && age < NEW_DAYS && (newestAdded - t) / 864e5 <= BATCH_DAYS;
   }
 
   // Subject and topic dropdowns. The topic dropdown only shows once a subject is picked.
@@ -288,7 +295,8 @@
     var li = el("li");
     var live = !!game.url;
     var fits = supports(game, grade);
-    var card = el(live ? "a" : "div", "cabinet" + (live ? "" : " soon") + (fits ? "" : " off-grade"));
+    var fresh = live && isNew(game);
+    var card = el(live ? "a" : "div", "cabinet" + (live ? "" : " soon") + (fits ? "" : " off-grade") + (fresh ? " is-new" : ""));
     card.setAttribute("data-game", game.id);
     card.setAttribute("data-shelf", shelf);
     if (live) {
@@ -314,6 +322,7 @@
     } else {
       screen.appendChild(el("span", null, "Now building…"));
     }
+    if (fresh) screen.appendChild(el("span", "new-ribbon", "New!"));
     card.appendChild(screen);
 
     var body = el("div", "body");
@@ -373,13 +382,15 @@
     function pick(ids) {
       return ids.map(byId).filter(function (g) { return g && shown(g, t); });
     }
+    // New games come first, as full-size cabinets, so they're easy to spot.
+    shelf("new", "✨ New games", games.filter(function (g) { return g.url && isNew(g) && shown(g, t); }), false);
     shelf("favorites", "★ Favorites", pick(favorites), true);
     shelf("recent", "Recently played", pick(recent), true);
-    shelf("new", "New", games.filter(function (g) { return isNew(g) && shown(g, t); }), true);
     var main = games.filter(function (g) { return shown(g, t); });
     var tp = topicDef(tab, topic);
     shelf("all", tp ? tp.label + " games" : t.subject ? t.label + " games" : "All games", main, false);
     emptyNote.hidden = main.length > 0;
+    renderNewBanner();
 
     cabinets = Array.prototype.slice.call(shelvesBox.querySelectorAll("a.cabinet"));
     var idx = -1;
@@ -391,6 +402,44 @@
     select(idx < 0 ? Math.max(0, Math.min(selected, cabinets.length - 1)) : idx, false);
   }
   function keyOf(c) { return c.getAttribute("data-shelf") + ":" + c.getAttribute("data-game"); }
+
+  // "New games just landed!" banner. Hidden for a player once they dismiss it or tap See them,
+  // until a game newer than the ones they've seen is added (arcade.newSeen = newest date seen).
+  var NEW_SEEN_KEY = "arcade.newSeen";
+  var newBanner = document.getElementById("new-banner");
+  function newestNew() {
+    var list = games.filter(function (g) { return g.url && isNew(g) && (!fitsOnly || supports(g, grade)); });
+    var newest = "";
+    list.forEach(function (g) { if ((g.added || "") > newest) newest = g.added || ""; });
+    return { list: list, newest: newest };
+  }
+  function renderNewBanner() {
+    if (!newBanner) return;
+    var n = newestNew();
+    var seen = load(NEW_SEEN_KEY) || "";
+    newBanner.hidden = !n.list.length || (n.newest !== "" && seen >= n.newest);
+    if (newBanner.hidden) return;
+    document.getElementById("new-banner-text").textContent =
+      n.list.length === 1 ? "A new game just landed: " + n.list[0].title + "!" : n.list.length + " new games just landed!";
+  }
+  function dismissNewBanner() {
+    save(NEW_SEEN_KEY, newestNew().newest || "seen");
+    newBanner.hidden = true;
+  }
+  if (newBanner) {
+    document.getElementById("new-banner-go").addEventListener("click", function () {
+      dismissNewBanner();
+      if (!shelvesBox.querySelector(".shelf-new")) setTab("all");
+      var sec = shelvesBox.querySelector(".shelf-new");
+      if (sec) {
+        sec.scrollIntoView({ behavior: "smooth", block: "start" });
+        var first = sec.querySelector("a.cabinet");
+        if (first) first.focus({ preventScroll: true });
+      }
+      coin();
+    });
+    document.getElementById("new-banner-close").addEventListener("click", function () { dismissNewBanner(); blip(); });
+  }
 
   document.getElementById("year").textContent = String(new Date().getFullYear());
 

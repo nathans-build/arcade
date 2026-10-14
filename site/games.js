@@ -4,8 +4,9 @@
 // (omit it for games that cover K-12); the chosen grade is sent as ?grade=.
 // `subjects` drives the menu's subject tabs ("ELA" shows under Reading & Writing).
 // `topics` drives the topic chips under each subject tab; use the ids in window.TOPICS below.
-// `added: "YYYY-MM-DD"` (or `new: true`) puts a game in the menu's NEW row for
-// 30 days after that date.
+// `added: "YYYY-MM-DD"` (or `new: true`) highlights a game as NEW (glow, ribbon, the New games row
+// and the "new games just landed" banner) for 30 days, but only while it's in the latest batch:
+// once a game is added more than 7 days after it, the older one stops being "new".
 // `prod: true` sends a game to the real arcade (nzdogames.com). Only mark a game once it is
 // fully tested; without it the game is on the dev (test) site only.
 // `focus: true` means the game has a Focus mode: when a topic is picked in the menu, the game
