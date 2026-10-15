@@ -252,7 +252,7 @@ window.GAMES = [
     id: "page-quest",
     prod: true,
     title: "Page Quest",
-    tagline: "Choose your own adventure: mystery, adventure, space, fantasy and spooky stories where reading closely is how you win.",
+    tagline: "Choose your own adventure: mystery, adventure, space, fantasy, spooky and robot stories where reading closely is how you win.",
     subjects: ["ELA"],
     topics: ["reading", "writing"],
     styles: ["stories", "adventure"],

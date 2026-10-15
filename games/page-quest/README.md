@@ -8,17 +8,17 @@ story below it (or beside it on wide screens) in big VT323 text, with read-aloud
 ![Page Quest](docs/screenshot.png)
 
 - **The Arcade Library** is the hub: a pixel library with **Quill**, the owl librarian (she gives
-  the hints), the arcade's hero, and a bookshelf with **MYSTERY / ADVENTURE / SPACE / FANTASY / SPOOKY** sections
-  plus **MY BOOKS** (books written in the Writer's Desk). Mystery, adventure and space have books for
-  grades 4–5, 6–8 and 9–12; every genre now has a book for each band (a genre with no book yet shows an empty
-  shelf message). Spines are tagged **YOUR LEVEL**, **EASY READ** (lower band) or **CHALLENGE** (higher band,
+  the hints), the arcade's hero, and a bookshelf with **MYSTERY / ADVENTURE / SPACE / FANTASY / SPOOKY / ROBOTS** sections
+  plus **MY BOOKS** (books written in the Writer's Desk). Every genre has at least one book for each band,
+  grades 4–5, 6–8 and 9–12 (a genre with no book yet shows an empty shelf message); the **ROBOTS** tab
+  (teal spines, a little pixel robot-head icon) has two books per band. Spines are tagged **YOUR LEVEL**, **EASY READ** (lower band) or **CHALLENGE** (higher band,
   still playable); your level's book is selected. The detail card shows the cover scene, blurb,
   reading level, and **endings found (x / y)**, with READ, or CONTINUE / START OVER for a book in
   progress (the current page is saved per book).
-- **Reading:** each page draws its scene (25 procedurally drawn EGA-style backgrounds, animated:
+- **Reading:** each page draws its scene (34 procedurally drawn EGA-style backgrounds, animated:
   waves, torches, stars, lasers, rain, scrolling train windows, cryo-bay mist, drifting magic letters,
-  a radar sweep...) with up to three
-  characters (24 original sprites with idle bobbing, blinking, moods on the face and in emote bubbles
+  a radar sweep, conveyor belts, a scoreboard clock, welding sparks...) with up to three
+  characters (34 original sprites with idle bobbing, blinking, moods on the face and in emote bubbles
   ♥ … ! ? ❄ and friends; the `frozen` mood turns any character to ice and holds them still). The text types out (tap, Space or Enter skips); dialogue lines show the speaker's
   portrait while their sprite bobs and talks. Then pick a choice **A–D** (keys 1–4 / A–D or tap).
 - **Gates** are Quill's skill questions inside the story: multiple choice (answers shuffled) or
@@ -82,7 +82,7 @@ Books can also be written by hand in any text editor, in the format below.
 
 ## The `.story` format
 
-Plain UTF-8 text: a header (`title`, `author`, `genre` mystery|adventure|space|fantasy|spooky, `band`
+Plain UTF-8 text: a header (`title`, `author`, `genre` mystery|adventure|space|fantasy|spooky|robots, `band`
 4-5|6-8|9-12, `cover` scene id, `blurb` ≤ 120 characters, `start` page id), then pages starting with
 `=== page-id`. Each page has `scene:`, optional `cast:` (0–3 characters, `id[:mood]`),
 `checkpoint`, `clue:` lines, body text and ends with ONE of: 1–4 choices (`> text -> page-id`, text ≤
@@ -123,7 +123,7 @@ design brief (`PAGE_QUEST.md`); scenes and characters are listed in `src/story/r
 The Writer's Desk dropdowns and the validator read these from `src/story/roster.ts`, so a new entry
 there (plus its art in `src/engine/scenes.ts` / `sprites.ts`) shows up everywhere.
 
-**Scenes (25):** `library` (the Arcade Library hub), `beach`, `ship-deck`, `island-jungle`, `cave`,
+**Scenes (34):** `library` (the Arcade Library hub), `beach`, `ship-deck`, `island-jungle`, `cave`,
 `castle-hall`, `forest`, `village`, `mountain-pass`, `space-bridge`, `space-corridor`,
 `planet-surface`, `museum-hall`, `museum-vault`, `city-street`, `lab`, `lighthouse`, `stormy-sea`,
 `school`, `train`, `cryo-bay` (a frosty space-station cryo bay: frozen sleep pods, icicles, an icy
@@ -134,7 +134,13 @@ lockers, briefing table), `temple-ruins` (a ruined Greek temple on a sunny hill 
 trees, a gull), `labyrinth` (stone maze corridors with torches and a red thread along the floor),
 `castle-night` (a cozy candlelit castle hall at night: candelabras, portraits, cobwebs, bats at the moonlit window),
 `pumpkin-patch` (a moonlit pumpkin patch with glowing jack-o'-lanterns, a friendly scarecrow and fireflies),
-`attic` (a dusty attic: a round moon window, trunks, boxes, a dress form, a rocking horse).
+`attic` (a dusty attic: a round moon window, trunks, boxes, a dress form, a rocking horse),
+`robot-workshop` (a robot workshop: pegboard of tools, a BOT-7 blueprint, parts bins, a half-built robot on the bench, a swinging lamp, welding sparks),
+`factory-floor` (the ROBOWORKS factory: conveyor belt with boxes, bobbing robotic arms, wall gears, hazard stripes, spinning warning lights),
+`robot-arena` (a robot competition arena: cheering bleachers doing the wave, team banners, a scoreboard with a ticking clock, sweeping spotlights, a ramp),
+`recycling-center` (a sunny recycling center: CANS / PAPER / GLASS / CUPS bins, a sorting belt, bales, a gliding seagull),
+`rooftop-night` (a city rooftop at night: skyline windows, water tower, blinking antenna, a BEEP/BOOP billboard, shooting stars),
+`bakery` (a bakery kitchen: a glowing brick oven, an awning window, shelves of bread and cakes, a mixing bowl with steam).
 
 | id | dialogue name | who |
 |---|---|---|
@@ -165,6 +171,16 @@ trees, a gull), `labyrinth` (stone maze corridors with torches and a red thread 
 | vampire | Vampire | a friendly cartoon vampire: slicked hair, lilac skin, one tiny fang, black cape with red lining (never bites) |
 | bat | Bat | a small, chatty purple bat with yellow eyes (floats, flaps) |
 | werewolf | Werewolf | a fluffy, goofy werewolf with a red bandana (more puppy than scary) |
+| helperbot | Helperbot | a round orange helper robot: dark screen face with glowing cyan eyes, heart light, stubby arms, one wheel |
+| retrobot | Retrobot | a tall, boxy retro tin robot: silver head with ear bolts, two coil antennas, red body with a dial and buttons, claw hands, square boots |
+| drone | Drone | a tiny quadcopter robot with spinning rotors (two frames), a blue shell, a screen face and a camera light (floats) |
+| rover | Rover | a six-wheeled rover robot: white camera head with a wide green-eyed screen on a mast, solar wing, parcel hatch |
+| fixbot | Fixbot | a spider-legged repair robot: yellow dome with a hazard light, dark visor with orange eyes, wrench and screwdriver arms |
+| mech | Mech | a big, friendly construction mech: orange hard hat with a beacon, cockpit-window face, hazard stripes, grabber hands |
+| robodog | Robodog | a robot pet dog: silver body, blue ear flaps, green LED eyes, red collar with a gold tag, an antenna tail that wags |
+
+Robots whose faces are screens use `brow` in their face data, so their eyebrows glow in the screen colour (angry,
+sad and scared still read clearly); every robot shows all eight moods, including `frozen`.
 
 **Moods:** `normal happy sad angry scared surprised thinking frozen`. `frozen` works on any
 character: the sprite is recoloured in ice blues with crystal glints, eyes shut, inside a
@@ -192,10 +208,21 @@ RI.1–RI.9 the informational-text versions (main idea, text structure, author's
 evidence...), L.1 grammar, L.2 capitals/punctuation/spelling, L.4 word meaning from clues, L.5
 figurative language, W.1–W.3 opinion/informative/narrative writing.
 
-The 17 books on the shelf now (`npm test` output): 4–5 books read at Flesch–Kincaid grade 3.7–4.2,
-6–8 books at 6.4–7.1, 9–12 books at 8.4–9.2; 31–42 pages each, 11–14 gates, 3–6 endings. Fantasy:
-*The Jar of Lost Stories* (4–5, Greek myths and the English words they gave us) and *The Fading Word
-of Briarwick* (6–8, a hidden school where spells need correct grammar).
+The 29 books on the shelf now (`npm test` output; plus the HOW TO PLAY sample): 4–5 books read at
+Flesch–Kincaid grade 3.1–4.2, 6–8 books at 5.9–7.1, 9–12 books at 8.3–10.6; 26–42 pages each, 10–18 gates,
+3–6 endings. Fantasy: *The Jar of Lost Stories* (4–5, Greek myths and the English words they gave us) and
+*The Fading Word of Briarwick* (6–8, a hidden school where spells need correct grammar).
+
+**Robots** (two per band; every main character's name is unique across all books, which `npm test` checks):
+
+| Band | Book | Robots | Skills |
+|---|---|---|---|
+| 4–5 | *Dumpling Learns to Bake* — a sweeping robot bakes a lemon cake for a sick baker, taking every recipe word literally | Helperbot (Dumpling), Drone (Whirligig), Fixbot (Widget) | word meaning in recipes, steps in order, character feelings, theme (mistakes help you learn) |
+| 4–5 | *Sprocket Takes Everything Literally* — a lightning-zapped robot dog takes idioms literally on the day of the talent show | Robodog (Sprocket), Mech (Hoist) | idioms / figurative language, reading a sign, sequence, theme |
+| 6–8 | *The Rescue Relay* — a robotics club's spider-legged bot keeps falling in the water; copy the champions or read the test log? | Fixbot (Skitter), Retrobot (Clatterbox), Mech (Bulwark) | test-log data, iterate, tripod gait text, point of view, gracious competition |
+| 6–8 | *Tumble's Long Way Home* — a delivery rover with a broken GPS learns to read a paper map | Rover (Tumble), Drone (Zephyr) | map legend, compass, grid squares, scale, directions in order, the North Star |
+| 9–12 | *The Tidewright of Gannet Cove* — an ocean-cleanup mech, a lighthouse keeper's logbooks and a town vote | Mech (Halyard), Drone (Petrel) | claims & evidence, data, metaphor, author's purpose, theme (fix the source) |
+| 9–12 | *The Quiet Update* — a factory helper robot that collects words faces a memory-wiping update | Helperbot (Tess) | AI ethics: evidence-based advocacy, the Ship of Theseus allusion, tone, counterarguments |
 
 ### Codes to verify
 
@@ -238,7 +265,10 @@ npm test           # parser/validator unit tests + checks every src/stories/**/*
 `npm test` runs `scripts/test-story.ts` (parser, validator, serializer round-trip, Writer's Desk
 draft round-trip, readability, standard codes, and the hearts/reveal/order-gate rules on small inline
 stories, including broken ones) and `scripts/check-stories.ts` (validates every book, prints its
-stats and reading level, checks every scene and character has art, and fails on any error).
+stats and reading level, checks every scene and character has art, and fails on any error). For the
+Robots shelf it also checks two books per band, reading level within the band, 4 different answers on
+every multiple-choice gate with a hint and a reading/language standard, reachable endings (lose endings
+only in 6–8 and 9–12), robot cast and scenes, and that no main character's name appears in any other book.
 
 `scripts/playtest.cjs` is an automated Playwright playtest (needs `npx vite preview --port 4417 --host 127.0.0.1`):
 grades K and 3 (the 4+ screen), 4, 7 and 11 with the keyboard at 1280×800 and with touch at 1080×810,
