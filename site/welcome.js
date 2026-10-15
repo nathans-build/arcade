@@ -3,7 +3,8 @@
 // Wizard (new players only): 1) name  2) age, which suggests a grade  3) a theme, or "Surprise me".
 // Skip keeps the defaults; everything can be changed later in the player menu.
 // Tour (once per player, and again from the player menu): four tips that point at the
-// player button, the subject and topic dropdowns, the favorite star and a game cabinet.
+// player button, the search box (with Surprise me, subjects, topics and play styles), the favorite
+// star and a game cabinet.
 (function () {
   "use strict";
 
@@ -202,7 +203,7 @@
 
   var STOPS = [
     { sel: "#profile-btn", title: "Your player menu", text: "Change your grade, name and theme here, or switch players." },
-    { sel: ".filter-selects", title: "Find a game", text: "Pick a subject and a topic to find games for what you're learning." },
+    { sel: "#search-row", title: "Find a game", text: "Type to search (press / on a keyboard), or pick a subject, topic or play style below. Can't choose? Tap 🎲 Surprise me!" },
     { sel: "#shelves .fav", title: "Favorites", text: "Tap the ☆ to make a game a favorite. Favorites stay at the top." },
     { sel: "#shelves a.cabinet", title: "Press start!", text: "Tap a game to play. Your grade goes with you into every game." },
   ];

@@ -92,4 +92,21 @@ function report(rows, days) {
   };
 }
 
-module.exports = { countersFor, report, dayKey, safeKey, MAX_SECONDS };
+/** How many games GET /api/popular returns, and over how many days. */
+const POPULAR_LIMIT = 8;
+const POPULAR_DAYS = 7;
+
+/**
+ * The public "most played this week" list: only each game's total plays, from the same rows and
+ * report() ranking as the stats page. Nothing else (no grades, devices, time zones or times).
+ */
+function popular(rows, limit = POPULAR_LIMIT) {
+  return {
+    games: report(rows || [], POPULAR_DAYS).games
+      .filter((g) => g.plays > 0 && GAME_RE.test(g.game))
+      .slice(0, limit)
+      .map((g) => ({ id: g.game, plays: g.plays })),
+  };
+}
+
+module.exports = { countersFor, report, popular, dayKey, safeKey, MAX_SECONDS, POPULAR_LIMIT, POPULAR_DAYS };
