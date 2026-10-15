@@ -88,12 +88,13 @@ export function faceRows(def: SpriteDef, alt: boolean, mood: Mood, blink: boolea
     const left = i === 0;
     const outer = left ? ex - 1 : ex + ew;
     const inner = left ? ex + ew - 1 : ex;
+    const brow = f.brow ?? "K";
     if (mood === "angry") {
-      set(outer, ey - 2, "K");
-      set(inner, ey - 1, "K");
+      set(outer, ey - 2, brow);
+      set(inner, ey - 1, brow);
     } else if (mood === "sad" || mood === "scared") {
-      set(outer, ey - 1, "K");
-      set(inner, ey - 2, "K");
+      set(outer, ey - 1, brow);
+      set(inner, ey - 2, brow);
     }
   });
   if (mood === "sad" && !blink) set(f.ex[0], f.ey + (f.eh ?? 1), "C");

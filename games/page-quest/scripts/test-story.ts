@@ -408,4 +408,93 @@ end: lose L
   assert.ok(/genre: fantasy/.test(draftToText(d)));
 });
 
+test("robots genre: seven robot types, their faces, the new scenes and the Writer's Desk", () => {
+  assert.ok((GENRES as readonly string[]).includes("robots"));
+  const ROBOTS: [string, string][] = [
+    ["Helperbot", "helperbot"], ["Retrobot", "retrobot"], ["Drone", "drone"], ["Rover", "rover"],
+    ["Fixbot", "fixbot"], ["Mech", "mech"], ["Robodog", "robodog"],
+  ];
+  const looks = new Set<string>();
+  for (const [name, id] of ROBOTS) {
+    assert.equal(charByName(name), id);
+    const def = SPRITES[id as keyof typeof SPRITES];
+    assert.ok(def, `${id} has a sprite`);
+    // Every robot shows moods on its face: eyes and mouth sit on the face's skin colour.
+    const f = def.face;
+    assert.ok(f && f.mx !== undefined && f.my !== undefined, `${id} has eyes and a mouth`);
+    for (const ex of f.ex) for (let x = 0; x < (f.ew ?? 1); x++) assert.equal(def.rows[f.ey][ex + x], f.skin, `${id}: eye at ${ex + x},${f.ey} is on the face`);
+    for (const dx of [0, 1]) assert.equal(def.rows[f.my!][f.mx! + dx], f.skin, `${id}: mouth on the face`);
+    // Happy, sad and angry faces really differ from each other (the face changes with the mood).
+    const frames = (["normal", "happy", "sad", "angry", "surprised"] as const).map((m) => faceRows(def, false, m, false, false).join("/"));
+    assert.equal(new Set(frames).size, frames.length, `${id}: every mood draws a different face`);
+    // Dark-screen robots draw brows in a colour that shows up on the screen.
+    if (f.brow) assert.ok(f.brow in { ...KEYS, ...(def.colors ?? {}) }, `${id}: brow colour exists`);
+    looks.add(def.rows.join("/"));
+  }
+  assert.equal(looks.size, ROBOTS.length, "each robot type has its own design");
+  // Two-frame robots (the drone's rotors, the robodog's tail) keep the same size in both frames.
+  for (const id of ["drone", "robodog"] as const) assert.equal(SPRITES[id].alt?.length, SPRITES[id].rows.length, `${id} alt frame`);
+  const NEW_SCENES = ["robot-workshop", "factory-floor", "robot-arena", "recycling-center", "rooftop-night", "bakery"];
+  for (const sc of NEW_SCENES) {
+    assert.ok((SCENES as readonly string[]).includes(sc), sc);
+    assert.ok(SCENE_PAINTERS[sc as keyof typeof SCENE_PAINTERS], `${sc} has a painter`);
+  }
+  const text = `${HEAD("6-8")}
+=== a
+scene: robot-workshop
+cast: hero, helperbot:happy, retrobot:thinking
+checkpoint
+Helperbot: Beep!
+Retrobot: GREETINGS.
+> To the factory -> b
+
+=== b
+scene: factory-floor
+cast: drone:surprised, rover:sad, fixbot:angry
+Drone: Bzzz!
+Rover: Recalculating.
+Fixbot: Fix fix!
+> To the arena -> c
+> To the bakery -> d
+
+=== c
+scene: robot-arena
+cast: hero, mech:happy, robodog:scared
+Mech: THOOM.
+Robodog: Bork!
+> Recycle -> e
+> Rooftop -> f
+
+=== d
+scene: bakery
+cast: helperbot:frozen, mech:frozen, robodog:frozen
+Brr.
+end: lose L
+
+=== e
+scene: recycling-center
+cast: rover:happy
+Rover: Sorted.
+end: secret S
+
+=== f
+scene: rooftop-night
+cast: hero, drone:happy
+Drone: Stars!
+end: win W
+`.replace("genre: mystery", "genre: robots");
+  const r = checkStory(text);
+  assert.deepEqual(r.errors, []);
+  assert.deepEqual(r.warnings, []);
+  assert.equal(r.story.genre, "robots");
+  // the Writer's Desk keeps the genre, the robot cast and the new scenes through a round-trip
+  const d = draftFromText(text);
+  assert.equal(d.header.genre, "robots");
+  const back = draftToText(d);
+  assert.ok(/genre: robots/.test(back));
+  for (const id of ["helperbot", "retrobot", "drone", "rover", "fixbot", "mech", "robodog"]) assert.ok(new RegExp(`\\b${id}\\b`).test(back), `${id} survives the draft round-trip`);
+  for (const sc of NEW_SCENES) assert.ok(back.includes(`scene: ${sc}`), `${sc} survives the draft round-trip`);
+  assert.deepEqual(checkStory(back).errors, []);
+});
+
 console.log(`test-story: ${passed} tests passed`);

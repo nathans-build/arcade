@@ -210,6 +210,8 @@
 .pq-tab.space.on { color: var(--pq-pink); }
 .pq-tab.fantasy.on { color: var(--pq-yellow); }
 .pq-tab.spooky.on { color: #ff8a2a; }
+.pq-tab.robots.on { color: #8ff0d8; }
+.pq-tabicon { display: inline-block; vertical-align: -2px; margin-right: 4px; }
 .pq-shelfwrap { background: #3a1c08; border: 3px solid #5a2e0e; border-bottom: 8px solid #aa5500; padding: 8px 8px 0; }
 .pq-shelf-label { font-size: 8px; color: var(--pq-yellow); margin-bottom: 6px; }
 .pq-shelf { display: flex; gap: 6px; align-items: flex-end; overflow-x: auto; padding: 10px 0 0; min-height: 100px; }
@@ -228,6 +230,7 @@
 .pq-spine.space { background: #6a2a9a; }
 .pq-spine.fantasy { background: #a8406a; }
 .pq-spine.spooky { background: #d0601a; }
+.pq-spine.robots { background: #2a7a86; background-image: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.07) 0 2px, transparent 2px 10px); }
 .pq-spine.band-6-8 { height: 118px; }
 .pq-spine.band-9-12 { height: 124px; }
 .pq-spine.new { background: #111c5a; border-style: dashed; border-color: var(--pq-cyan); color: var(--pq-cyan); }
@@ -245,7 +248,7 @@
 .pq-detail .blurb { margin: 2px 0; line-height: 1.05; }
 .pq-librow { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
 @media (max-width: 560px) {
-  /* four genre tabs + MY BOOKS on one row at phone width */
+  /* the genre tabs + MY BOOKS wrap onto two rows at phone width */
   .pq-tabs { gap: 3px; }
   .pq-tab { font-size: 7px; padding: 7px 5px; }
   .pq-detail { flex-direction: column; }

@@ -6,7 +6,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { checkStory, formatIssue } from "../src/story/validate";
-import { BAND_GRADES, CHAR_IDS, GENRES, SCENES, BANDS, type Band } from "../src/story/roster";
+import { ANCHORS, BAND_GRADES, CHAR_IDS, GENRES, SCENES, BANDS, type Band } from "../src/story/roster";
+import { exits } from "../src/story/validate";
 import { SCENE_PAINTERS } from "../src/engine/scenes";
 import { SPRITES } from "../src/engine/sprites";
 
@@ -22,6 +23,25 @@ function walk(dir: string): string[] {
 
 let errors = 0;
 let warnings = 0;
+
+/*
+ * Robots shelf: the main characters' names in each robot book. A name must not appear in any
+ * other book (earlier books had to be renamed when two stories shared a character name).
+ */
+const ROBOT_BOOK_NAMES: Record<string, string[]> = {
+  "4-5/robots.story": ["Dumpling", "Whirligig", "Widget", "Marigold", "Butterbell", "Higgleby"],
+  "4-5/robots-2.story": ["Sprocket", "Billie", "Ashgrove", "Hoist"],
+  "6-8/robots.story": ["Skitter", "Clatterbox", "Yumi", "Haddad", "Dez", "Achterberg", "Liesl", "Villanueva", "Imelda", "Annika", "Rasmussen", "Bulwark"],
+  "6-8/robots-2.story": ["Tumble", "Zephyr", "Fumiko", "Bellweather", "Dunleavy"],
+  "9-12/robots.story": ["Halyard", "Petrel", "Noor", "Halvorsen", "Augusta", "Treloar", "Bertrand", "Szabo", "Hamish", "Quarrie", "Sunniva", "Brekke"],
+  "9-12/robots-2.story": ["Tess", "Ifeoma", "Barrow", "Ferraro", "Okonjo", "Delphine", "Kask", "Jun", "Takahara"],
+};
+const ROBOT_TYPES = ["helperbot", "retrobot", "drone", "rover", "fixbot", "mech", "robodog"];
+const ROBOT_SCENES = ["robot-workshop", "factory-floor", "robot-arena", "recycling-center", "rooftop-night", "bakery"];
+const robotErr = (rel: string, msg: string) => {
+  console.log(`ERROR: ${rel}: ${msg}`);
+  errors++;
+};
 
 for (const s of SCENES) if (!SCENE_PAINTERS[s]) { console.log(`ERROR: no painter for scene "${s}"`); errors++; }
 for (const c of CHAR_IDS) if (!SPRITES[c]) { console.log(`ERROR: no sprite for character "${c}"`); errors++; }
@@ -52,7 +72,61 @@ for (const file of files) {
   errors += r.errors.length;
   warnings += r.warnings.length;
   if (folder !== "sample") shelf.set(`${s.genre}/${s.band}`, [...(shelf.get(`${s.genre}/${s.band}`) ?? []), rel]);
+
+  // ---- Extra checks for the Robots shelf ----
+  if (s.genre === "robots") {
+    const key = rel.split(path.sep).join("/");
+    if (!ROBOT_BOOK_NAMES[key]) robotErr(rel, "robot book has no entry in ROBOT_BOOK_NAMES (list its main characters' names).");
+    const [lo, hi] = BAND_GRADES[s.band as Band];
+    if (fk < lo - 2 || fk > hi + 1) robotErr(rel, `reading level ${fk.toFixed(1)} does not fit band ${s.band}.`);
+    if (st.endings.win < 1 || st.endings.secret < 1) robotErr(rel, "needs at least one win and one secret ending.");
+    if (s.band === "4-5" ? st.endings.lose !== 0 : st.endings.lose < 1) robotErr(rel, `band ${s.band} lose endings: ${st.endings.lose}.`);
+    if (st.checkpoints < 3) robotErr(rel, "needs a checkpoint at the start of each of its 3 chapters.");
+    if (st.gates.mc + st.gates.order < 10) robotErr(rel, `only ${st.gates.mc + st.gates.order} gates (want 10+).`);
+    if (st.reachable !== st.pages) robotErr(rel, "some pages are unreachable.");
+    for (const p of s.pages) {
+      const g = p.gate;
+      if (!g) continue;
+      if (!(g.anchor in ANCHORS) || g.anchor.startsWith("RF.")) robotErr(rel, `page ${p.id}: anchor ${g.anchor} is not a reading/language standard.`);
+      if (!g.hint.trim() || g.hint.length < 20) robotErr(rel, `page ${p.id}: gate needs an explaining hint.`);
+      if (g.kind === "mc") {
+        const texts = new Set(g.answers.map((a) => a.text.toLowerCase()));
+        if (g.answers.length !== 4 || texts.size !== 4) robotErr(rel, `page ${p.id}: multiple-choice gates need 4 different answers.`);
+        if (g.answers.filter((a) => a.correct).length !== 1) robotErr(rel, `page ${p.id}: exactly one right answer.`);
+      }
+    }
+    const used = new Set(s.pages.flatMap((p) => p.cast.map((c) => c.id)));
+    if (!ROBOT_TYPES.some((r) => used.has(r))) robotErr(rel, "uses none of the robot characters.");
+    if (!s.pages.some((p) => ROBOT_SCENES.includes(p.scene))) robotErr(rel, "uses none of the robot scenes.");
+    // every ending can actually be reached from the start
+    const byId = new Map(s.pages.map((p) => [p.id, p]));
+    const seen = new Set<string>();
+    const queue = [s.start];
+    while (queue.length) {
+      const id = queue.shift()!;
+      if (seen.has(id) || !byId.has(id)) continue;
+      seen.add(id);
+      queue.push(...exits(byId.get(id)!));
+    }
+    for (const p of s.pages) if (p.end && !seen.has(p.id)) robotErr(rel, `ending ${p.id} can't be reached.`);
+  }
 }
+
+// ---- No character name is shared between a robot book and any other book ----
+const texts = new Map(files.map((f) => [path.relative(root, f).split(path.sep).join("/"), fs.readFileSync(f, "utf8")]));
+for (const [book, names] of Object.entries(ROBOT_BOOK_NAMES)) {
+  if (!texts.has(book)) robotErr(book, "listed in ROBOT_BOOK_NAMES but the file is missing.");
+  for (const name of names) {
+    const re = new RegExp(`\\b${name}\\b`);
+    if (!re.test(texts.get(book) ?? "")) robotErr(book, `name "${name}" is listed but never used.`);
+    for (const [other, text] of texts) if (other !== book && re.test(text)) robotErr(book, `character name "${name}" is also used in ${other}.`);
+  }
+}
+const robotBands = BANDS.map((b) => [...texts.entries()].filter(([, t]) => /^genre:\s*robots\s*$/m.test(t) && new RegExp(`^band:\\s*${b}\\s*$`, "m").test(t)).length);
+BANDS.forEach((b, i) => {
+  if (robotBands[i] < 2) robotErr(`robots/${b}`, `only ${robotBands[i]} robot book(s); want 2 per band.`);
+});
+console.log(`\nRobots shelf: ${robotBands.reduce((a, b) => a + b, 0)} books (${BANDS.map((b, i) => `${b}: ${robotBands[i]}`).join(", ")}), names checked against every other book.`);
 
 const missing = GENRES.flatMap((g) => BANDS.map((b) => `${g}/${b}`)).filter((k) => !shelf.has(k));
 console.log(`\n${files.length} book file(s). Shelf: ${shelf.size}/${GENRES.length * BANDS.length} genre+band slots filled.${missing.length ? ` Not yet written: ${missing.join(", ")}.` : ""}`);
