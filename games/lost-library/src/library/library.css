@@ -1,0 +1,301 @@
+/* Quest of the Lost Library — arcade presentation (SpiderBen10 red & blue, library gold, night purple) */
+
+.ll-root {
+  --ll-bg: #140d2a;
+  --ll-deep: #0b0618;
+  --ll-panel: #1c1238;
+  --ll-red: #e3262f;
+  --ll-blue: #2456e8;
+  --ll-cyan: #6ea0ff;
+  --ll-yellow: #ffd23f;
+  --ll-green: #5fff8a;
+  --ll-white: #f4f0ff;
+  --ll-dim: #7a6fb0;
+  height: 100vh;
+  height: 100dvh;
+  box-sizing: border-box;
+  background: var(--ll-bg);
+  color: var(--ll-white);
+  font-family: "VT323", ui-monospace, monospace;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 16px 12px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  overflow: hidden;
+}
+
+.ll-pixel { font-family: "Press Start 2P", ui-monospace, monospace; letter-spacing: 0.02em; }
+.ll-root .y { color: var(--ll-yellow); }
+.ll-root .c { color: var(--ll-cyan); }
+.ll-root .g { color: var(--ll-green); }
+.ll-root .r { color: #ff8a8a; }
+.ll-root .dim { color: var(--ll-dim); }
+
+.ll-cabinet { width: 100%; max-width: 960px; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.ll-toolbar, .ll-hud, .ll-quiz, .ll-controls { flex: none; }
+.ll-stage { flex: 1; min-height: 120px; display: flex; align-items: flex-start; justify-content: center; }
+
+/* HUD: hearts, keys, item (tap to swap), books, area */
+.ll-hud {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 4px 12px; padding: 6px 2px; font-size: clamp(8px, 1.5vw, 11px); text-transform: uppercase;
+}
+.ll-hud .hearts { font-family: ui-monospace, monospace; font-size: clamp(14px, 2.4vw, 18px); letter-spacing: 1px; }
+.ll-hud .hearts .on { color: var(--ll-red); }
+.ll-hud .hearts .off { color: #3a2f5a; }
+.ll-hud .keys { color: var(--ll-yellow); }
+.ll-hud .books { color: var(--ll-green); }
+.ll-hud .area { color: var(--ll-cyan); }
+.ll-hud .item {
+  font: inherit; color: var(--ll-white); background: #241a4a; border: 2px solid var(--ll-dim);
+  padding: 5px 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; min-height: 30px;
+}
+.ll-hud .item:hover { border-color: var(--ll-yellow); }
+.ll-icon { display: inline-block; width: 10px; height: 10px; box-shadow: 1px 1px 0 #000; vertical-align: middle; }
+
+.ll-screen {
+  position: relative; width: 100%; aspect-ratio: 320 / 200; box-sizing: border-box;
+  border: 3px solid #3a2a78; box-shadow: 0 0 0 2px #000, 0 0 40px rgba(255, 210, 63, 0.18);
+  overflow: hidden; background: var(--ll-deep);
+}
+.ll-screen canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+.ll-screen::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0) 0 2px, rgba(0, 0, 0, 0.14) 2px 3px);
+}
+
+.ll-overlay {
+  position: absolute; inset: 0; z-index: 2; display: flex; align-items: center; justify-content: center;
+  padding: 3%; background: rgba(11, 6, 24, 0.78); overflow-y: auto;
+}
+.ll-overlay.title { background: rgba(20, 13, 42, 0.55); }
+.ll-overlay.top { z-index: 4; }
+.ll-panel {
+  width: 100%; max-width: 780px; max-height: 100%; box-sizing: border-box; overflow-y: auto;
+  border: 3px solid var(--ll-cyan); background: var(--ll-panel); padding: clamp(10px, 2.5vw, 22px); box-shadow: 6px 6px 0 #000;
+}
+.ll-panel.title { border-color: var(--ll-yellow); }
+.ll-panel.won { border-color: var(--ll-yellow); }
+
+.ll-title {
+  font-size: clamp(18px, 4.4vw, 38px); color: var(--ll-yellow);
+  text-shadow: 3px 3px 0 var(--ll-red), 6px 6px 0 var(--ll-blue); text-align: center; line-height: 1.3;
+}
+.ll-title.small { font-size: clamp(13px, 3vw, 24px); margin-bottom: 8px; }
+.ll-sub { text-align: center; color: var(--ll-cyan); font-size: clamp(7px, 1.4vw, 11px); margin-top: 10px; line-height: 1.5; }
+.ll-h { font-size: clamp(9px, 1.7vw, 13px); color: var(--ll-cyan); margin: 12px 0 8px; line-height: 1.4; }
+.ll-story { text-align: center; margin-top: 10px; }
+.ll-gradebadge { margin-top: 12px; }
+
+.ll-grades { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 6px 0 4px; }
+.ll-grade {
+  font-size: clamp(9px, 1.4vw, 12px); min-width: 36px; padding: 9px 4px; cursor: pointer;
+  background: #241a4a; color: var(--ll-white); border: 2px solid var(--ll-dim); box-shadow: 3px 3px 0 #000;
+}
+.ll-grade:hover, .ll-grade:focus-visible { border-color: var(--ll-cyan); outline: none; }
+.ll-grade.on { background: var(--ll-red); border-color: var(--ll-yellow); color: #fff; }
+.ll-grade.on:focus-visible { outline: 2px dashed var(--ll-cyan); outline-offset: 2px; }
+
+.ll-subjects { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 4px 0 8px; }
+.ll-subject {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  flex: 1 1 108px; max-width: 170px; min-height: 48px; padding: 8px 6px; cursor: pointer;
+  font-family: "VT323", ui-monospace, monospace; color: var(--ll-white);
+  background: #241a4a; border: 2px solid var(--ll-dim); box-shadow: 3px 3px 0 #000;
+}
+.ll-subject .ll-pixel { font-size: clamp(8px, 1.3vw, 11px); line-height: 1.3; }
+.ll-subject small { font-size: clamp(14px, 1.8vw, 17px); color: #c8bff0; line-height: 1; text-align: center; }
+.ll-subject.on { background: var(--ll-blue); border-color: var(--ll-yellow); }
+.ll-subject.on small { color: #fff; }
+.ll-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 6px 0; }
+.ll-chip {
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 40px; max-width: 100%; padding: 4px 10px; cursor: pointer;
+  font-family: "VT323", ui-monospace, monospace; font-size: clamp(17px, 2.1vw, 20px); line-height: 1;
+  color: var(--ll-white); background: #241a4a; border: 2px solid var(--ll-dim); box-shadow: 3px 3px 0 #000; overflow-wrap: anywhere;
+}
+.ll-chip.all { text-transform: uppercase; letter-spacing: 0.04em; }
+.ll-chip.on { background: var(--ll-blue); border: 2px solid var(--ll-yellow); color: #fff; }
+.ll-chip:disabled { cursor: not-allowed; color: #6a5f9a; border-color: #3a2f6a; background: #18103a; box-shadow: none; }
+.ll-chip small { font-size: 0.75em; color: #9a90c8; margin-top: 2px; }
+.ll-subject:hover, .ll-subject:focus-visible, .ll-chip:hover:not(:disabled), .ll-chip:focus-visible { border-color: var(--ll-cyan); outline: none; }
+.ll-subject.on:focus-visible, .ll-chip.on:focus-visible { outline: 2px dashed var(--ll-cyan); outline-offset: 2px; }
+.ll-focusnote { text-align: center; color: var(--ll-yellow); margin: 2px 0 4px; }
+.ll-focusline { text-align: center; margin-top: 6px; }
+
+/* Bookshelf */
+.ll-shelf {
+  display: flex; align-items: flex-end; justify-content: center; gap: 4px; flex-wrap: wrap;
+  padding: 8px 10px 6px; background: #3a2410; border: 3px solid #5a3a1a; border-bottom-width: 8px; position: relative;
+}
+.ll-spine { width: 22px; height: 44px; border: 2px solid #1a0c04; background: #1a0c04; padding: 0; cursor: pointer; box-shadow: inset -3px 0 0 rgba(0, 0, 0, 0.25); }
+.ll-spine:nth-child(even) { height: 50px; }
+.ll-spine.on { box-shadow: inset -3px 0 0 rgba(0, 0, 0, 0.3), inset 0 6px 0 rgba(255, 255, 255, 0.25); }
+.ll-spine:disabled { cursor: default; opacity: 0.6; }
+.ll-spine.on:hover, .ll-spine.on:focus-visible { outline: 2px solid var(--ll-yellow); outline-offset: 1px; }
+.ll-shelfcount { font-size: 9px; color: var(--ll-yellow); margin-left: 8px; align-self: center; }
+
+.ll-start { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 14px 0 4px; }
+.ll-savenote { text-align: center; }
+.ll-row { display: flex; gap: 12px; margin-top: 14px; justify-content: flex-end; flex-wrap: wrap; align-items: center; }
+
+/* Dialog box (signs, talk, messages): bottom of the game screen */
+.ll-dialog {
+  position: absolute; left: 3%; right: 3%; bottom: 4%; z-index: 3; cursor: pointer;
+  background: rgba(11, 6, 24, 0.94); border: 3px solid var(--ll-yellow); box-shadow: 4px 4px 0 #000;
+  padding: 8px 12px 6px; font-size: clamp(16px, 2.6vw, 24px); line-height: 1.1; max-height: 70%; overflow-y: auto;
+}
+.ll-dialog .who { font-size: clamp(7px, 1.2vw, 10px); color: var(--ll-yellow); margin-bottom: 4px; }
+.ll-dialog .more { font-size: 7px; color: var(--ll-cyan); text-align: right; margin-top: 4px; animation: ll-blink 1s steps(2) infinite; }
+.ll-dialog.big { font-size: clamp(19px, 3vw, 28px); }
+@keyframes ll-blink { 50% { opacity: 0; } }
+
+.ll-card { display: flex; gap: 16px; align-items: flex-start; max-width: 620px; }
+.ll-card.item { display: block; border-color: var(--ll-yellow); }
+.ll-card.book { border-color: var(--ll-green); }
+.ll-bookcover { flex: none; width: 56px; height: 76px; border: 3px solid #1a0c04; box-shadow: 4px 4px 0 #000, inset -6px 0 0 rgba(0, 0, 0, 0.25); }
+
+/* Pause: map + inventory */
+.ll-pause { max-width: 720px; }
+.ll-map { display: grid; gap: 6px; margin: 4px 0 10px; }
+.ll-maproom {
+  border: 2px solid #3a2f6a; background: #18103a; color: #6a5f9a; padding: 6px; min-height: 34px;
+  font-size: clamp(15px, 2vw, 19px); line-height: 1; text-align: center; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 2px;
+}
+.ll-maproom.seen { background: #2a1f5a; color: var(--ll-white); border-color: var(--ll-dim); }
+.ll-maproom.unknown { border-style: dashed; }
+.ll-maproom.here { border-color: var(--ll-yellow); background: #3a2a10; color: #fff; }
+.ll-maproom.here b { font-size: 8px; color: var(--ll-yellow); animation: ll-blink 1s steps(2) infinite; }
+.ll-mapnote { grid-column: 1 / -1; }
+.ll-inv > div { margin: 3px 0; }
+.ll-howto { margin-top: 12px; }
+
+/* Question panel (doors and guardians), under the game screen */
+.ll-quiz {
+  background: #1c1440; border: 2px solid var(--ll-blue); border-left: 6px solid var(--ll-yellow);
+  padding: 6px 10px 8px; margin: 6px 2px 0; font-size: clamp(18px, 2.4vw, 24px); line-height: 1.05; max-height: 50vh; overflow-y: auto;
+}
+.ll-quiz.guardian { border-left-color: var(--ll-red); }
+.ll-quiz.correct { border-color: var(--ll-green); }
+.ll-quiz.wrong { border-color: var(--ll-red); }
+.ll-quiz .head { font-size: clamp(7px, 1.1vw, 10px); color: var(--ll-yellow); display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+.ll-quiz.guardian .head { color: #ff8a8a; }
+.ll-quiz .stars { color: var(--ll-yellow); }
+.ll-quiz .head .std { color: var(--ll-dim); white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+.ll-quiz .passage { font-size: 0.85em; color: #d8d0ff; border-left: 4px solid var(--ll-dim); padding: 2px 8px; margin: 4px 0; }
+.ll-quiz .prompt { margin: 2px 0 6px; color: var(--ll-white); }
+.ll-quiz .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 8px; }
+.ll-quiz .opt {
+  display: flex; gap: 8px; align-items: baseline; font: inherit; color: #ded8ff; text-align: left; cursor: pointer;
+  background: #241a5a; border: 2px solid #3a2f7a; padding: 5px 8px; min-height: 40px; box-shadow: 3px 3px 0 #000;
+}
+.ll-quiz .opt b { font-family: "Press Start 2P", monospace; font-size: 0.5em; font-weight: normal; color: var(--ll-yellow); }
+.ll-quiz .opt:hover:not(:disabled) { border-color: var(--ll-yellow); }
+.ll-quiz .opt:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #000; }
+.ll-quiz .opt:disabled { cursor: default; }
+.ll-quiz .opt.ans { border-color: var(--ll-green); color: var(--ll-green); background: #0d3a22; }
+.ll-quiz .opt.wrong { border-color: var(--ll-red); color: #ffb0b4; background: #3a0d12; }
+.ll-quiz .hint { font-size: 0.75em; }
+.ll-quiz .feedback { margin-top: 6px; }
+.ll-quiz .verdict { font-size: clamp(8px, 1.4vw, 12px); margin-bottom: 4px; line-height: 1.4; }
+.ll-quiz .verdict.ok { color: var(--ll-green); }
+.ll-quiz .verdict.no { color: var(--ll-red); }
+.ll-quiz .why { color: #ece8ff; }
+.ll-quiz .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+.ll-quiz .row .dim { font-size: 0.8em; }
+@media (max-width: 420px) { .ll-quiz .opts { grid-template-columns: 1fr; } }
+
+.ll-speak { font-size: 16px; line-height: 1; padding: 2px 6px; cursor: pointer; background: #241a4a; border: 2px solid var(--ll-dim); color: var(--ll-cyan); }
+
+.ll-cta {
+  font-family: "Press Start 2P", monospace; font-size: clamp(9px, 1.6vw, 13px);
+  color: var(--ll-deep); background: var(--ll-yellow); border: 0; padding: 12px 16px;
+  box-shadow: 4px 4px 0 var(--ll-red); cursor: pointer; text-transform: uppercase;
+}
+.ll-cta.big { font-size: clamp(10px, 1.9vw, 15px); padding: 14px 20px; }
+.ll-cta.small { font-size: 8px; padding: 8px 10px; }
+.ll-cta:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--ll-red); }
+.ll-cta.ghost { background: transparent; color: var(--ll-cyan); box-shadow: none; border: 2px solid var(--ll-cyan); }
+
+/* Touch controls: a cross-shaped pad on the left, four action buttons on the right */
+.ll-controls { display: none; margin-top: 8px; gap: 8px; justify-content: space-between; align-items: center; }
+.ll-controls.show { display: flex; }
+.ll-dpad { display: grid; grid-template-columns: repeat(3, 50px); grid-template-rows: repeat(3, 46px); gap: 3px; }
+.ll-dpad .up { grid-column: 2; grid-row: 1; }
+.ll-dpad .left { grid-column: 1; grid-row: 2; }
+.ll-dpad .right { grid-column: 3; grid-row: 2; }
+.ll-dpad .down { grid-column: 2; grid-row: 3; }
+.ll-acts { display: grid; grid-template-columns: repeat(2, 66px); gap: 8px; }
+.ll-touch {
+  width: 100%; height: 100%; border-radius: 10px; background: #241a4a; color: var(--ll-white); border: 2px solid var(--ll-dim);
+  touch-action: none; font-family: ui-monospace, monospace; font-size: 24px; padding: 0;
+}
+.ll-touch.word { font-family: "Press Start 2P", monospace; font-size: 9px; height: 56px; border-radius: 50%; }
+.ll-touch.dust { border-color: #ff8ad8; color: #ff8ad8; }
+.ll-touch.use { border-color: var(--ll-yellow); color: var(--ll-yellow); }
+.ll-touch.talk { border-color: var(--ll-green); color: var(--ll-green); }
+.ll-touch.map { border-color: var(--ll-cyan); color: var(--ll-cyan); }
+.ll-touch:active { background: #3a2a90; }
+
+.ll-help { font-size: clamp(16px, 2.2vw, 20px); color: #c8bff0; line-height: 1.15; }
+.ll-help.big { font-size: 22px; color: var(--ll-white); }
+.ll-help kbd { font-family: "Press Start 2P", monospace; font-size: 0.5em; color: var(--ll-yellow); border: 1px solid var(--ll-dim); padding: 2px 4px; white-space: nowrap; }
+
+.ll-tablewrap { overflow-x: auto; }
+.ll-report-table { width: 100%; border-collapse: collapse; font-size: clamp(16px, 2.2vw, 20px); margin-top: 8px; }
+.ll-report-table th { font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--ll-dim); text-align: left; padding: 4px; }
+.ll-report-table td { padding: 3px 4px; border-top: 1px solid #2a1f5a; }
+.ll-dot { display: inline-block; width: 8px; height: 8px; margin-right: 6px; background: var(--ll-yellow); }
+.ll-dot.math { background: #ff8a8a; }
+.ll-dot.science { background: var(--ll-green); }
+.ll-dot.ela { background: var(--ll-cyan); }
+.ll-dot.social { background: var(--ll-yellow); }
+
+.ll-toolbar { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; margin-bottom: 4px; gap: 8px; }
+.ll-tools { display: flex; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
+.ll-toolbar a, .ll-toolbar button {
+  font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--ll-dim);
+  background: none; border: 0; cursor: pointer; text-decoration: none; padding: 6px 0;
+}
+.ll-toolbar a:hover, .ll-toolbar button:hover { color: var(--ll-cyan); }
+
+/* Early readers (K-2): bigger text */
+.ll-root.early .ll-quiz { font-size: clamp(22px, 3vw, 30px); }
+.ll-root.early .ll-quiz .opt { min-height: 48px; }
+
+@media (max-width: 700px), (max-height: 640px) {
+  /* Small screens: text panels take the viewport (the game screen is too short) */
+  .ll-overlay { position: fixed; padding: 12px; align-items: flex-start; }
+  .ll-panel { max-height: none; }
+  .ll-dialog { position: fixed; bottom: auto; top: 30%; left: 12px; right: 12px; max-height: 60vh; }
+}
+@media (orientation: portrait) and (max-width: 900px) {
+  .ll-stage { flex: 0 1 auto; }
+  .ll-controls { margin-top: auto; padding-top: 8px; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .ll-root { padding: 4px 8px 6px; }
+  .ll-cabinet.touch-on { padding: 0 160px; box-sizing: border-box; max-width: none; }
+  .ll-controls.show { position: fixed; left: 8px; right: 8px; bottom: 10px; margin: 0; z-index: 1; pointer-events: none; }
+  .ll-controls.show .ll-dpad, .ll-controls.show .ll-acts { pointer-events: auto; }
+  .ll-hud { padding: 2px; }
+  .ll-quiz { max-height: 60vh; padding: 3px 8px 5px; font-size: 17px; }
+  .ll-quiz .opt { min-height: 30px; padding: 2px 6px; }
+}
+@media (max-width: 520px) {
+  .ll-root { padding: 6px 8px 10px; }
+  .ll-toolbar a, .ll-toolbar button { font-size: 7px; }
+  .ll-tools { gap: 10px; }
+  .ll-hud { gap: 4px 8px; }
+  .ll-dpad { grid-template-columns: repeat(3, 46px); grid-template-rows: repeat(3, 42px); }
+  .ll-acts { grid-template-columns: repeat(2, 60px); gap: 6px; }
+  .ll-touch.word { height: 52px; font-size: 8px; }
+  .ll-card { flex-direction: column; }
+}
+@media (max-width: 370px) {
+  .ll-dpad { grid-template-columns: repeat(3, 42px); }
+  .ll-acts { grid-template-columns: repeat(2, 56px); }
+}
