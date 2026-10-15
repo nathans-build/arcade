@@ -19,6 +19,9 @@ browser to try it locally.
      tagline: "One sentence about the game.",
      subjects: ["Math"],            // decides which subject tabs show it ("ELA" = Reading & Writing)
      topics: ["numbers", "algebra"], // topic chips under each subject tab (ids from window.TOPICS)
+     styles: ["racing", "action"],  // 1–2 play styles from window.STYLES; the first is its main one
+     length: "quick",               // "quick" or "adventure" (saves progress / longer sessions)
+     inspiredBy: "Spy Hunter",      // optional: the classic it plays like (only used by search)
      grades: ["5", "6", "7", "8"],  // omit for K-12; used by the "Fits my grade" filter
      url: "/space-racer/",
      image: "img/space-racer.png",
@@ -92,7 +95,8 @@ in `kit/banks/` list standard codes to double-check against WCPSS pacing guides.
 - **Setup wizard and tour** (`site/welcome.js`): a new player gets a 3-step wizard: name, age (which
   suggests a grade, since NC kindergarten starts at 5: grade = age − 5, and can be changed), and a
   theme (or 🎲 Surprise me). **Skip setup** keeps the defaults. Then a 4-tip tour points at the
-  player menu, the Subject/Topic dropdowns, the ☆ favorite and a game cabinet. The tour shows once
+  player menu, the search box (mentioning subjects, topics, play styles and 🎲 Surprise me), the ☆
+  favorite and a game cabinet. The tour shows once
   per player (`arcade.tourDone`), including for players who were already set up, and **Show the
   tour** in the player menu replays it.
 - **Subject and topic:** two dropdowns. Subject is All, Math, Science, Reading & Writing or Social
@@ -101,6 +105,44 @@ in `kit/banks/` list standard codes to double-check against WCPSS pacing guides.
   `site/games.js`, and each game lists its topic ids in `topics`. `scripts/check-games.js` (run by
   the build) fails if a game has a subject without a topic, or an unknown topic id. Keys: `,` `.`
   subject, `;` `'` topic.
+- **Search** (the box above the shelves; press `/` from anywhere, `Esc` clears): live filtering as
+  you type, ignoring case and accents, matching the start of a word or anywhere inside one. It looks
+  at the title, play styles, subjects and topic names, Quick/Adventure, `inspiredBy` (so "pac" finds
+  Maze Muncher and "frog" finds Lane Leap) and the tagline. While searching, the shelves give way to
+  one flat list ranked title match → style/topic/classic → tagline (the sort menu orders games
+  within each rank). It respects "Fits my grade" and the subject/topic/style/length filters, and
+  says when matches are hidden by them ("1 more for other grades — show them"). `↓` or `Enter` in
+  the box jumps to the first result.
+- **Play styles:** `window.STYLES` in `site/games.js` lists them (🕹️ Action, 🧩 Puzzle, 🗺️ Adventure,
+  🏎️ Racing, 📖 Stories & Creative, ⌨️ Typing, 🧸 Little Learners K–2), and each game lists 1–2 in
+  `styles` (the first is its main style). With **All styles**, the menu shows one row per style in
+  that order (a game with two styles is in both; in Recommended order a row lists the games whose
+  main style it is first). On wide screens each row is a sideways strip with ◀ ▶ buttons; phones get
+  the compact list with the first 4 games. **See all ▶** (or a style chip) shows that style's full
+  grid. The chosen chip is saved per player (`arcade.style`).
+- **Length:** each game has `length: "quick"` (pick up and play) or `"adventure"` (saves progress or
+  plays in longer sessions: Page Quest, Dojo Tower, Trail Ledger, Thread Chasers, Clue Compass,
+  Silly Story Studio, Sidewalk Stand, Plants vs Undead). Cabinets show ⏱️ Quick / 💾 Adventure, and
+  the **Length** dropdown filters by it (`arcade.length`).
+- **Sort** (`arcade.sort`): Recommended (the order in `games.js`), A–Z, Newest (by `added`, then
+  order) or Recently played. It orders the style rows, the style grid and search results.
+- `scripts/check-games.js` fails the build if a live game is missing `styles` (1–2 known ids) or
+  `length`, or has an empty `inspiredBy`.
+- **Shelves on top**, in order: ✨ New games, ★ Favorites, Recently played, then:
+  - **👉 Try next:** up to 6 games this player hasn't played that share a style or subject with
+    their recent and favorite games and fit their grade (topped up with unplayed games in
+    Recommended order). Worked out on the device from the player's own launch history
+    (`arcade.played`); nothing is sent anywhere. Hidden until they've played or starred something.
+  - **🔥 Most played this week:** the top 5 games from `GET /api/popular` (below) that are on this
+    menu. Fetched once, only on production (or on dev with `localStorage nzdo.trackDev = "1"`), with
+    a 4-second timeout; any failure just leaves the row out. Hidden if fewer than 3 games are left or
+    every count is under 5 plays.
+- **🎲 Surprise me!** picks a random live game that fits the player's grade and the subject, topic,
+  style and length filters, preferring games they haven't played, never the same game twice in a
+  row (`arcade.lastSurprise`). It shows the pick with **Play ▶** and **Another 🎲**, and flashes its
+  cabinet on the shelves.
+- **Keyboard:** `◀ ▶` move along a row (and on to the next), `▲ ▼` move to the row above or below,
+  `Enter` plays, plus the grade/subject/topic/favorite keys above.
 - **Themes:** picked in the player menu; each sets the banner scene and the page colors
   (`arcade.theme`, saved per player). `site/theme-boot.js` applies it before the page draws. The scenes are in
   `site/marquee.js`, and the colors are `[data-theme=...]` blocks at the top of `site/styles.css`.
@@ -148,6 +190,11 @@ in `kit/banks/` list standard codes to double-check against WCPSS pacing guides.
   (`api_location: api`). `POST /api/track` adds the event to **daily totals** in Azure Table
   Storage. It never reads or stores IP addresses, user agents, names or IDs, and sets no cookies.
   `GET /api/stats?days=30` returns the report.
+- `GET /api/popular` (public, `api/src/functions/popular.js`) returns only
+  `{ games: [{ id, plays }] }`: the top 8 games by plays over the last 7 days, from the same daily
+  totals (`popular()` in `api/src/lib/metrics.js`). Without storage it returns `{ games: [] }`. It is
+  cached for 15 minutes (`cache-control: public, max-age=900`) and stays anonymous in
+  `site/staticwebapp.config.json`. The menu's "🔥 Most played this week" row uses it.
 - **`/stats.html`** shows the report: visits, devices, most-played games with total and average
   play time, plays by day, grades, device types, time zones and themes. It is locked to the
   `owner` role (`site/staticwebapp.config.json`); other visitors are sent to GitHub sign-in.
