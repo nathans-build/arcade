@@ -128,7 +128,7 @@ async function desktop(browser, grade) {
   if ((await page.locator(".ll-grade").count()) !== 0) problems.push("grade picker shown although ?grade= was given");
   const fontsOk = await page.evaluate(async () => { await document.fonts.ready; return document.fonts.check('12px "Press Start 2P"'); });
   if (!fontsOk) problems.push("Press Start 2P font not loaded from /fonts/");
-  const ra = await page.locator(".ll-tools button[aria-pressed]").first().innerText().catch(() => null);
+  const ra = await page.locator(".ll-tools button[aria-pressed]", { hasText: "READ ALOUD" }).first().innerText().catch(() => null);
   if (ra !== null) {
     const want = grade === "2" ? "READ ALOUD ON" : "READ ALOUD OFF";
     if (!ra.includes(want)) problems.push(`read-aloud default "${ra}", want ${want}`);

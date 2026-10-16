@@ -8,4 +8,19 @@ export * from "./adaptive";
 export * from "./speak";
 export { mathQuestion, randInt, pick } from "./math";
 export { bankFor } from "./banks";
-export { ChipAudio } from "./audio";
+export {
+  ChipAudio,
+  exposeMusicDebug,
+  jingle,
+  midiToHz,
+  noteHz,
+  noteToMidi,
+  songSeconds,
+  validateSong,
+  type ChannelId,
+  type Intensity,
+  type Jingle,
+  type Section,
+  type Song,
+  type Voice,
+} from "./audio";

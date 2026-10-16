@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChipAudio,
+  exposeMusicDebug,
   GRADES,
   arcadeLink,
   gradeFromArcade,
@@ -33,13 +34,11 @@ import {
   refocusSavedForGrade, saveFocus, topicForSubject, topicsOf, validateFocus,
   type FocusChoice, type QuestSubject, type TopicChoice,
 } from "@/library/focus";
+import { BOOK_FOUND, FAINT, JINGLES, SONGS, WING_RESTORED, songFor } from "@/music";
 import "@/library/library.css";
 
 const GAME_ID = "lost-library";
 export const HERO = "Pip Lampwick";
-
-/** The quest's own 16-step bassline: a wandering minor-key adventure walk (Hz, 0 = rest). */
-const BASS = [147, 0, 220, 0, 196, 0, 175, 165, 147, 0, 220, 0, 262, 247, 220, 196];
 
 type Screen = "title" | "playing" | "ending";
 
@@ -105,7 +104,8 @@ function playSfx(audio: ChipAudio, name: Sfx) {
     case "push": audio.tone(180, 0.08, "square", 0.2, 120); break;
     case "bump": audio.tone(110, 0.06, "square", 0.12); break;
     case "key": case "chest": audio.checkpoint(); break;
-    case "item": case "book": case "solve": audio.levelUp(); break;
+    case "item": case "solve": audio.levelUp(); break;
+    case "book": break; // the Book Found jingle plays instead
     case "door": audio.tone(330, 0.1, "square", 0.25); later(90, () => audio.tone(494, 0.14, "square", 0.25)); break;
     case "dust": audio.noise(0.07, 0.25); break;
     case "poof": audio.tone(900, 0.15, "triangle", 0.35, 1800); break;
@@ -120,7 +120,7 @@ function playSfx(audio: ChipAudio, name: Sfx) {
     case "heart": audio.tone(660, 0.08, "square", 0.2); later(80, () => audio.tone(990, 0.12, "square", 0.2)); break;
     case "right": audio.correct(); break;
     case "wrong": audio.wrong(); break;
-    case "faint": audio.gameOver(); break;
+    case "faint": audio.playJingle(FAINT); break;
   }
 }
 
@@ -129,7 +129,7 @@ export default function LostLibrary() {
   const gameRef = useRef<Game | null>(null);
   const demoRef = useRef<Game | null>(null);
   const decksRef = useRef<LibraryDecks | null>(null);
-  const audio = useMemo(() => new ChipAudio(BASS, 116), []);
+  const audio = useMemo(() => new ChipAudio(), []);
 
   const [grade, setGrade] = useState<Grade>(() => initialGrade("3"));
   const [focusInit] = useState(() => initialFocus(initialGrade("3")));
@@ -143,6 +143,9 @@ export default function LostLibrary() {
   const [hud, setHud] = useState<Hud | null>(null);
   const [log, setLog] = useState<LogEntry[]>([]);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
+  useEffect(() => exposeMusicDebug(audio, SONGS, JINGLES), [audio]);
   const [readAloud, setReadAloud] = useState(() => readAloudPref(isEarlyReader(initialGrade("3"))));
   const [touch, setTouch] = useState(false);
   const [saved, setSaved] = useState(() => loadSave());
@@ -219,10 +222,14 @@ export default function LostLibrary() {
         const intro = have > 0 ? `${gd.name}: Back again? You have ${have} of ${gd.need} right answers. Let's continue!` : gd.intro;
         releaseHeld();
         pushOverlay({ kind: "msg", title: `${gd.name}, ${gd.title.toUpperCase()}`, text: intro, then: () => startQuiz("guardian", { guardian: e.guardian }) });
-      } else if (e.type === "book") pushOverlay({ kind: "book", book: e.book });
+      } else if (e.type === "book") {
+        audio.playJingle(BOOK_FOUND);
+        pushOverlay({ kind: "book", book: e.book });
+      }
       else if (e.type === "item") pushOverlay({ kind: "item", item: e.item });
       else if (e.type === "restored") {
         const gid = AREAS[e.wing].guardian!;
+        audio.playJingle(WING_RESTORED);
         pushOverlay({ kind: "msg", title: GUARDIANS[gid].name, text: `${GUARDIANS[gid].win} The ${AREAS[e.wing].name} is restored!` });
       } else if (e.type === "finished") {
         pushOverlay({ kind: "msg", title: GUARDIANS.smudge.name, text: GUARDIANS.smudge.win, then: () => setScreen("ending") });
@@ -264,6 +271,8 @@ export default function LostLibrary() {
         } else g.tick(0, null);
         const evs = g.takeEvents();
         if (evs.length) onEvents.current(evs);
+        // Music follows the player: town, each wing, the Reading Room, or a guardian's riddle.
+        audio.playSong(songFor(g.s.at.area, quizRef.current?.kind === "guardian"));
         if (g.dirty) {
           writeSave(g.s);
           g.dirty = false;
@@ -330,7 +339,6 @@ export default function LostLibrary() {
 
   const begin = useCallback((fresh: boolean) => {
     audio.unlock();
-    audio.startMusic();
     rememberGrade(grade);
     const save = fresh ? null : loadSave();
     if (fresh) clearSave();
@@ -563,7 +571,14 @@ export default function LostLibrary() {
         <a href={arcadeLink(grade)}>◀ ARCADE</a>
         <div className="ll-tools">
           {playing && <button onClick={() => (quiz || overlays.length ? null : togglePause())}>{paused ? "RESUME" : "MAP / PAUSE"}</button>}
-          <button onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && (
             <button onClick={toggleReadAloud} aria-pressed={readAloud}>
               {readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}

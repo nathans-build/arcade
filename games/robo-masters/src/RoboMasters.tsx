@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChipAudio,
+  exposeMusicDebug,
   GRADES,
   arcadeLink,
   gradeFromArcade,
@@ -48,6 +49,7 @@ import { drawHero, drawPowerIcon, drawRobot, HERO_COLORS } from "@/robo/render";
 import { FINAL_BOSS, HERO, POWERS, ROBOTS, robotById, type PowerId, type Robot, type RobotId, type StageId } from "@/robo/robots";
 import { fortressOpen, loadSave, markBeaten, markFortress, powersOf, writeSave, type AnswerResult, type SaveData } from "@/robo/rules";
 import { MAX_ENERGY, POWER_MAX, startLives } from "@/robo/sim";
+import { BOSS_WARNING, CITADEL_CLEARED, JINGLES, POWER_EARNED, RECHARGE, SELECT_SONG, SONGS, bossSongFor, stageSongFor } from "@/music";
 import "@/robo/robo.css";
 
 const GAME_ID = "robo-masters";
@@ -105,7 +107,7 @@ export default function RoboMasters() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<RoboEngine | null>(null);
   const questionsRef = useRef<RoboQuestions | null>(null);
-  const audio = useMemo(() => new ChipAudio(ROBOTS[0].stage.bass, 138), []);
+  const audio = useMemo(() => new ChipAudio(), []);
 
   const [grade, setGrade] = useState<Grade>(() => initialGrade("3"));
   const [focusInit] = useState(() => initialFocus(initialGrade("3")));
@@ -120,6 +122,9 @@ export default function RoboMasters() {
   const [log, setLog] = useState<LogEntry[]>([]);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
+  useEffect(() => exposeMusicDebug(audio, SONGS, JINGLES), [audio]);
   const [readAloud, setReadAloud] = useState(() => readAloudPref(isEarlyReader(initialGrade("3"))));
   const [touch, setTouch] = useState(false);
   const [highScore, setHighScore] = useState(() => loadProgress(GAME_ID).highScore);
@@ -172,6 +177,7 @@ export default function RoboMasters() {
       onHud: setHud,
       onBossIntro: () => {
         const id = stageIdRef.current;
+        audio.playJingle(BOSS_WARNING, { then: bossSongFor(id) });
         const line = bossLines(id).intro;
         setSay({ who: bossName(id), text: line });
         if (readAloudRef.current) speak(line);
@@ -188,6 +194,7 @@ export default function RoboMasters() {
         });
         setHighScore(submitScore(GAME_ID, engine.sim?.s.score ?? 0));
         setScreen(id === "fortress" ? "victory" : "cleared");
+        audio.playJingle(id === "fortress" ? CITADEL_CLEARED : POWER_EARNED, { then: "stop" });
         if (readAloudRef.current) speak(id === "fortress" ? FINAL_BOSS.lines.defeat : `${robotById(id as RobotId).lines.defeat}`);
       },
       onGameOver: () => {
@@ -196,6 +203,7 @@ export default function RoboMasters() {
         setHighScore(submitScore(GAME_ID, engine.sim?.s.score ?? 0));
         setScreen("over");
         audio.stopMusic();
+        audio.playJingle(RECHARGE, { then: "stop" });
       },
     });
     engineRef.current = engine;
@@ -242,7 +250,7 @@ export default function RoboMasters() {
 
   const toSelect = useCallback(() => {
     audio.unlock();
-    audio.stopMusic();
+    audio.playSong(SELECT_SONG);
     stopSpeaking();
     rememberGrade(grade);
     setQuiz(null);
@@ -255,10 +263,7 @@ export default function RoboMasters() {
   const startStage = useCallback((id: StageId) => {
     audio.unlock();
     stopSpeaking();
-    const theme = id === "fortress" ? FINAL_BOSS.stage : robotById(id).stage;
-    (audio as unknown as { bass: number[] }).bass = theme.bass;
-    audio.stopMusic();
-    audio.startMusic();
+    audio.playSong(stageSongFor(id), { restart: true });
     if (!questionsRef.current || questionsRef.current.grade !== grade || JSON.stringify(questionsRef.current.choice) !== JSON.stringify(runFocus)) {
       questionsRef.current = new RoboQuestions(grade, runFocus, catalog);
     }
@@ -437,7 +442,14 @@ export default function RoboMasters() {
         <div className="rm-tools">
           {playing && <button onClick={() => togglePause()}>{paused ? "RESUME" : "PAUSE"}</button>}
           {playing && <button onClick={toSelect}>STAGES</button>}
-          <button onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && (
             <button onClick={toggleReadAloud} aria-pressed={readAloud}>
               {readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}

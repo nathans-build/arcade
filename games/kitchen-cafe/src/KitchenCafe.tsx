@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChipAudio } from "@/kit/audio";
+import { ChipAudio, exposeMusicDebug } from "@/kit/audio";
 import { GRADES, arcadeLink, gradeFromArcade, gradeLabel, initialGrade, isEarlyReader, rememberGrade } from "@/kit/grades";
 import { loadProgress, recordAnswer, submitScore } from "@/kit/progress";
 import { readAloudPref, setReadAloudPref, speak, speakQuestion, speechSupported, stopSpeaking } from "@/kit/speak";
@@ -14,12 +14,10 @@ import {
   MIXED, SUBJECT_MODES, focusFromUrl, focusTag, gradesNote, loadFocus, saveFocus, topicAvailable, topicInfo, topicsFor, validateFocus,
   type Focus,
 } from "@/cafe/topics";
+import { JINGLES, KITCHEN_SONG, KITCHEN_UNLOCKED, ORDER_SERVED, SHIFT_DONE, SONGS, rushTempo } from "@/music";
 import "@/cafe/cafe.css";
 
 const GAME_ID = "kitchen-cafe";
-/** Kitchen Chemistry Café's own bouncy diner bassline (Hz, 0 = rest). */
-const BASS = [131, 0, 196, 0, 165, 0, 196, 175, 147, 0, 220, 0, 175, 0, 196, 0];
-
 type Screen = "title" | "play" | "summary";
 
 interface View {
@@ -82,7 +80,7 @@ const LETTERS = "ABCD";
 export default function KitchenCafe() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const simRef = useRef<CafeSim | null>(null);
-  const audio = useMemo(() => new ChipAudio(BASS, 128), []);
+  const audio = useMemo(() => new ChipAudio(), []);
 
   const [grade, setGrade] = useState<Grade>(() => initialGrade("3"));
   const [focusInit] = useState(() => initialFocus(initialGrade("3")));
@@ -98,6 +96,9 @@ export default function KitchenCafe() {
   const [view, setView] = useState<View | null>(null);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
+  useEffect(() => exposeMusicDebug(audio, SONGS, JINGLES), [audio]);
   const [readAloud, setReadAloud] = useState(() => readAloudPref(isEarlyReader(initialGrade("3"))));
   const [highScore, setHighScore] = useState(() => loadProgress(GAME_ID).highScore);
   const [summary, setSummary] = useState<{ kitchen: number; stars: number; max: number; score: number; log: LogEntry[]; unlockedNew: boolean } | null>(null);
@@ -151,13 +152,15 @@ export default function KitchenCafe() {
           else audio.wrong();
           break;
         case "served":
-          audio.levelUp();
+          audio.playJingle(ORDER_SERVED);
           break;
         case "shift-done": {
           audio.stopMusic();
+          audio.setTempoScale(1);
           const k = sim.kitchen.id;
           const before = loadSave();
           const after = finishShift(before, k, sim.stars);
+          audio.playJingle(after.unlocked > before.unlocked ? KITCHEN_UNLOCKED : SHIFT_DONE, { then: "stop" });
           writeSave(after);
           setSave(after);
           setHighScore(submitScore(GAME_ID, sim.score));
@@ -188,6 +191,13 @@ export default function KitchenCafe() {
         if (sim && screenRef.current === "play") {
           sim.update(dt * speedUp);
           handleEvents(sim);
+          if (screenRef.current === "play") {
+            // Music: the boogie, a little quicker as the rush builds (not for K-2), calmer for a Science Check.
+            const science = sim.phase === "ask" && (sim.questionKind === "science" || sim.questionKind === "exp");
+            audio.playSong(KITCHEN_SONG);
+            audio.setIntensity(science ? "calm" : "full");
+            audio.setTempoScale(science ? 1 : rushTempo(sim.orderIdx, sim.orders.length, isEarlyReader(sim.grade)));
+          }
           if ((sim.phase === "cook" && (lastPhase !== "cook" || lastStep !== sim.step))) speakStep(sim);
           lastPhase = sim.phase;
           lastStep = sim.step;
@@ -204,7 +214,10 @@ export default function KitchenCafe() {
 
   const start = useCallback((k: number = kitchenRef.current) => {
     audio.unlock();
-    audio.startMusic();
+    audio.setTempoScale(1);
+    audio.setIntensity("full");
+    audio.duck(false);
+    audio.playSong(KITCHEN_SONG, { restart: true });
     stopSpeaking();
     const f = validateFocus(focus, grade);
     const sim = new CafeSim(grade, k, f, randSeed());
@@ -248,8 +261,8 @@ export default function KitchenCafe() {
   const togglePause = useCallback((v?: boolean) => {
     setPaused((p) => {
       const n = v ?? !p;
-      if (n) audio.stopMusic();
-      else if (!audio.muted) audio.startMusic();
+      // Paused: the music carries on quietly underneath.
+      audio.duck(n);
       return n;
     });
   }, [audio]);
@@ -359,7 +372,14 @@ export default function KitchenCafe() {
         <a href={arcadeLink(grade)}>◀ ARCADE</a>
         <div className="kc-tools">
           {screen === "play" && <button onClick={() => togglePause()}>{paused ? "RESUME" : "PAUSE"}</button>}
-          <button onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && (
             <button onClick={toggleReadAloud} aria-pressed={readAloud}>
               {readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}
