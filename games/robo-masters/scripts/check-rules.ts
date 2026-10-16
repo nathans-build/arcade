@@ -16,6 +16,7 @@
  *    (through Vite's SSR loader) the real kit wiring offers the same topics.
  */
 import { GRADES } from "../src/kit/grades";
+import { STAGE_SONGS } from "../src/music";
 import type { Grade, Question, Subject } from "../src/kit/types";
 import { BANDS, QUICK_CHOICE, QUICK_PROMPT, bandOf, type Band } from "../src/robo/band";
 import { playStage } from "../src/robo/bot";
@@ -81,7 +82,7 @@ for (const r of ROBOTS) {
   check(!/\b(kill|die|dead|blood|destroy|hurt you|smash)\b/i.test(all), () => `${r.id}: lines should be kid-friendly`);
   check(/reboot/i.test(r.lines.defeat), () => `${r.id}: the defeat line should mention the reboot`);
   check(POWERS[r.power].name.length > 3 && POWERS[r.power].cost > 0 && POWERS[r.power].cost <= POWER_MAX, () => `${r.id}: power data`);
-  check(r.stage.bass.length === 16, () => `${r.id}: bass loop should have 16 steps`);
+  check(!!STAGE_SONGS[r.id] && STAGE_SONGS[r.id].title === r.stage.name, () => `${r.id}: needs a stage theme in src/music.ts named after its stage`);
 }
 check(/reboot/i.test(FINAL_BOSS.lines.defeat) && FINAL_BOSS.lines.block.length >= 2, () => "final boss lines");
 check(HERO.name === "RIVET", () => "hero name");

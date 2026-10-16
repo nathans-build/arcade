@@ -67,7 +67,9 @@ Save the printed token in this repository under **Settings → Secrets and varia
 
 `kit/` is the canonical copy of the code every game shares: K–12 questions tagged with NC standards
 (generated math; written science and ELA banks in `kit/banks/`), grade handling (`?grade=` from this
-menu), read-aloud for K–2, saved progress and chip sounds. Each game keeps an identical copy in
+menu), read-aloud for K–2, saved progress and chip sounds. Games can also have original NES-style
+4-channel chiptune soundtracks (songs, jingles, separate Music and Sound-effects switches); see
+`kit/README.md`. Each game keeps an identical copy in
 `src/kit/`. After changing it here, copy the folder into each game repository. The `NOTES.md` files
 in `kit/banks/` list standard codes to double-check against WCPSS pacing guides.
 

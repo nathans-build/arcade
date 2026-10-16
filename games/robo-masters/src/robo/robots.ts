@@ -63,8 +63,6 @@ export interface StageTheme {
   hazardName: string;
   /** Background decoration style drawn by render.ts. */
   deco: "pies" | "caves" | "letters" | "cliffs" | "storm" | "neon" | "greenhouse" | "gears" | "citadel";
-  /** Bass loop for the stage (Hz, 0 = rest), 16 steps. */
-  bass: number[];
 }
 
 export interface Robot {
@@ -107,7 +105,6 @@ export const ROBOTS: Robot[] = [
     stage: {
       name: "Pie Factory", skyTop: "#2b0f3a", skyBottom: "#7a2f4a", far: "#4a1c40", ground: "#8a4a22", edge: "#f4c26b", hazard: "#ff7a3a",
       hazardName: "pie cutters", deco: "pies",
-      bass: [131, 0, 165, 0, 196, 0, 165, 131, 147, 0, 175, 0, 220, 0, 175, 147],
     },
     lines: {
       intro: "I'm SPLITZ! A glitch broke my circuits into pieces. Think you can put me back together?",
@@ -132,7 +129,6 @@ export const ROBOTS: Robot[] = [
     stage: {
       name: "Magma Mines", skyTop: "#1a0606", skyBottom: "#5a1a0a", far: "#3a1208", ground: "#3a2a26", edge: "#ff6a2b", hazard: "#ff3a1a",
       hazardName: "magma geysers", deco: "caves",
-      bass: [98, 0, 98, 0, 117, 0, 98, 0, 87, 0, 87, 0, 110, 0, 104, 0],
     },
     lines: {
       intro: "ROAR! I'm IGNEOUS REX! My circuits are molten and my temper is volcanic!",
@@ -157,7 +153,6 @@ export const ROBOTS: Robot[] = [
     stage: {
       name: "Punctuation Press", skyTop: "#0a1030", skyBottom: "#2a3a7a", far: "#1a2458", ground: "#2a2a3a", edge: "#9ad1ff", hazard: "#1a1a1a",
       hazardName: "ink stampers", deco: "letters",
-      bass: [147, 0, 147, 175, 0, 196, 0, 175, 147, 0, 131, 147, 0, 110, 131, 0],
     },
     lines: {
       intro: "Halt! I am SYNTAXOR. A glitch gave me run-on sentences and also run-on sentences and also...",
@@ -182,7 +177,6 @@ export const ROBOTS: Robot[] = [
     stage: {
       name: "Compass Cliffs", skyTop: "#3a7ad1", skyBottom: "#bde3ff", far: "#6a9a7a", ground: "#7a5a3a", edge: "#5fd36a", hazard: "#a0a0a0",
       hazardName: "rolling boulders", deco: "cliffs",
-      bass: [165, 0, 196, 0, 220, 196, 0, 165, 147, 0, 165, 0, 196, 0, 147, 0],
     },
     lines: {
       intro: "I'm MERIDIAN! My compass is spinning in circles and I've lost my bearings!",
@@ -207,7 +201,6 @@ export const ROBOTS: Robot[] = [
     stage: {
       name: "Thunderhead Tower", skyTop: "#1a1f3a", skyBottom: "#4a5578", far: "#2c3350", ground: "#4a5068", edge: "#c8d8ff", hazard: "#fff36a",
       hazardName: "lightning strikes", deco: "storm",
-      bass: [110, 0, 131, 0, 110, 0, 165, 0, 147, 0, 131, 0, 123, 0, 131, 0],
     },
     lines: {
       intro: "Bzzt! CUMULO-TRON forecast: 100% chance of glitches with scattered sparks!",
@@ -232,7 +225,6 @@ export const ROBOTS: Robot[] = [
     stage: {
       name: "Number Line Neon", skyTop: "#050018", skyBottom: "#1a0a40", far: "#240a50", ground: "#14143a", edge: "#5ef0ff", hazard: "#ff5ec8",
       hazardName: "zap gates", deco: "neon",
-      bass: [123, 123, 0, 147, 0, 123, 165, 0, 110, 110, 0, 131, 0, 110, 147, 0],
     },
     lines: {
       intro: "I'm POLARIX! My number line got flipped. Up is down and plus is minus!",
@@ -257,7 +249,6 @@ export const ROBOTS: Robot[] = [
     stage: {
       name: "Greenhouse Grove", skyTop: "#0f3a2a", skyBottom: "#5aa86a", far: "#1f5a3a", ground: "#5a3a1a", edge: "#7dff7a", hazard: "#b04aff",
       hazardName: "snapping vines", deco: "greenhouse",
-      bass: [131, 0, 0, 165, 0, 196, 0, 0, 175, 0, 0, 147, 0, 131, 0, 0],
     },
     lines: {
       intro: "Hi, I'm CHLORO-PHIL! A glitch got tangled in my roots. Leaf me alone!",
@@ -282,7 +273,6 @@ export const ROBOTS: Robot[] = [
     stage: {
       name: "Gearworks Museum", skyTop: "#2a1a10", skyBottom: "#6a4a2a", far: "#4a3018", ground: "#4a3a2a", edge: "#e0c27a", hazard: "#8a8a9a",
       hazardName: "gear crushers", deco: "gears",
-      bass: [110, 0, 147, 0, 131, 0, 110, 0, 98, 0, 131, 0, 123, 0, 98, 0],
     },
     lines: {
       intro: "Tick-tock! I'm CLOCKWORK CLIO. A glitch scrambled my whole timeline!",
@@ -313,7 +303,6 @@ export const FINAL_BOSS = {
   stage: {
     name: "Static Citadel", skyTop: "#08080f", skyBottom: "#2a1a3a", far: "#1a1428", ground: "#26243a", edge: "#ff3ad1", hazard: "#5ef0ff",
     hazardName: "static fields", deco: "citadel",
-    bass: [110, 110, 0, 131, 0, 147, 0, 165, 98, 98, 0, 117, 0, 131, 0, 147],
   } as StageTheme,
   lines: {
     intro: "SKRRZZT! I am LORD STATIC, the glitch behind all the glitches! I'll scramble EVERY subject at once!",

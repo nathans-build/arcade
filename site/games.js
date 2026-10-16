@@ -468,6 +468,7 @@ window.GAMES = [
   },
   {
     id: "kitchen-cafe",
+    prod: true,
     focus: true,
     title: "Kitchen Chemistry Café",
     tagline: "Help Chef Bix run the café rush: cook at five stations, pass the Science Check (physical or chemical change, and what's the evidence?), then measure, time and make change.",
@@ -483,6 +484,7 @@ window.GAMES = [
   },
   {
     id: "lab-capsules",
+    prod: true,
     focus: true,
     title: "Lab Capsules",
     tagline: "Drop two-part capsules into Professor Fizzwick's bottle and line up 4 that mean the same thing (3×4 and 12, Na and sodium, Na⁺ and K⁺) to zap the germ blobs.",
@@ -498,6 +500,7 @@ window.GAMES = [
   },
   {
     id: "robo-masters",
+    prod: true,
     focus: true,
     title: "Robo Masters",
     tagline: "Pick any of eight glitched Robo Masters, run and jump through their stages, and reboot them with right answers to earn their powers.",
@@ -513,6 +516,7 @@ window.GAMES = [
   },
   {
     id: "lost-library",
+    prod: true,
     focus: true,
     title: "Quest of the Lost Library",
     tagline: "Explore a grand library as Pip Lampwick: tidy ink sprites with your feather duster, push crates, light torches, find a magic item in each wing and open Question Doors with right answers to bring the lost books home.",

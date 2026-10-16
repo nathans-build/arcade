@@ -166,7 +166,7 @@ async function run(browser, grade, touch, problems) {
   if (!(await noSideways(page))) p.push("sideways scroll on the title screen");
   if ((await page.locator('.kc-subject[aria-checked="true"]').getAttribute("data-subject")) !== "mixed") p.push("MIXED should be the default subject");
   if ((await page.locator(".kc-kitchen:not([disabled])").count()) !== 1) p.push("a new player should have only kitchen 1 open");
-  const readAloudDefault = await page.evaluate(() => document.querySelector(".kc-toolbar button[aria-pressed]")?.getAttribute("aria-pressed"));
+  const readAloudDefault = await page.evaluate(() => [...document.querySelectorAll(".kc-toolbar button[aria-pressed]")].find((b) => b.textContent.includes("READ ALOUD"))?.getAttribute("aria-pressed") ?? null);
   if (readAloudDefault !== null && readAloudDefault !== (Number(grade) <= 2 ? "true" : "false")) p.push(`read aloud default ${readAloudDefault}`);
 
   // Start
@@ -186,9 +186,10 @@ async function run(browser, grade, touch, problems) {
     if (t1 !== t2) p.push("the café keeps running while paused");
     await page.keyboard.press("Escape");
     if (await page.locator(".kc-overlay", { hasText: "PAUSED" }).count()) p.push("Esc should resume");
-    const m0 = await page.locator(".kc-toolbar button", { hasText: "SOUND" }).innerText();
+    // Unmuted, the toolbar shows MUSIC and SFX switches; M mutes everything (a SOUND OFF button).
+    const m0 = await page.locator(".kc-toolbar button", { hasText: "SOUND OFF" }).count();
     await page.keyboard.press("m");
-    const m1 = await page.locator(".kc-toolbar button", { hasText: "SOUND" }).innerText();
+    const m1 = await page.locator(".kc-toolbar button", { hasText: "SOUND OFF" }).count();
     if (m0 === m1) p.push("M should toggle sound");
     await page.keyboard.press("m");
   } else if (!(await page.locator(".kc-stations .kc-station").count())) p.push("station buttons missing on the phone");

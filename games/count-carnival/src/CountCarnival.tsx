@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ChipAudio } from "@/kit/audio";
+import { ChipAudio, exposeMusicDebug } from "@/kit/audio";
 import { arcadeLink, gradeFromArcade, gradeLabel, initialGrade, rememberGrade } from "@/kit/grades";
 import { recordAnswer, submitScore } from "@/kit/progress";
 import { readAloudPref, setReadAloudPref, speak, speechSupported, stopSpeaking } from "@/kit/speak";
@@ -10,11 +10,10 @@ import { Round } from "@/carnival/round";
 import { makeRng } from "@/carnival/rng";
 import { PRIZES, buyPrize, loadSave, writeSave, type SaveData } from "@/carnival/save";
 import { ChoiceFace, Scene } from "@/carnival/visuals";
+import { BOOTH_DONE, BOOTH_SONG, JINGLES, MIDWAY_SONG, PRIZE, SONGS } from "@/music";
 import "@/carnival/carnival.css";
 
 const GAME_ID = "count-carnival";
-/** A bouncy carnival waltz bassline (Hz, 0 = rest). */
-const BASS = [131, 0, 196, 0, 196, 0, 147, 0, 220, 0, 220, 0, 165, 0, 247, 0];
 const PICK_GRADES: Grade[] = ["K", "1", "2"];
 const PRAISE = ["Great job!", "You got it!", "Super!", "Hooray!", "Way to go!", "Awesome!", "Yes!"];
 const OOPS = ["Oops, not quite.", "Almost!", "Nice try!", "Let's try again."];
@@ -74,14 +73,25 @@ export default function CountCarnival() {
   const [msg, setMsg] = useState("");
   const [earned, setEarned] = useState<{ n: number; key: number } | null>(null);
   const [muted, setMuted] = useState(false);
+  const [musicOn, setMusicOn] = useState(true);
+  const [sfxOn, setSfxOn] = useState(true);
   const audioRef = useRef<ChipAudio | null>(null);
   const hintTimer = useRef<number | null>(null);
   const readAloudRef = useRef(readAloud);
   readAloudRef.current = readAloud;
 
-  if (!audioRef.current) audioRef.current = new ChipAudio(BASS, 150);
+  if (!audioRef.current) {
+    audioRef.current = new ChipAudio();
+    // Read-aloud comes first for K-2: the music drops well down whenever Tally is talking.
+    audioRef.current.duckLevel = 0.15;
+  }
   const audio = audioRef.current;
-  useEffect(() => setMuted(audio.muted), [audio]);
+  useEffect(() => {
+    setMuted(audio.muted);
+    setMusicOn(audio.musicOn);
+    setSfxOn(audio.sfxOn);
+    exposeMusicDebug(audio, SONGS, JINGLES);
+  }, [audio]);
 
   const say = useCallback((text: string) => {
     if (readAloudRef.current) speak(text);
@@ -123,13 +133,13 @@ export default function CountCarnival() {
     setScreen("hub");
     setMsg("");
     audio.unlock();
-    audio.startMusic();
+    audio.playSong(MIDWAY_SONG);
     if (speakIt) say(`Welcome to the Count Carnival! I'm ${MASCOT_NAME}. Tap a tent to play. Win tickets for prizes!`);
   }, [audio, say]);
 
   const startBooth = useCallback((b: BoothId) => {
     audio.unlock();
-    audio.stopMusic();
+    audio.playSong(BOOTH_SONG);
     audio.checkpoint();
     stopHint();
     const seed = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
@@ -213,7 +223,7 @@ export default function CountCarnival() {
       persist(s);
       submitScore(GAME_ID, r.tickets);
       setBurst((b) => b + 1);
-      audio.levelUp();
+      audio.playJingle(BOOTH_DONE, { then: MIDWAY_SONG });
       setScreen("done");
       say(`Hooray! You finished ${BOOTH_INFO[booth].name}! You won ${r.tickets} tickets. You have ${s.tickets} tickets in all.`);
     } else {
@@ -265,7 +275,7 @@ export default function CountCarnival() {
     if (s) {
       persist(s);
       setBurst((b) => b + 1);
-      audio.levelUp();
+      audio.playJingle(PRIZE);
       say(`You got the ${def.name}! You have ${s.tickets} tickets left.`);
     } else {
       audio.tone(330, 0.15, "triangle", 0.4, 262);
@@ -380,7 +390,14 @@ export default function CountCarnival() {
               Read aloud: {readAloud ? "ON" : "OFF"}
             </button>
           )}
-          <button type="button" className="cc-small-btn" onClick={toggleMute} aria-pressed={!muted}>Sound: {muted ? "OFF" : "ON"}</button>
+          {muted ? (
+            <button type="button" className="cc-small-btn" onClick={toggleMute} aria-pressed={false}>Sound: OFF</button>
+          ) : (
+            <>
+              <button type="button" className="cc-small-btn" onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn}>Music: {musicOn ? "ON" : "OFF"}</button>
+              <button type="button" className="cc-small-btn" onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn}>Sounds: {sfxOn ? "ON" : "OFF"}</button>
+            </>
+          )}
         </div>
         <p className="cc-credit">SpiderBen10's Arcade · K–2 math · NC standards</p>
       </div>

@@ -976,7 +976,10 @@ export class ChipAudio {
     const j = this.jinglePlayer;
     if (j) {
       this.run(j, now, horizon);
-      if (typeof j.then === "object" && horizon >= j.endAt && this.song?.c.song !== j.then) this.startSongAt(j.then, true, j.endAt);
+      if (typeof j.then === "object" && horizon >= j.endAt && this.song?.c.song !== j.then) {
+        this.log(`song:${j.then.title}`);
+        this.startSongAt(j.then, true, j.endAt);
+      }
       if (now >= j.endAt) {
         this.jinglePlayer = null;
         j.band.stop(now);
@@ -1021,7 +1024,10 @@ export class ChipAudio {
         this.jinglePlayer = null;
         j.band.stop(now);
         if (this.song) this.song.holdUntil = 0;
-        if (typeof j.then === "object") this.startSongAt(j.then, true, now);
+        if (typeof j.then === "object") {
+          this.log(`song:${j.then.title}`);
+          this.startSongAt(j.then, true, now);
+        }
       }
       if (this.song) {
         this.song.band.out.gain.cancelScheduledValues(now);

@@ -228,8 +228,9 @@ export class RoboEngine {
           else this.note("USE IT IN THE AIR");
           break;
         case "cycle": a.blip(); this.note(POWERS[e.power].name.toUpperCase()); break;
-        case "bossIntro": a.stopMusic(); a.tone(220, 0.5, "square", 0.3, 440); this.note("WARNING!", this.look?.bossName); this.cb.onBossIntro(); break;
-        case "bossStart": a.startMusic(); break;
+        // The warning jingle and the fight music are started by the game (cb.onBossIntro).
+        case "bossIntro": this.note("WARNING!", this.look?.bossName); this.cb.onBossIntro(); break;
+        case "bossStart": break;
         case "panelHit": {
           a.tone(1000, 0.06, "square", 0.25);
           const b = sim?.s.boss;
