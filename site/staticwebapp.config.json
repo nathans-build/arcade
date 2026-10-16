@@ -10,6 +10,18 @@
       }
     },
     {
+      "route": "/api/popular",
+      "methods": [
+        "GET"
+      ],
+      "allowedRoles": [
+        "anonymous"
+      ],
+      "headers": {
+        "cache-control": "public, max-age=900"
+      }
+    },
+    {
       "route": "/api/stats",
       "allowedRoles": [
         "owner"

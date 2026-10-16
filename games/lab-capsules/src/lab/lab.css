@@ -1,0 +1,240 @@
+/* Lab Capsules: SpiderBen10 arcade red & blue, with lab-glass cyan and germ colours */
+
+.lc-root {
+  --lc-bg: #0b0f2a;
+  --lc-deep: #050818;
+  --lc-panel: #0d1440;
+  --lc-red: #e3262f;
+  --lc-blue: #2456e8;
+  --lc-cyan: #7fe7ff;
+  --lc-yellow: #ffd23f;
+  --lc-green: #4fe08a;
+  --lc-white: #f2f4ff;
+  --lc-dim: #6a78b8;
+  height: 100vh;
+  height: 100dvh;
+  box-sizing: border-box;
+  background: radial-gradient(ellipse at 50% 0%, #17207a 0%, var(--lc-bg) 60%);
+  color: var(--lc-white);
+  font-family: "VT323", ui-monospace, monospace;
+  display: flex;
+  flex-direction: column;
+  padding: 6px 12px 10px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  overflow: hidden;
+}
+.lc-root *, .lc-overlay * { box-sizing: border-box; }
+.lc-pixel { font-family: "Press Start 2P", ui-monospace, monospace; letter-spacing: 0.02em; }
+.y { color: var(--lc-yellow); }
+.c { color: var(--lc-cyan); }
+.g { color: var(--lc-green); }
+.dim { color: var(--lc-dim); }
+
+/* toolbar */
+.lc-toolbar { flex: none; display: flex; justify-content: space-between; align-items: center; gap: 8px; max-width: 1100px; width: 100%; margin: 0 auto 4px; }
+.lc-toolbar .brand { font-size: 10px; color: var(--lc-yellow); text-shadow: 2px 2px 0 var(--lc-red); white-space: nowrap; }
+.lc-tools { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
+.lc-toolbar a, .lc-toolbar button {
+  font-family: "Press Start 2P", monospace; font-size: 8px; color: var(--lc-dim);
+  background: none; border: 0; cursor: pointer; text-decoration: none; padding: 6px 0;
+}
+.lc-toolbar a:hover, .lc-toolbar button:hover { color: var(--lc-cyan); }
+.lc-toolbar button.on { color: var(--lc-yellow); }
+
+/* main 3-column layout */
+.lc-main {
+  flex: 1; min-height: 0; width: 100%; max-width: 1100px; margin: 0 auto;
+  display: grid; grid-template-columns: minmax(170px, 1fr) minmax(0, 1.25fr) minmax(170px, 1fr); gap: 12px;
+}
+.lc-left, .lc-right { min-width: 0; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+.lc-center { min-width: 0; min-height: 0; display: flex; }
+.lc-wrap { flex: 1; min-height: 0; display: flex; align-items: flex-start; justify-content: center; position: relative; }
+.lc-wrap canvas.board { display: block; touch-action: none; filter: drop-shadow(0 0 18px rgba(127, 231, 255, 0.18)); }
+
+.lc-card { background: var(--lc-panel); border: 2px solid #1f2d7a; box-shadow: 3px 3px 0 #000; padding: 6px 8px; }
+.lc-card h3 { margin: 0 0 4px; font: 8px "Press Start 2P", monospace; color: var(--lc-cyan); }
+
+.lc-mascot { display: flex; gap: 8px; align-items: flex-end; }
+.lc-mascot canvas { flex: none; image-rendering: pixelated; }
+.lc-notes {
+  position: relative; flex: 1; min-width: 0; background: #fffbe6; color: #1a1a2e; border: 2px solid #000;
+  padding: 5px 7px; font-size: 18px; line-height: 1.05; min-height: 3.4em; max-height: 7.4em; overflow: hidden;
+}
+.lc-notes::after { content: ""; position: absolute; left: -8px; bottom: 10px; border: 6px solid transparent; border-right-color: #000; }
+.lc-notes b { color: #b0127a; font-weight: normal; }
+
+.lc-guide { display: flex; flex-direction: column; gap: 3px; }
+.lc-guide .row { display: flex; align-items: center; gap: 6px; font-size: 19px; line-height: 1; min-width: 0; }
+.lc-guide .row canvas { flex: none; }
+.lc-guide .row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lc-guide .rule { font-size: 16px; color: #b8c0f0; line-height: 1.05; margin-top: 3px; }
+
+.lc-stats { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: baseline; }
+.lc-stats .lbl { font: 8px "Press Start 2P", monospace; color: var(--lc-dim); }
+.lc-stats .val { font: 12px "Press Start 2P", monospace; color: var(--lc-white); text-align: right; }
+.lc-stats .val.y { color: var(--lc-yellow); }
+.lc-next { display: flex; align-items: center; gap: 8px; }
+.lc-next canvas { flex: none; }
+.lc-next button { font-size: 18px; }
+.lc-set { font-size: 18px; color: var(--lc-cyan); line-height: 1; }
+.lc-btnrow { display: flex; gap: 6px; flex-wrap: wrap; }
+.lc-small {
+  font: 8px "Press Start 2P", monospace; background: #0c1450; color: var(--lc-white);
+  border: 2px solid var(--lc-dim); padding: 7px 8px; cursor: pointer; box-shadow: 2px 2px 0 #000;
+}
+.lc-small:hover { border-color: var(--lc-cyan); }
+.lc-keys { font-size: 16px; color: var(--lc-dim); line-height: 1.1; }
+.lc-root.touch .lc-keys { display: none; }
+.lc-keys kbd { font: 7px "Press Start 2P", monospace; color: var(--lc-yellow); border: 1px solid var(--lc-dim); padding: 1px 3px; }
+
+/* touch controls */
+.lc-touch { display: none; flex: none; gap: 6px; margin-top: 6px; width: 100%; max-width: 560px; align-self: center; }
+.lc-touch.show { display: flex; }
+.lc-touch .pad { flex: 1 1 0; min-width: 0; display: flex; gap: 6px; }
+.lc-touch button {
+  flex: 1 1 0; min-width: 0; height: 58px; border-radius: 10px;
+  background: #0c1450; color: var(--lc-white); border: 2px solid var(--lc-dim);
+  font: 24px ui-monospace, monospace; touch-action: none; padding: 0;
+}
+.lc-touch button.drop { font: 10px "Press Start 2P", monospace; color: var(--lc-deep); background: var(--lc-yellow); border-color: var(--lc-red); }
+.lc-touch button:active { background: #1c2a90; }
+.lc-touch button.drop:active { background: #ffe680; }
+
+/* overlays */
+.lc-overlay {
+  position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;
+  padding: 12px; background: rgba(5, 8, 24, 0.82); overflow-y: auto;
+}
+.lc-overlay.clear { background: rgba(5, 8, 24, 0.35); pointer-events: none; }
+.lc-panel {
+  width: 100%; max-width: 760px; max-height: 100%; overflow-y: auto; margin: auto;
+  border: 3px solid var(--lc-cyan); background: #070c30; padding: clamp(10px, 2.5vw, 22px); box-shadow: 6px 6px 0 #000;
+}
+.lc-panel.title { border-color: var(--lc-red); }
+.lc-title {
+  font-size: clamp(20px, 5.5vw, 44px); color: var(--lc-yellow);
+  text-shadow: 3px 3px 0 var(--lc-red), 6px 6px 0 var(--lc-blue); text-align: center; line-height: 1.2;
+}
+.lc-sub { text-align: center; color: var(--lc-cyan); font-size: clamp(7px, 1.4vw, 11px); margin-top: 10px; line-height: 1.6; }
+.lc-sub a { color: inherit; }
+.lc-h { font-size: clamp(9px, 1.7vw, 13px); color: var(--lc-cyan); margin: 14px 0 8px; line-height: 1.4; text-align: center; }
+.lc-hero { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 8px; }
+.lc-hero .bubble { background: #fffbe6; color: #1a1a2e; border: 2px solid #000; padding: 6px 9px; font-size: 19px; line-height: 1.05; max-width: 380px; }
+
+.lc-grades { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.lc-grade {
+  font-size: clamp(9px, 1.4vw, 12px); min-width: 36px; padding: 9px 4px;
+  background: #0c1450; color: var(--lc-white); cursor: pointer; border: 2px solid var(--lc-dim); box-shadow: 3px 3px 0 #000;
+}
+.lc-grade.on { background: var(--lc-red); border-color: var(--lc-yellow); }
+
+.lc-focus { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.lc-choices { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; width: 100%; }
+.lc-choice {
+  font-family: "VT323", ui-monospace, monospace; font-size: 20px; line-height: 1.05;
+  min-height: 40px; padding: 5px 10px; cursor: pointer; text-align: center; flex: 0 1 180px;
+  background: #0c1450; color: var(--lc-white); border: 2px solid var(--lc-dim); box-shadow: 3px 3px 0 #000;
+  max-width: 100%; overflow-wrap: anywhere;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+}
+.lc-choice .lc-pixel { font-size: clamp(10px, 1.5vw, 13px); }
+.lc-choice small { font-size: 15px; color: var(--lc-dim); }
+.lc-choice:hover, .lc-choice:focus-visible, .lc-grade:hover, .lc-grade:focus-visible { border-color: var(--lc-cyan); outline: none; }
+.lc-choice.on { background: var(--lc-red); border-color: var(--lc-yellow); color: #fff; }
+.lc-choice.on small { color: #ffd9db; }
+.lc-choice.wide { flex-basis: 280px; }
+.lc-choice:disabled { cursor: not-allowed; opacity: 0.55; box-shadow: none; border-style: dashed; }
+
+.lc-row { display: flex; gap: 12px; margin-top: 14px; justify-content: center; flex-wrap: wrap; }
+.lc-cta {
+  font-family: "Press Start 2P", monospace; font-size: clamp(9px, 1.5vw, 12px);
+  color: var(--lc-deep); background: var(--lc-yellow); border: 0; padding: 11px 14px;
+  box-shadow: 4px 4px 0 var(--lc-red); cursor: pointer; text-transform: uppercase;
+}
+.lc-cta.big { font-size: clamp(10px, 1.8vw, 14px); padding: 14px 18px; }
+.lc-cta:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--lc-red); }
+.lc-cta.ghost { background: transparent; color: var(--lc-cyan); box-shadow: none; border: 2px solid var(--lc-cyan); }
+
+.lc-help { font-size: clamp(17px, 2.1vw, 20px); color: #b8c0f0; line-height: 1.15; margin-top: 10px; }
+.lc-help.center { text-align: center; }
+.lc-help ul { margin: 8px 0 0; padding-left: 20px; }
+.lc-help li { margin-bottom: 4px; }
+.lc-help b { color: var(--lc-white); font-weight: normal; }
+.lc-help kbd { font-family: "Press Start 2P", monospace; font-size: 0.5em; color: var(--lc-yellow); border: 1px solid var(--lc-dim); padding: 2px 4px; }
+
+/* lab quiz */
+.lc-quiz .head { display: flex; justify-content: space-between; gap: 8px; font-size: 9px; color: var(--lc-cyan); line-height: 1.5; flex-wrap: wrap; }
+.lc-quiz .head .std { color: var(--lc-dim); }
+.lc-quiz .prompt { font-size: clamp(22px, 3vw, 30px); line-height: 1.1; margin: 10px 0; display: flex; gap: 8px; align-items: flex-start; }
+.lc-quiz .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.lc-opt {
+  display: flex; gap: 8px; align-items: center; text-align: left; cursor: pointer;
+  font-family: "VT323", ui-monospace, monospace; font-size: clamp(20px, 2.6vw, 26px); color: #d6dcff;
+  background: #111c5a; border: 2px solid #1f2d7a; border-left-width: 6px; padding: 6px 8px; min-height: 48px;
+}
+.lc-opt b { font: 9px "Press Start 2P", monospace; color: var(--lc-yellow); flex: none; }
+.lc-opt:hover:not(:disabled) { border-color: var(--lc-yellow); }
+.lc-opt.right { border-color: var(--lc-green); color: var(--lc-green); }
+.lc-opt.wrong { border-color: var(--lc-red); color: #ff8a8f; }
+.lc-opt:disabled { cursor: default; }
+.lc-result { margin-top: 10px; font-size: clamp(19px, 2.3vw, 23px); line-height: 1.15; }
+.lc-result .verdict { font: 11px "Press Start 2P", monospace; display: block; margin-bottom: 6px; }
+.lc-result.right .verdict { color: var(--lc-green); }
+.lc-result.wrong .verdict { color: var(--lc-yellow); }
+.lc-speak { font-size: 18px; line-height: 1; padding: 2px 6px; cursor: pointer; flex: none; background: #0c1450; border: 2px solid var(--lc-dim); color: var(--lc-cyan); }
+
+.lc-banner { text-align: center; }
+.lc-banner .big { font-size: clamp(18px, 4vw, 34px); color: var(--lc-green); text-shadow: 3px 3px 0 #000; }
+.lc-report { width: 100%; border-collapse: collapse; font-size: 19px; margin-top: 8px; }
+.lc-report th { font: 8px "Press Start 2P", monospace; color: var(--lc-dim); text-align: left; padding: 4px; }
+.lc-report td { padding: 3px 4px; border-top: 1px solid #1c2450; }
+
+.lc-root.early .lc-quiz .prompt { font-size: clamp(24px, 3.4vw, 34px); }
+
+/* phones & narrow portrait screens: HUD on top, board, guide below */
+@media (max-width: 1100px) and (orientation: portrait), (max-width: 540px) {
+  .lc-root { padding: 4px 8px 8px; }
+  .lc-toolbar .brand { display: none; }
+  .lc-tools { gap: 10px; }
+  .lc-main { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; gap: 6px; }
+  .lc-right { order: 1; flex-direction: row; align-items: stretch; gap: 6px; }
+  .lc-center { order: 2; }
+  .lc-left { order: 3; }
+  .lc-right .lc-card { padding: 4px 6px; }
+  .lc-stats { grid-template-columns: repeat(3, auto); grid-auto-flow: column; grid-template-rows: auto auto; gap: 0 10px; flex: 1; }
+  .lc-stats .val { font-size: 10px; text-align: left; }
+  .lc-stats .lbl { font-size: 6px; }
+  .lc-stats .hi { display: none; }
+  .lc-right .lc-set, .lc-right .lc-keys, .lc-right .lc-btnrow { display: none; }
+  .lc-next h3 { display: none; }
+  .lc-left .lc-mascot canvas { display: none; }
+  .lc-notes { min-height: 0; max-height: 2.2em; font-size: 16px; padding: 2px 6px; }
+  .lc-notes::after { display: none; }
+  .lc-guide { flex-direction: row; flex-wrap: wrap; gap: 4px 10px; }
+  .lc-guide h3, .lc-guide .rule { display: none; }
+  .lc-guide .row { font-size: 17px; }
+  .lc-left .lc-card { padding: 3px 6px; }
+  .lc-quiz .opts { grid-template-columns: 1fr; }
+  .lc-choice { flex: 1 1 96px; padding: 6px; }
+  .lc-hero canvas { display: none; }
+}
+
+/* short landscape phones: touch buttons float at the sides */
+@media (max-height: 500px) and (orientation: landscape) {
+  .lc-touch.show { position: fixed; left: 6px; right: 6px; bottom: 6px; margin: 0; max-width: none; z-index: 5; pointer-events: none; justify-content: space-between; }
+  .lc-touch.show .pad { flex: 0 0 auto; flex-direction: column; pointer-events: auto; }
+  .lc-root.touch { padding-left: 80px; padding-right: 80px; }
+  .lc-touch.show button { flex: 0 0 auto; width: 64px; height: 50px; }
+  .lc-left .lc-mascot canvas { display: none; }
+}
+
+/* portrait tablets: the stacked layout, with bigger HUD text */
+@media (min-width: 600px) and (max-width: 1100px) and (orientation: portrait) {
+  .lc-stats .val { font-size: 14px; }
+  .lc-stats .lbl { font-size: 8px; }
+  .lc-notes { font-size: 20px; max-height: 3.3em; }
+  .lc-guide .row { font-size: 21px; }
+  .lc-left .lc-mascot canvas { display: block; }
+}

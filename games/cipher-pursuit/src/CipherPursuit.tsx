@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChipAudio,
+  exposeMusicDebug,
   GRADES,
   arcadeLink,
   bankFor,
@@ -34,12 +35,10 @@ import {
   type Focus, type FocusPref,
 } from "@/pursuit/topics";
 import { TIMINGS, loadTiming, saveTiming, type Timing } from "@/pursuit/timing";
+import { BOAT_SONG, CODE_CRACKED, JINGLES, MISSION_OVER, ROAD_SONG, SONGS } from "@/music";
 import "@/pursuit/pursuit.css";
 
 const GAME_ID = "cipher-pursuit";
-
-/** Cipher Pursuit's own 16-step bassline: a driving minor-key spy riff (Hz, 0 = rest). */
-const BASS = [110, 110, 0, 131, 110, 0, 165, 156, 110, 110, 0, 131, 110, 0, 98, 104];
 
 const PX_PER_MILE = 6545; // 100 px/s on screen = 55 mph
 
@@ -133,7 +132,7 @@ function arrowNav(e: React.KeyboardEvent<HTMLElement>) {
 
 export default function CipherPursuit() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const audio = useMemo(() => new ChipAudio(BASS, 152), []);
+  const audio = useMemo(() => new ChipAudio(), []);
   const simRef = useRef<PursuitSim | null>(null);
   const rendererRef = useRef<Renderer | null>(null);
   const bannerRef = useRef<Banner | null>(null);
@@ -156,6 +155,9 @@ export default function CipherPursuit() {
   const [log, setLog] = useState<LogEntry[]>([]);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
+  useEffect(() => exposeMusicDebug(audio, SONGS, JINGLES), [audio]);
   const [readAloud, setReadAloud] = useState(() => readAloudPref(isEarlyReader(initialGrade("3"))));
   const [touch, setTouch] = useState(false);
   const [highScore, setHighScore] = useState(() => loadProgress(GAME_ID).highScore);
@@ -244,7 +246,7 @@ export default function CipherPursuit() {
           break;
         case "result": {
           const { q, correct, lane, points } = ev;
-          if (correct) audio.correct();
+          if (correct) audio.playJingle(CODE_CRACKED);
           else audio.wrong();
           debriefAt.current = performance.now();
           recordAnswer(GAME_ID, q, correct);
@@ -258,8 +260,7 @@ export default function CipherPursuit() {
           bannerRef.current = { text: GADGET_NAMES[ev.gadget], sub: "GADGET DELIVERED!", t: 2, color: "#5fff8a" };
           break;
         case "gameover": {
-          audio.gameOver();
-          audio.stopMusic();
+          audio.playJingle(MISSION_OVER, { then: "stop" });
           stopSpeaking();
           setHighScore(submitScore(GAME_ID, ev.score));
           setScreen("over");
@@ -300,6 +301,11 @@ export default function CipherPursuit() {
             sim.voiceBusy = false;
           }
           sim.update(dt);
+          // Music: the road groove (the river gets its own), thinned to lead + bass while a code waits.
+          if (sim.phase !== "over") {
+            audio.playSong(sim.boat ? BOAT_SONG : ROAD_SONG);
+            audio.setIntensity(sim.phase === "approach" && !sim.cp.released ? "calm" : "full");
+          }
         } else if (!playing) {
           // Demo driver: follow the road, fire now and then, pick a lane, drive on.
           const road = sim.roadAt(sim.dist + 30);
@@ -354,7 +360,8 @@ export default function CipherPursuit() {
 
   const startGame = useCallback(() => {
     audio.unlock();
-    audio.startMusic();
+    audio.setIntensity("full");
+    audio.playSong(ROAD_SONG, { restart: true });
     rememberGrade(grade);
     const src = new CodeSource(grade, kitHooks, Math.random, focus);
     const god = new URLSearchParams(window.location.search).has("god");
@@ -560,7 +567,14 @@ export default function CipherPursuit() {
         <a href={arcadeLink(grade)}>◀ ARCADE</a>
         <div className="cp-tools">
           {screen === "playing" && <button onClick={() => togglePause()}>{paused ? "RESUME" : "PAUSE"}</button>}
-          <button onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && (
             <button onClick={toggleReadAloud} aria-pressed={readAloud}>
               {readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}

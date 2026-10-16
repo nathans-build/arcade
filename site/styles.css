@@ -424,6 +424,40 @@ footer .fine { font-size: 17px; opacity: 0.8; }
 .cabinet .cab-top { padding-inline: 36px; }
 
 .chip.new { border-color: var(--yellow); color: var(--yellow); }
+
+/* ---------- New games: glow, ribbon and banner ---------- */
+.cabinet.is-new { border-color: var(--yellow); animation: new-glow 1.8s ease-in-out infinite; }
+@keyframes new-glow {
+  0%, 100% { box-shadow: 6px 6px 0 var(--shadow), 0 0 6px var(--glow-yellow); }
+  50% { box-shadow: 6px 6px 0 var(--shadow), 0 0 22px var(--glow-yellow); }
+}
+.cabinet.is-new:hover, .cabinet.is-new:focus-visible, .cabinet.is-new.selected { animation: none; }
+.new-ribbon {
+  position: absolute; top: 10px; left: -30px; z-index: 1; width: 110px; padding: 4px 0;
+  transform: rotate(-35deg); text-align: center; pointer-events: none;
+  font-family: var(--pixel); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: #1a1200; background: var(--yellow); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
+}
+:root[data-theme="stick"] .new-ribbon, :root[data-theme="unicorn"] .new-ribbon { color: #ffffff; }
+.shelf-new .shelf-title { font-size: 13px; }
+@media (max-width: 560px) { .new-ribbon { top: 6px; left: -34px; width: 100px; padding: 2px 0; font-size: 7px; } }
+.new-banner {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin: 0 0 18px; padding: 10px 12px;
+  background: var(--panel); border: 3px solid var(--yellow); box-shadow: 4px 4px 0 var(--shadow), 0 0 18px var(--glow-yellow);
+}
+.new-banner[hidden] { display: none; }
+.new-banner-icon { font-size: 22px; }
+.new-banner-text { flex: 1 1 200px; font-family: var(--pixel); font-size: 11px; line-height: 1.5; color: var(--yellow); }
+.new-banner-go {
+  font-family: var(--pixel); font-size: 10px; padding: 8px 10px; cursor: pointer;
+  background: var(--red); color: var(--on-accent); border: 2px solid var(--yellow);
+}
+.new-banner-close {
+  width: 34px; height: 34px; cursor: pointer; font-size: 16px; line-height: 1;
+  background: transparent; color: var(--muted); border: 2px solid var(--line-2, var(--muted));
+}
+.new-banner-go:hover, .new-banner-go:focus-visible, .new-banner-close:hover, .new-banner-close:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; color: var(--yellow); }
+@media (prefers-reduced-motion: reduce) { .cabinet.is-new { animation: none; box-shadow: 6px 6px 0 var(--shadow), 0 0 14px var(--glow-yellow); } }
 .chip.dev { border-color: var(--muted); color: var(--muted); border-style: dashed; }
 
 /* Games for other grades (shown when "Fits my grade" is off) */
@@ -569,3 +603,155 @@ body.modal-open { overflow: hidden; }
 .support-qr img { width: 180px; height: 180px; flex: none; image-rendering: pixelated; border: 6px solid #ffffff; box-shadow: 4px 4px 0 var(--shadow); background: #ffffff; }
 .support-qr figcaption { margin: 0; font-size: 19px; }
 @media (max-width: 560px) { .support-qr { flex-direction: column; align-items: flex-start; } }
+
+/* ---------- Finding games: search, Surprise me, style chips, length and sort ---------- */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.search-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px; margin-bottom: 14px; }
+.search-field { flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.search-box { position: relative; display: flex; align-items: center; }
+.search-icon { position: absolute; left: 12px; font-size: 18px; pointer-events: none; }
+.search-input {
+  appearance: none; -webkit-appearance: none; width: 100%; min-width: 0; min-height: 48px; padding: 4px 46px 4px 42px;
+  font-family: var(--term); font-size: 24px; color: var(--text); background: var(--panel);
+  border: 2px solid var(--blue); border-radius: 0; box-shadow: 3px 3px 0 var(--shadow);
+}
+.search-input::placeholder { color: var(--muted); opacity: 1; }
+.search-input::-webkit-search-cancel-button, .search-input::-webkit-search-decoration { -webkit-appearance: none; appearance: none; display: none; }
+.search-input:hover { border-color: var(--yellow); }
+.search-input:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; border-color: var(--yellow); }
+.search-clear {
+  position: absolute; right: 4px; width: 40px; height: 40px; padding: 0; cursor: pointer;
+  font-size: 18px; line-height: 1; color: var(--muted); background: transparent; border: 0;
+}
+.search-clear:hover, .search-clear:focus-visible { outline: 2px solid var(--yellow); outline-offset: -4px; color: var(--yellow); }
+.surprise-btn {
+  min-height: 48px; padding: 8px 14px; cursor: pointer; white-space: nowrap;
+  font-family: var(--pixel); font-size: 11px; color: var(--on-accent); background: var(--red);
+  border: 2px solid var(--yellow); box-shadow: 3px 3px 0 var(--shadow), 0 0 14px var(--glow-red);
+}
+.surprise-btn:hover, .surprise-btn:focus-visible { outline: 2px solid var(--web); outline-offset: 2px; }
+
+/* Play-style icon bar: icons only, the name in a tooltip on hover/focus, the selected style's name
+   spelled out next to the bar. */
+.style-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin-bottom: 14px; }
+.style-bar-label { margin: 0; }
+.style-chips { display: flex; gap: 6px; }
+.style-chip {
+  position: relative; display: inline-grid; place-items: center; width: 46px; height: 46px; padding: 0; cursor: pointer;
+  color: var(--text); background: var(--panel); border: 2px solid var(--blue); box-shadow: 3px 3px 0 var(--shadow);
+}
+.style-chip .style-icon { font-size: 22px; line-height: 1; }
+.style-chip .style-count {
+  position: absolute; right: -6px; top: -7px; min-width: 18px; padding: 2px 3px; text-align: center;
+  font-family: var(--pixel); font-size: 7px; line-height: 1.2; color: var(--text); background: var(--panel-2); border: 1px solid var(--blue);
+}
+.style-chip[aria-pressed="true"] { background: var(--red); border-color: var(--yellow); }
+.style-chip[aria-pressed="true"] .style-count { color: var(--on-accent); background: var(--red); border-color: var(--yellow); }
+.style-chip.empty { opacity: 0.45; }
+.style-chip:hover, .style-chip:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+.style-chip::after {
+  content: attr(data-tip); position: absolute; z-index: 5; top: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+  padding: 5px 7px; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.12s;
+  font-family: var(--pixel); font-size: 8px; color: var(--on-accent); background: var(--blue); border: 2px solid var(--yellow);
+}
+.style-chips .style-chip:first-child::after { left: 0; transform: none; }
+.style-chips .style-chip:last-child::after { left: auto; right: 0; transform: none; }
+@media (hover: hover) { .style-chip:hover::after { opacity: 1; } }
+.style-chip:focus-visible::after { opacity: 1; }
+.style-current { font-family: var(--pixel); font-size: 10px; color: var(--yellow); }
+.select-field.small .pick-select { min-width: 200px; }
+
+.results-status { margin: -6px 0 14px; color: var(--muted); font-size: 20px; }
+.results-status:empty { margin: 0; }
+.search-hidden { margin: -6px 0 14px; color: var(--text); }
+.search-hidden .adapt-reset { margin-left: 4px; }
+.search-empty { padding: 16px; border: 2px dashed var(--yellow); color: var(--text); }
+.search-empty p { margin: 0 0 10px; }
+/* While searching, the shelves give way to one flat results list. */
+body.is-searching #new-banner { display: none; }
+
+/* Shelf headings with ◀ ▶ and See all */
+.shelf-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 12px; }
+.shelf-head .shelf-title { margin: 0; }
+.shelf-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.row-btn, .see-all {
+  min-height: 36px; padding: 6px 10px; cursor: pointer;
+  font-family: var(--pixel); font-size: 9px; color: var(--text); background: var(--panel);
+  border: 2px solid var(--blue); box-shadow: 3px 3px 0 var(--shadow);
+}
+.row-btn { min-width: 40px; font-size: 11px; }
+.see-all { color: var(--yellow); }
+.row-btn:disabled { opacity: 0.4; cursor: default; box-shadow: none; }
+.row-btn:not(:disabled):hover, .row-btn:focus-visible, .see-all:hover, .see-all:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+.shelf-trynext .shelf-title { color: var(--yellow); }
+.shelf-popular .shelf-title { color: var(--accent-soft); }
+
+/* A style row: one horizontal strip of cabinets (wide screens; phones get the compact list). */
+.cabinets.strip {
+  grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(220px, 250px);
+  overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity; scrollbar-width: thin; scrollbar-color: var(--blue) transparent;
+  padding: 6px 12px 16px 4px; gap: 18px; scroll-padding-inline: 4px;
+}
+.cabinets.strip > li { scroll-snap-align: start; }
+.cabinets.strip .tagline { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+@media (prefers-reduced-motion: no-preference) { .cabinets.strip { scroll-behavior: smooth; } }
+
+.chip.len { border-color: var(--muted); color: var(--text); }
+.chip.hot { border-color: var(--red); color: var(--accent-soft); }
+
+/* Surprise me */
+.surprise { margin: 0 0 16px; }
+.surprise-card {
+  position: relative; display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: 14px; padding: 12px 52px 12px 12px;
+  background: var(--panel); border: 3px solid var(--yellow); box-shadow: 6px 6px 0 var(--shadow), 0 0 24px var(--glow-yellow);
+}
+.surprise-card.none { display: block; }
+.surprise-card.none p { margin: 0; }
+.surprise-screen { aspect-ratio: 16 / 10; border: 3px solid #000; outline: 2px solid var(--web); background: #000; overflow: hidden; align-self: start; }
+.surprise-screen img { width: 100%; height: 100%; object-fit: cover; display: block; image-rendering: pixelated; }
+.surprise-body { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.surprise-body .chips { margin-top: 0; }
+.surprise-eyebrow { margin: 0; font-family: var(--pixel); font-size: 9px; text-transform: uppercase; color: var(--accent-soft); }
+.surprise-body h3 { margin: 0; font-family: var(--pixel); font-weight: normal; font-size: 14px; line-height: 1.4; color: var(--yellow); }
+.surprise-body .tagline { margin: 0; }
+.surprise-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 4px; }
+.surprise-play {
+  display: inline-block; padding: 10px 14px; text-decoration: none;
+  font-family: var(--pixel); font-size: 11px; color: var(--on-accent); background: var(--blue);
+  border: 2px solid var(--yellow); box-shadow: 3px 3px 0 var(--shadow);
+}
+.surprise-play:hover, .surprise-play:focus-visible { outline: 2px solid var(--web); outline-offset: 2px; background: var(--red); }
+.surprise-close { position: absolute; top: 8px; right: 8px; min-width: 36px; min-height: 36px; }
+.surprise-card.none .surprise-close { position: static; margin-top: 10px; }
+.surprise-card.rolling { animation: dice-pop 0.45s ease-out; }
+@keyframes dice-pop {
+  0% { transform: scale(0.94) rotate(-1.5deg); opacity: 0.2; }
+  60% { transform: scale(1.02) rotate(0.8deg); opacity: 1; }
+  100% { transform: none; }
+}
+.cabinet.surprise-flash { border-color: var(--yellow); animation: surprise-flash 0.36s steps(2) 5; }
+@keyframes surprise-flash { 50% { box-shadow: 8px 8px 0 var(--shadow), 0 0 0 4px var(--yellow), 0 0 26px var(--glow-yellow); } }
+@media (prefers-reduced-motion: reduce) {
+  .surprise-card.rolling, .cabinet.surprise-flash { animation: none; }
+  .cabinet.surprise-flash { box-shadow: 6px 6px 0 var(--shadow), 0 0 0 4px var(--yellow); }
+}
+
+@media (max-width: 599.98px) {
+  .search-field { flex-basis: 100%; }
+  .surprise-btn { flex: 1 1 100%; }
+  .style-bar { gap: 6px 10px; }
+  .style-chips { flex: 1 1 100%; gap: 4px; }
+  .style-chip { flex: 1 1 0; width: auto; min-width: 34px; max-width: 46px; height: 42px; }
+  .style-chip .style-icon { font-size: 19px; }
+  .style-chip .style-count { right: -4px; }
+  .select-field.small { flex: 1 1 140px; }
+  .select-field.small .pick-select { min-width: 0; }
+  .surprise-card { grid-template-columns: 96px minmax(0, 1fr); gap: 10px; padding: 10px 48px 10px 10px; }
+  .surprise-body .tagline { display: none; }
+  .surprise-body h3 { font-size: 11px; }
+  .shelf-head { margin-bottom: 10px; }
+}

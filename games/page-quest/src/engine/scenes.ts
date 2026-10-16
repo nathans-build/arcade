@@ -1557,4 +1557,362 @@ export const SCENE_PAINTERS: Record<SceneId, ScenePainter> = {
       }
     },
   },
+
+  // ---------- Robots shelf ----------
+  // A cozy robot workshop: pegboard of tools, a workbench with a half-built robot, spare parts
+  // bins, a hanging lamp, blueprints, and a welding torch that sparks now and then.
+  "robot-workshop": {
+    floor: 190,
+    bg(g) {
+      g.rect(0, 0, W, 150, "#3a4a5a");
+      g.dither(0, 0, W, 20, "#2a3848", "#3a4a5a");
+      // pegboard with tool outlines
+      g.rect(14, 26, 120, 64, "#c89a5a");
+      for (let y = 30; y < 88; y += 6) for (let x = 18; x < 132; x += 6) g.px(x, y, "#8a6a3a");
+      g.rect(24, 34, 3, 22, C.dgray); g.rect(20, 32, 11, 5, C.dgray); // hammer
+      g.rect(42, 36, 2, 24, C.lgray); g.rect(40, 34, 6, 4, C.lgray); g.rect(40, 58, 6, 4, C.lgray); // wrench
+      g.rect(58, 34, 3, 16, C.sbRed); g.rect(59, 50, 1, 10, C.lgray); // screwdriver
+      g.rect(72, 34, 2, 26, C.sbYellow); g.rect(70, 34, 6, 3, C.sbYellow); // ruler
+      g.circle(96, 46, 9, C.dgray); g.circle(96, 46, 5, "#c89a5a"); // tape roll
+      g.rect(112, 34, 4, 20, C.sbBlue); g.rect(110, 54, 8, 6, C.lgray); // pliers-ish
+      for (let i = 0; i < 4; i++) g.rect(22 + i * 26, 70, 18, 12, ["#2456e8", "#e3262f", "#00aa00", "#ffd23f"][i]);
+      // blueprint pinned up
+      g.rect(176, 20, 92, 60, "#1a4aa8");
+      for (let x = 180; x < 266; x += 8) g.rect(x, 22, 1, 56, "#2a5ab8");
+      for (let y = 24; y < 78; y += 8) g.rect(178, y, 88, 1, "#2a5ab8");
+      g.rect(206, 30, 32, 24, C.white); g.rect(208, 32, 28, 20, "#1a4aa8");
+      g.circle(222, 62, 8, C.white); g.circle(222, 62, 6, "#1a4aa8");
+      g.line(206, 30, 196, 24, C.white); g.text("BOT-7", 182, 70, C.white);
+      g.px(178, 21, C.sbRed); g.px(265, 21, C.sbRed);
+      // window with a sunny sky
+      g.rect(286, 24, 28, 40, C.dgray); g.rect(288, 26, 24, 36, C.sbSky);
+      g.rect(299, 26, 2, 36, C.dgray); g.rect(288, 43, 24, 2, C.dgray);
+      // floor
+      g.rect(0, 150, W, 50, "#5a5a6a");
+      g.dither(0, 150, W, 50, "#5a5a6a", "#4a4a5a");
+      for (let x = 0; x < W; x += 40) g.rect(x, 150, 1, 50, "#3a3a4a");
+      g.rect(0, 148, W, 3, "#2a2a3a");
+      // workbench with a half-built robot on it
+      g.rect(156, 112, 150, 6, "#8a5a2a");
+      g.rect(160, 118, 6, 32, "#5a3a1a"); g.rect(296, 118, 6, 32, "#5a3a1a");
+      g.rect(166, 130, 130, 3, "#5a3a1a");
+      g.rect(240, 88, 22, 24, C.lgray); g.rect(244, 92, 14, 8, C.deep);
+      g.rect(246, 80, 10, 8, C.stone); g.rect(250, 74, 2, 6, C.dgray); g.circle(251, 73, 2, C.sbRed);
+      g.rect(262, 96, 12, 4, C.stone); g.rect(272, 100, 4, 6, C.dgray);
+      // parts bins
+      for (let i = 0; i < 3; i++) {
+        g.rect(8 + i * 34, 128, 30, 20, ["#2456e8", "#e3262f", "#ffd23f"][i]);
+        g.rect(14 + i * 34, 134, 18, 4, "#00000055");
+        for (let k = 0; k < 4; k++) g.circle(14 + i * 34 + k * 6, 127, 2, [C.lgray, C.dgray, C.sbYellow, C.stone][k]);
+      }
+    },
+    anim(g, t) {
+      // hanging lamp sways a little
+      const sw = Math.round(Math.sin(t * 1.2) * 2);
+      g.line(160, 0, 160 + sw, 16, C.dgray);
+      g.tri(150 + sw, 24, 170 + sw, 24, 160 + sw, 14, C.dgray);
+      g.rect(156 + sw, 24, 8, 2, C.yellow);
+      // the half-built robot's screen blinks a smiley
+      if (Math.floor(t * 1.5) % 2) { g.px(247, 95, C.lgreen); g.px(254, 95, C.lgreen); g.rect(248, 98, 6, 1, C.lgreen); }
+      // welding sparks at the robot's arm
+      if (Math.floor(t * 3) % 3 === 0) {
+        for (let i = 0; i < 6; i++) {
+          const a = t * 9 + i * 1.1;
+          g.px(276 + Math.cos(a) * (2 + (i % 3) * 2), 104 + Math.sin(a) * (2 + (i % 2) * 3), i % 2 ? C.yellow : C.white);
+        }
+      }
+    },
+  },
+
+  // A busy (and friendly) factory floor: conveyor belts with boxes gliding by, robotic arms that
+  // bob up and down, hazard stripes, warning lights and a big ROBOWORKS sign.
+  "factory-floor": {
+    floor: 192,
+    bg(g) {
+      g.rect(0, 0, W, 150, "#4a5260");
+      // roof trusses and skylights
+      for (let x = 0; x < W; x += 40) { g.line(x, 0, x + 20, 18, "#2a3038"); g.line(x + 40, 0, x + 20, 18, "#2a3038"); }
+      g.rect(0, 18, W, 3, "#2a3038");
+      for (let x = 20; x < W; x += 80) { g.rect(x, 2, 40, 12, "#9ac0e8"); g.dither(x, 2, 40, 12, "#9ac0e8", "#c8e0f8"); }
+      // back wall panels
+      for (let x = 0; x < W; x += 32) g.rect(x, 22, 1, 128, "#3a4250");
+      // sign
+      g.rect(108, 28, 104, 16, C.deep);
+      g.text("ROBOWORKS", 160, 33, C.sbYellow, 1, "center");
+      // big gears on the wall
+      for (const [cx, cy, r] of [[40, 70, 16], [66, 92, 10], [278, 72, 14]] as [number, number, number][]) {
+        g.circle(cx, cy, r, "#6a7280");
+        for (let k = 0; k < 8; k++) { const a = (k / 8) * Math.PI * 2; g.rect(cx + Math.cos(a) * (r + 1) - 2, cy + Math.sin(a) * (r + 1) - 2, 4, 4, "#6a7280"); }
+        g.circle(cx, cy, Math.round(r / 3), "#3a4250");
+      }
+      // back conveyor
+      g.rect(0, 112, W, 10, "#2a2a30");
+      g.rect(0, 122, W, 3, "#1a1a20");
+      for (let x = 6; x < W; x += 24) { g.rect(x, 125, 4, 25, "#3a3a40"); }
+      // floor with hazard stripe edges
+      g.rect(0, 150, W, 50, "#6a6a72");
+      g.dither(0, 150, W, 50, "#6a6a72", "#5e5e66");
+      for (let x = 0; x < W; x += 12) g.poly([[x, 150], [x + 6, 150], [x + 2, 156], [x - 4, 156]], C.sbYellow);
+      g.rect(0, 156, W, 1, "#2a2a30");
+      g.rect(0, 148, W, 2, "#2a2a30");
+    },
+    anim(g, t) {
+      // boxes ride the conveyor
+      for (let i = 0; i < 6; i++) {
+        const x = ((t * 22 + i * 58) % (W + 40)) - 20;
+        g.rect(x, 100, 16, 12, "#c89a5a");
+        g.rect(x, 104, 16, 2, "#8a6a3a");
+        g.rect(x + 6, 100, 4, 12, "#a07a4a");
+      }
+      // belt ticks
+      for (let x = (t * 22) % 8; x < W; x += 8) g.px(x, 116, "#5a5a60");
+      // two robotic arms bob over the belt
+      for (const [ax, ph] of [[96, 0], [226, 1.7]] as [number, number][]) {
+        const dy = Math.round((Math.sin(t * 2 + ph) + 1) * 8);
+        g.rect(ax - 2, 22, 5, 40 + dy, C.sbYellow);
+        g.rect(ax - 6, 60 + dy, 13, 6, "#ff8a2a");
+        g.rect(ax - 6, 66 + dy, 3, 8, C.dgray); g.rect(ax + 4, 66 + dy, 3, 8, C.dgray);
+        g.circle(ax, 22, 4, C.dgray);
+      }
+      // warning lights spin
+      for (const lx of [10, 306]) {
+        g.rect(lx - 3, 46, 7, 6, "#3a3a40");
+        g.circle(lx, 44, 4, Math.floor(t * 4) % 2 ? C.orange : "#aa4a10");
+      }
+    },
+  },
+
+  // A robot competition arena: bleachers full of cheering fans, team banners, a scoreboard with
+  // a ticking clock, spotlights sweeping, and a striped arena floor with a ramp.
+  "robot-arena": {
+    floor: 190,
+    bg(g) {
+      g.rect(0, 0, W, 200, "#141a3a");
+      // bleachers
+      for (let r = 0; r < 6; r++) {
+        const y = 60 + r * 12;
+        g.rect(0, y, W, 12, r % 2 ? "#2a3060" : "#323a70");
+        for (let x = 4 + (r % 2) * 6; x < W; x += 12) {
+          const col = [C.sbRed, C.sbYellow, C.sbSky, C.lgreen, C.lmagenta, C.orange][Math.floor(rnd(x * 1.3 + r * 7) * 6)];
+          g.circle(x, y + 3, 2, C.tan);
+          g.rect(x - 2, y + 5, 5, 6, col);
+        }
+      }
+      // scoreboard
+      g.rect(112, 6, 96, 44, C.dgray);
+      g.rect(116, 10, 88, 36, C.black);
+      g.text("HOME", 122, 13, C.sbSky);
+      g.text("GUEST", 172, 13, C.lred);
+      g.text("TIME", 147, 33, C.sbYellow);
+      // team banners
+      for (const [x, c, s] of [[22, C.sbRed, "GO!"], [62, C.sbBlue, "BOTS"], [252, C.green, "WIN"], [290, C.purple, "GO!"]] as [number, string, string][]) {
+        g.rect(x - 14, 8, 28, 30, c);
+        g.tri(x - 14, 38, x + 14, 38, x, 46, c);
+        g.text(s, x, 20, C.white, 1, "center");
+      }
+      // arena wall and floor
+      g.rect(0, 132, W, 18, "#c8ccd4");
+      for (let x = 0; x < W; x += 40) g.rect(x, 132, 20, 18, "#e3262f");
+      g.rect(0, 150, W, 50, "#3a5a8a");
+      g.dither(0, 150, W, 50, "#3a5a8a", "#345080");
+      for (let x = 0; x < W; x += 32) g.line(x, 150, x - 30, 200, "#4a6a9a");
+      g.rect(0, 166, W, 1, C.white);
+      g.circle(160, 176, 10, "#4a6a9a");
+      g.circle(160, 176, 8, "#3a5a8a");
+      // ramp and a cone
+      g.poly([[262, 170], [314, 170], [314, 154]], C.stone);
+      g.tri(16, 172, 26, 172, 21, 156, C.orange);
+      g.rect(16, 164, 10, 2, C.white);
+    },
+    anim(g, t) {
+      // scoreboard numbers and clock
+      const sec = 30 - (Math.floor(t) % 31);
+      g.rect(122, 22, 30, 9, C.black); g.rect(172, 22, 30, 9, C.black); g.rect(140, 40, 40, 6, C.black);
+      g.text(String(3 + (Math.floor(t / 7) % 5)), 132, 22, C.sbSky, 1);
+      g.text(String(2 + (Math.floor(t / 9) % 5)), 184, 22, C.lred, 1);
+      g.text(`0:${String(sec).padStart(2, "0")}`, 160, 40, C.yellow, 1, "center");
+      // spotlights sweep
+      for (let i = 0; i < 2; i++) {
+        const x = 160 + Math.sin(t * 0.8 + i * 2.5) * 110;
+        g.ctx.globalAlpha = 0.18;
+        g.poly([[i ? 300 : 20, 0], [x - 20, 188], [x + 20, 188]], C.yellow);
+        g.ctx.globalAlpha = 1;
+      }
+      // fans do the wave
+      for (let x = 4; x < W; x += 12) {
+        const up = Math.sin(t * 4 - x * 0.05) > 0.7;
+        if (up) { g.rect(x - 3, 56, 1, 4, C.tan); g.rect(x + 3, 56, 1, 4, C.tan); }
+      }
+    },
+  },
+
+  // A sunny recycling center: colour-coded bins (cans, paper, plastic, glass), a sorting
+  // belt, a tall bale stack, recycling arrows on the wall, and a seagull.
+  "recycling-center": {
+    floor: 190,
+    bg(g) {
+      g.bands(0, 0, W, 90, ["#5a9ae8", "#7ab4f0", "#a8d0f8"]);
+      cloud(g, 60, 22, 1.2);
+      cloud(g, 240, 16, 1);
+      g.circle(290, 20, 10, C.yellow);
+      // building with a big sign and arrows
+      g.rect(0, 50, W, 100, "#b8c4b0");
+      g.rect(0, 50, W, 4, "#8a9a88");
+      for (let x = 0; x < W; x += 20) g.rect(x, 54, 1, 96, "#a8b4a0");
+      g.rect(96, 58, 128, 18, "#2a7a3a");
+      g.text("RECYCLE CENTER", 160, 64, C.white, 1, "center");
+      // recycling triangle of arrows
+      const ax = 160, ay = 100;
+      g.tri(ax, ay - 14, ax - 12, ay + 8, ax + 12, ay + 8, "#2a9a4a");
+      g.tri(ax, ay - 6, ax - 6, ay + 4, ax + 6, ay + 4, "#b8c4b0");
+      g.tri(ax - 16, ay + 2, ax - 8, ay + 2, ax - 12, ay + 10, "#2a9a4a");
+      // big doorway with bales inside
+      g.rect(14, 86, 70, 64, "#3a3a40");
+      for (let r = 0; r < 4; r++) for (let c = 0; c < 3; c++) {
+        g.rect(18 + c * 22, 122 - r * 12 + 16, 20, 11, ["#5a8ac8", "#c8a860", "#8ac87a", "#c87a7a"][(r + c) % 4]);
+        g.rect(18 + c * 22, 126 - r * 12 + 16, 20, 1, "#2a2a30");
+      }
+      // ground
+      g.rect(0, 150, W, 50, "#8a8a80");
+      g.dither(0, 150, W, 50, "#8a8a80", "#7a7a70");
+      g.rect(0, 148, W, 3, "#5a5a50");
+      // bins
+      const bins: [number, string, string][] = [[204, "#2456e8", "CANS"], [238, "#ffd23f", "PAPER"], [272, "#00aa00", "GLASS"], [306, "#e3262f", "CUPS"]];
+      for (const [x, c, label] of bins) {
+        g.rect(x - 14, 122, 28, 28, c);
+        g.rect(x - 16, 118, 32, 5, c);
+        g.rect(x - 16, 118, 32, 1, C.white);
+        g.text(label, x, 130, label === "PAPER" ? C.black : C.white, 1, "center");
+      }
+    },
+    anim(g, t) {
+      // sorting belt with tumbling items
+      g.rect(90, 140, 100, 6, "#2a2a30");
+      for (let i = 0; i < 6; i++) {
+        const x = 92 + ((t * 18 + i * 17) % 96);
+        const k = i % 3;
+        if (k === 0) g.rect(x, 135, 4, 5, C.lgray);
+        else if (k === 1) g.rect(x, 136, 6, 4, C.cream);
+        else g.rect(x, 133, 3, 7, "#8ac8f0");
+      }
+      // a seagull glides
+      const gx = (t * 14) % (W + 40) - 20, gy = 34 + Math.sin(t) * 4;
+      const up = Math.floor(t * 4) % 2;
+      g.rect(gx, gy, 3, 2, C.white);
+      g.line(gx - 5, gy - (up ? 3 : -1), gx, gy, C.white);
+      g.line(gx + 3, gy, gx + 8, gy - (up ? 3 : -1), C.white);
+    },
+  },
+
+  // A city rooftop at night: a skyline with lit windows, a water tower, an antenna with a
+  // blinking red light, a big moon, a blinking billboard and the roof ledge in front.
+  "rooftop-night": {
+    floor: 190,
+    bg(g) {
+      g.bands(0, 0, W, 150, ["#06081c", "#0c1238", "#1a1f52", "#2a2a66"]);
+      stars(g, 40, 2, 80, 53);
+      g.circle(250, 32, 16, C.cream);
+      g.circle(244, 28, 3, "#e8d8a0"); g.circle(256, 38, 2, "#e8d8a0");
+      // far skyline
+      let x = 0;
+      let i = 0;
+      while (x < W) {
+        const w = 18 + Math.floor(rnd(i + 31) * 24);
+        const h = 30 + Math.floor(rnd(i + 37) * 70);
+        g.rect(x, 140 - h, w - 2, h, i % 2 ? "#141a3a" : "#1c2248");
+        for (let wy = 146 - h; wy < 134; wy += 7) for (let wx = x + 3; wx < x + w - 5; wx += 5) if (rnd(wx * 7 + wy * 3) > 0.6) g.rect(wx, wy, 2, 3, rnd(wx + wy) > 0.5 ? C.sbYellow : "#ffe8a0");
+        x += w;
+        i++;
+      }
+      // water tower
+      g.rect(28, 92, 34, 30, "#6a4a2a");
+      for (let k = 0; k < 4; k++) g.rect(28, 96 + k * 7, 34, 1, "#4a3018");
+      g.tri(24, 92, 66, 92, 45, 78, "#4a3018");
+      g.rect(32, 122, 3, 28, "#3a3a40"); g.rect(55, 122, 3, 28, "#3a3a40");
+      g.line(33, 124, 56, 146, "#3a3a40"); g.line(56, 124, 33, 146, "#3a3a40");
+      // antenna mast
+      g.rect(292, 60, 2, 90, C.dgray);
+      g.line(293, 70, 282, 150, C.dgray); g.line(293, 70, 304, 150, C.dgray);
+      // roof
+      g.rect(0, 150, W, 50, "#3a3a48");
+      g.dither(0, 150, W, 50, "#3a3a48", "#32323e");
+      g.rect(0, 146, W, 6, "#5a5a6a");
+      g.rect(0, 146, W, 1, "#8a8a9a");
+      // vents and a skylight
+      g.rect(100, 160, 18, 12, C.stone); g.rect(102, 156, 14, 4, C.dgray);
+      g.rect(206, 162, 40, 10, "#6a8ab8"); g.dither(206, 162, 40, 10, "#6a8ab8", "#8aaad8");
+    },
+    anim(g, t) {
+      if (Math.floor(t * 1.5) % 2) g.circle(293, 58, 2, C.lred);
+      else g.px(293, 58, C.red);
+      // billboard
+      g.rect(128, 66, 64, 26, "#1a1a2a");
+      g.rect(130, 68, 60, 22, Math.floor(t / 2) % 2 ? "#2a0a3a" : "#0a2a3a");
+      g.text(Math.floor(t / 2) % 2 ? "BEEP!" : "BOOP!", 160, 75, Math.floor(t / 2) % 2 ? C.lmagenta : C.lcyan, 1, "center");
+      g.rect(140, 92, 2, 20, C.dgray); g.rect(178, 92, 2, 20, C.dgray);
+      // a few windows switch on and off
+      for (let k = 0; k < 6; k++) {
+        const wx = Math.floor(rnd(k + 300) * W), wy = 70 + Math.floor(rnd(k + 310) * 50);
+        if (Math.sin(t * 0.7 + k * 2) > 0.3) g.rect(wx, wy, 2, 3, C.sbYellow);
+      }
+      // a shooting star now and then
+      const k = (t * 0.25) % 3;
+      if (k < 0.4) { const sx = 40 + k * 300, sy = 12 + k * 40; g.line(sx, sy, sx - 8, sy - 2, C.white); }
+    },
+  },
+
+  // A warm bakery kitchen: a brick oven glowing orange, shelves of bread and cakes, a striped
+  // awning window, a flour-dusted counter with a mixing bowl, and steam from a fresh loaf.
+  bakery: {
+    floor: 190,
+    bg(g) {
+      g.rect(0, 0, W, 150, "#f2d8b0");
+      for (let x = 0; x < W; x += 16) g.rect(x, 0, 8, 150, "#f6e2c0");
+      // brick oven
+      bricks(g, 210, 30, 100, 120, "#b85a3a", "#8a3a22", 14, 7);
+      g.ellipse(260, 30, 50, 14, "#b85a3a");
+      g.rect(228, 80, 64, 50, "#2a1008");
+      g.ellipse(260, 80, 32, 14, "#2a1008");
+      g.rect(206, 130, 108, 6, "#6a3a22");
+      // window with an awning
+      g.rect(30, 30, 80, 56, C.white);
+      g.rect(34, 34, 72, 48, "#8ac8f8");
+      g.rect(69, 34, 2, 48, C.white); g.rect(34, 57, 72, 2, C.white);
+      for (let i = 0; i < 8; i++) g.rect(26 + i * 11, 22, 11, 10, i % 2 ? C.white : C.sbRed);
+      for (let i = 0; i < 8; i++) g.tri(26 + i * 11, 32, 37 + i * 11, 32, 31 + i * 11, 36, i % 2 ? C.white : C.sbRed);
+      // shelves of bread and cakes
+      for (const y of [56, 84]) g.rect(124, y, 76, 3, "#8a5a2a");
+      for (let i = 0; i < 4; i++) {
+        g.ellipse(134 + i * 18, 51, 7, 5, "#d89a4a");
+        g.line(130 + i * 18, 50, 138 + i * 18, 48, "#a86a2a");
+      }
+      for (let i = 0; i < 3; i++) {
+        const cx = 140 + i * 24;
+        g.rect(cx - 8, 70, 16, 14, [C.lmagenta, C.cream, "#8a4a2a"][i]);
+        g.rect(cx - 8, 70, 16, 3, C.white);
+        g.px(cx, 68, C.sbRed);
+      }
+      // floor tiles
+      for (let y = 150, r = 0; y < 200; y += 10, r++) for (let x = 0, c = 0; x < W; x += 20, c++) g.rect(x, y, 20, 10, (r + c) % 2 ? "#e8e0d0" : "#c86a5a");
+      // counter with a mixing bowl and a rolling pin
+      g.rect(0, 118, 120, 8, "#e8e0d0");
+      g.rect(0, 126, 120, 24, "#8a5a2a");
+      for (let x = 10; x < 120; x += 30) g.rect(x, 130, 22, 16, "#7a4a1e");
+      g.ellipse(40, 112, 14, 7, "#5aa0d8");
+      g.rect(26, 105, 29, 3, "#5aa0d8");
+      g.ellipse(40, 106, 12, 2, C.cream);
+      g.rect(70, 112, 30, 4, "#d8a060"); g.rect(66, 113, 4, 2, "#a86a2a"); g.rect(100, 113, 4, 2, "#a86a2a");
+      g.dither(60, 116, 50, 2, C.white, "#e8e0d0");
+    },
+    anim(g, t) {
+      // oven fire
+      for (let i = 0; i < 4; i++) flame(g, 240 + i * 13, 122, t + i * 0.3, 1.2);
+      g.dither(232, 84, 56, 30, "#5a1a08", "rgba(0,0,0,0)");
+      // steam from the bowl
+      for (let i = 0; i < 3; i++) {
+        const k = (t * 0.6 + i / 3) % 1;
+        g.px(36 + i * 4 + Math.sin(t * 3 + i) * 2, 102 - k * 22, k < 0.7 ? C.white : "#f6e2c0");
+      }
+    },
+  },
 };

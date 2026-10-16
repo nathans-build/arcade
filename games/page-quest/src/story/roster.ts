@@ -10,6 +10,7 @@ export const SCENES = [
   "city-street", "lab", "lighthouse", "stormy-sea", "school", "train", "cryo-bay",
   "academy-hall", "secret-hq", "temple-ruins", "labyrinth",
   "castle-night", "pumpkin-patch", "attic",
+  "robot-workshop", "factory-floor", "robot-arena", "recycling-center", "rooftop-night", "bakery",
 ] as const;
 export type SceneId = (typeof SCENES)[number];
 
@@ -42,6 +43,12 @@ export const SCENE_LABEL: Record<SceneId, string> = {
   "castle-night": "Castle at night",
   "pumpkin-patch": "Pumpkin patch",
   attic: "Attic",
+  "robot-workshop": "Robot workshop",
+  "factory-floor": "Factory floor",
+  "robot-arena": "Robot arena",
+  "recycling-center": "Recycling center",
+  "rooftop-night": "City rooftop at night",
+  bakery: "Bakery",
 };
 
 export const CHARACTERS = [
@@ -72,6 +79,13 @@ export const CHARACTERS = [
   { id: "vampire", name: "Vampire", who: "a friendly cartoon vampire in a cape (tiny fangs, never bites)" },
   { id: "bat", name: "Bat", who: "a small, chatty bat" },
   { id: "werewolf", name: "Werewolf", who: "a fluffy, goofy werewolf (more puppy than scary)" },
+  { id: "helperbot", name: "Helperbot", who: "a round orange helper robot with a screen face and one wheel" },
+  { id: "retrobot", name: "Retrobot", who: "a tall, boxy retro tin robot with coil antennas and claw hands" },
+  { id: "drone", name: "Drone", who: "a tiny flying quadcopter robot with a screen face" },
+  { id: "rover", name: "Rover", who: "a six-wheeled rover robot with a camera head and a solar wing" },
+  { id: "fixbot", name: "Fixbot", who: "a spider-legged repair robot with a wrench arm" },
+  { id: "mech", name: "Mech", who: "a big, friendly construction mech in a hard hat" },
+  { id: "robodog", name: "Robodog", who: "a robot pet dog with an antenna tail that wags" },
 ] as const;
 export type CharId = (typeof CHARACTERS)[number]["id"];
 export const CHAR_IDS = CHARACTERS.map((c) => c.id) as CharId[];
@@ -118,7 +132,7 @@ export const MOOD_ALIASES: Record<string, Mood> = {
   iced: "frozen",
 };
 
-export const GENRES = ["mystery", "adventure", "space", "fantasy", "spooky"] as const;
+export const GENRES = ["mystery", "adventure", "space", "fantasy", "spooky", "robots"] as const;
 export type Genre = (typeof GENRES)[number];
 
 export const BANDS = ["4-5", "6-8", "9-12"] as const;

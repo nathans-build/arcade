@@ -8,13 +8,25 @@ import type { ReaderStart } from "./Reader";
 
 type Tab = Genre | "mine";
 
-const GENRE_LABEL: Record<Genre, string> = { mystery: "MYSTERY", adventure: "ADVENTURE", space: "SPACE", fantasy: "FANTASY", spooky: "SPOOKY" };
+const GENRE_LABEL: Record<Genre, string> = { mystery: "MYSTERY", adventure: "ADVENTURE", space: "SPACE", fantasy: "FANTASY", spooky: "SPOOKY", robots: "ROBOTS" };
+
+/** A tiny pixel robot head for the ROBOTS tab (antenna, square head, two eyes, a grin). */
+const ROBOT_ICON = ["...#....", "...#....", "########", "#......#", "#.#..#.#", "#......#", "#.####.#", "########"];
+function GenreIcon({ genre }: { genre: Genre }) {
+  if (genre !== "robots") return null;
+  return (
+    <svg className="pq-tabicon" viewBox="0 0 8 8" width="12" height="12" aria-hidden="true" shapeRendering="crispEdges">
+      {ROBOT_ICON.flatMap((row, y) => [...row].map((k, x) => (k === "#" ? <rect key={`${x}-${y}`} x={x} y={y} width="1" height="1" fill="currentColor" /> : null)))}
+    </svg>
+  );
+}
 const QUILL_SAYS: Record<Tab, string> = {
   mystery: "A MYSTERY? BRING YOUR DETECTIVE EYES!",
   adventure: "ADVENTURE! PACK A MAP AND A SNACK.",
   space: "SPACE! MIND THE ASTEROIDS, READER.",
   fantasy: "FANTASY! MIND THE RIDDLES AND THE DRAGONS.",
   spooky: "SPOOKY! BATS, CAPES AND GIGGLES. NOT TOO SCARY.",
+  robots: "ROBOTS! BEEP BOOP. MIND THE WIRES.",
   mine: "YOUR OWN BOOKS! HOO, AN AUTHOR!",
 };
 
@@ -144,6 +156,7 @@ export function Library({
       <div className="pq-tabs" role="tablist">
         {GENRES.map((g) => (
           <button key={g} role="tab" aria-selected={tab === g} className={`pq-tab pq-pixel ${g} ${tab === g ? "on" : ""}`} onClick={() => setTab(g)}>
+            <GenreIcon genre={g} />
             {GENRE_LABEL[g]}
           </button>
         ))}
