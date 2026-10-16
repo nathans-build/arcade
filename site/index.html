@@ -106,7 +106,11 @@
             <button type="button" class="surprise-btn" id="surprise-btn">🎲 Surprise me!</button>
           </div>
           <div class="surprise" id="surprise" role="region" aria-label="Surprise pick" hidden></div>
-          <div class="style-chips" id="style-chips" role="group" aria-label="Play style"></div>
+          <div class="style-bar">
+            <span class="select-label style-bar-label" id="style-bar-label">Style</span>
+            <div class="style-chips" id="style-chips" role="group" aria-labelledby="style-bar-label"></div>
+            <span class="style-current" id="style-current" aria-hidden="true"></span>
+          </div>
           <div class="filter-selects">
             <div class="select-field">
               <label class="select-label" for="subject-select">Subject</label>

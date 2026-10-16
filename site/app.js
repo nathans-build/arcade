@@ -327,14 +327,18 @@
 
   // Play-style chips: "All styles" plus one per style; one at a time.
   var chipsBox = document.getElementById("style-chips");
+  var styleCurrent = document.getElementById("style-current");
   var styleChips = [{ id: "", icon: "🎮", label: "All styles" }].concat(STYLES).map(function (s) {
+    // Icon-only button: the name shows as a tooltip on hover/focus, and the selected style's name
+    // is spelled out next to the bar (touch screens can't hover).
     var b = el("button", "style-chip");
     b.type = "button";
     b.setAttribute("data-style", s.id);
+    b.setAttribute("data-tip", s.label);
     var icon = el("span", "style-icon", s.icon);
     icon.setAttribute("aria-hidden", "true");
     b.appendChild(icon);
-    b.appendChild(el("span", "style-label", s.label));
+    b.appendChild(el("span", "style-label sr-only", s.label));
     var count = el("span", "style-count");
     b.appendChild(count);
     b.addEventListener("click", function () { setStyle(s.id); blip(); });
@@ -365,6 +369,7 @@
       c.b.classList.toggle("empty", !n && !on);
       c.count.textContent = String(n);
       c.b.setAttribute("aria-label", c.def.label + ", " + n + " game" + (n === 1 ? "" : "s"));
+      if (on) styleCurrent.textContent = c.def.icon + " " + c.def.label + " · " + n + " game" + (n === 1 ? "" : "s");
     });
   }
 
