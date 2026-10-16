@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChipAudio,
   GRADES,
+  exposeMusicDebug,
   arcadeLink,
   gradeFromArcade,
   gradeLabel,
@@ -47,12 +48,10 @@ import {
   type FocusChoice,
   type TopicChoice,
 } from "@/dojo/focus";
+import { JINGLES, SONGS, floorSong } from "@/music";
 import "@/dojo/dojo.css";
 
 const GAME_ID = "dojo-tower";
-
-/** Dojo Tower's own 16-step bassline (a marching minor-key climb; Hz, 0 = rest). */
-const BASS = [110, 0, 110, 165, 0, 147, 131, 0, 98, 0, 98, 147, 0, 131, 123, 110];
 
 type Screen = "title" | "playing" | "over" | "won";
 
@@ -98,7 +97,7 @@ export default function DojoTower() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<DojoEngine | null>(null);
   const decksRef = useRef<TopicDecks | null>(null);
-  const audio = useMemo(() => new ChipAudio(BASS, 132), []);
+  const audio = useMemo(() => new ChipAudio(), []);
 
   const [grade, setGrade] = useState<Grade>(() => initialGrade("3"));
   const [focusInit] = useState(() => initialFocus(initialGrade("3")));
@@ -116,6 +115,9 @@ export default function DojoTower() {
   const [log, setLog] = useState<LogEntry[]>([]);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
+  useEffect(() => exposeMusicDebug(audio, SONGS, JINGLES), [audio]);
   const [readAloud, setReadAloud] = useState(() => readAloudPref(isEarlyReader(initialGrade("3"))));
   const [touch, setTouch] = useState(false);
   const [highScore, setHighScore] = useState(() => loadProgress(GAME_ID).highScore);
@@ -229,7 +231,7 @@ export default function DojoTower() {
   /** Starts a climb; `fromFloor` > 1 continues from the checkpoint (same subject, score starts over). */
   const startGame = useCallback((fromFloor = 1) => {
     audio.unlock();
-    audio.startMusic();
+    audio.playSong(floorSong(fromFloor));
     rememberGrade(grade);
     const cont = fromFloor > 1;
     const f = cont ? runFocus : validateFocus(focus, grade, focusCatalog);
@@ -419,7 +421,14 @@ export default function DojoTower() {
         <a href={arcadeLink(grade)}>◀ ARCADE</a>
         <div className="dt-tools">
           {playing && <button onClick={() => togglePause()}>{paused ? "RESUME" : "PAUSE"}</button>}
-          <button onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && (
             <button onClick={toggleReadAloud} aria-pressed={readAloud}>
               {readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}

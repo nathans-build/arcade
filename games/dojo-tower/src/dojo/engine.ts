@@ -1,4 +1,6 @@
 import type { ChipAudio } from "@/kit";
+import { BOSS_INTRO, BOSS_SONG, FLOOR_CLEAR, GAME_OVER, TOWER_CLEARED, floorSong } from "@/music";
+import { FLOORS } from "./rules";
 import type { FloorPlan } from "./bosses";
 import type { Band } from "./qmake";
 import type { BossResult } from "./rules";
@@ -111,7 +113,7 @@ export class DojoEngine {
       case "scroll": this.cb.onScroll(); break;
       case "bossStart": this.cb.onBossStart(this.sim.floor); break;
       case "bossDown": this.cb.onBossDown(this.sim.floor); break;
-      case "floorStart": this.cb.onFloorStart(ev.floor); break;
+      case "floorStart": this.audio.playSong(floorSong(ev.floor)); this.cb.onFloorStart(ev.floor); break;
       case "lifeLost": this.cb.onLifeLost(); break;
       case "gameOver": this.cb.onHud(this.sim.hud()); this.cb.onGameOver(); break;
       case "towerCleared": this.cb.onHud(this.sim.hud()); this.cb.onTowerCleared(); break;
@@ -206,14 +208,15 @@ export class DojoEngine {
       case "correct": a.correct(); break;
       case "wrong": a.wrong(); break;
       case "block": a.tone(900, 0.08, "triangle", 0.3); a.tone(1250, 0.12, "triangle", 0.22); break;
-      case "bossDown": a.levelUp(); break;
+      // Music stingers (they play at the sound-effects volume when music is off).
+      case "bossDown": a.playJingle(FLOOR_CLEAR, { then: this.sim.floor >= FLOORS ? "stop" : floorSong(this.sim.floor + 1) }); break;
       case "floor": a.checkpoint(); break;
-      case "over": a.gameOver(); break;
-      case "won": a.levelUp(); break;
+      case "over": a.playJingle(GAME_OVER, { then: "stop" }); break;
+      case "won": a.playJingle(TOWER_CLEARED, { then: "stop" }); break;
       case "ready": a.tone(1047, 0.1, "square", 0.2); a.tone(1568, 0.16, "square", 0.2); break;
       case "throw": a.tone(900, 0.06, "triangle", 0.12, 1400); break;
       case "deflect": a.tone(1500, 0.05, "square", 0.12); break;
-      case "bossIn": a.tone(110, 0.5, "sawtooth", 0.25, 220); break;
+      case "bossIn": a.playJingle(BOSS_INTRO, { then: BOSS_SONG }); break;
       case "star": a.tone(1200, 0.07, "triangle", 0.14, 1800); break;
       case "burst": a.tone(784, 0.1, "square", 0.18); a.tone(1175, 0.1, "square", 0.18); a.tone(1568, 0.2, "square", 0.18); break;
     }
