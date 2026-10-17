@@ -1,4 +1,5 @@
 import type { ChipAudio, DealtQuestion } from "@/kit";
+import { GAME_OVER, LEG_COMPLETE, TREASURE_KEPT } from "@/music";
 import { CENTER_X, DIRS, DIR_NAME, HATCH_W, ROSE, SIGNS, SIGN_TEXT_W, dealLetters, type Dir } from "./compass";
 import type { MapChallenge, SignIcon } from "./data/maps";
 import { dateLabel, dealGate, orderKey, type TimelineEvent, type TimelineSet } from "./data/timelines";
@@ -423,7 +424,8 @@ export class JungleEngine {
         this.score += c.bonus;
         this.clock += c.type === "camp" ? 30 : 10;
         if (c.type === "treasure") this.treasures++;
-        this.audio.correct();
+        if (c.type === "treasure") this.audio.playJingle(TREASURE_KEPT);
+        else this.audio.correct();
         this.popup(this.hero.x, this.hero.y - 26, `+${c.bonus}`, PALETTE.yellow);
       } else {
         this.audio.wrong();
@@ -495,7 +497,7 @@ export class JungleEngine {
       this.done.add(this.scene.index);
       if (this.hero.state === "frozen") this.hero.state = "ground";
       if (c.type === "camp") {
-        this.audio.levelUp();
+        this.audio.playJingle(LEG_COMPLETE);
         this.popup(150, 70, `LEG ${this.scene.leg + 1} COMPLETE!`, PALETTE.yellow);
       }
       this.announce();
@@ -818,7 +820,8 @@ export class JungleEngine {
     this.over = true;
     this.challenge = null;
     this.cb.onChallenge(null);
-    this.audio.gameOver();
+    this.audio.stopMusic();
+    this.audio.playJingle(GAME_OVER, { then: "stop" });
     this.pushHud();
     this.cb.onGameOver(reason);
   }

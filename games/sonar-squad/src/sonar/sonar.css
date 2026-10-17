@@ -247,6 +247,7 @@
   background: none; border: 0; cursor: pointer; text-decoration: none; padding: 6px 0;
 }
 .ss-toolbar a:hover, .ss-toolbar button:hover { color: var(--ss-cyan); }
+.ss-toolbar > a { white-space: nowrap; flex: none; }
 
 @keyframes ss-blink { 50% { opacity: 0.2; } }
 .ss-blink { animation: ss-blink 1s steps(2) infinite; }

@@ -23,6 +23,7 @@ import {
   type Subject,
 } from "@/kit";
 import { bandOf } from "@/robo/band";
+import { BOOSTS, BOOST_IDS, QUIZ_BOTS_PER_STAGE, type BoostId } from "@/robo/boosts";
 import { catalog } from "@/robo/bank";
 import { RoboEngine, type Hud } from "@/robo/engine";
 import {
@@ -45,7 +46,7 @@ import {
 } from "@/robo/focus";
 import { gatePowerFor } from "@/robo/levels";
 import { RoboQuestions, dealQuestion, resolveRobot, sourceLabel } from "@/robo/questions";
-import { drawHero, drawPowerIcon, drawRobot, HERO_COLORS } from "@/robo/render";
+import { drawBoostIcon, drawHero, drawPowerIcon, drawRobot, HERO_COLORS } from "@/robo/render";
 import { FINAL_BOSS, HERO, POWERS, ROBOTS, robotById, type PowerId, type Robot, type RobotId, type StageId } from "@/robo/robots";
 import { fortressOpen, loadSave, markBeaten, markFortress, powersOf, writeSave, type AnswerResult, type SaveData } from "@/robo/rules";
 import { MAX_ENERGY, POWER_MAX, startLives } from "@/robo/sim";
@@ -57,6 +58,9 @@ const GAME_ID = "robo-masters";
 type Screen = "title" | "select" | "playing" | "cleared" | "over" | "victory";
 
 interface Quiz {
+  /** The boss's reboot panel, or Quiz Bot n (0-based) before the boss. */
+  kind: "boss" | "bot";
+  n: number;
   stage: StageId;
   from: RobotId;
   q: Question;
@@ -66,6 +70,9 @@ interface Quiz {
 }
 
 interface LogEntry {
+  stage: StageId;
+  /** Answered at a Quiz Bot (not the boss). */
+  bot: boolean;
   subject: Subject;
   standard: string;
   skill: string;
@@ -79,6 +86,7 @@ const GRID: (RobotId | null)[] = ["splitz", "igneous", "syntaxor", "meridian", n
 
 const EMPTY_HUD: Hud = {
   energy: MAX_ENERGY, lives: 3, power: POWER_MAX, sel: null, powers: [], score: 0, mode: "play", bossHp: 0, bossMax: 0, weakReady: false, progress: 0, checkpoint: -1,
+  boosts: [], qbDone: 0, qbTotal: QUIZ_BOTS_PER_STAGE,
 };
 
 const debug = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("debug");
@@ -160,14 +168,15 @@ export default function RoboMasters() {
     return () => mq.removeEventListener?.("change", onChange);
   }, []);
 
-  const ask = useCallback(() => {
+  const ask = useCallback((kind: "boss" | "bot", n: number) => {
     const qs = questionsRef.current;
     if (!qs) return;
     const id = stageIdRef.current;
+    // Quiz Bots ask from the same source as the stage's boss (its robot's subject/topic).
     const { q, from } = qs.draw(id);
     engineRef.current?.releaseAll();
     const dealt = dealQuestion(q);
-    setQuiz({ stage: id, from, q: dealt, picked: null, result: null, line: null });
+    setQuiz({ kind, n, stage: id, from, q: dealt, picked: null, result: null, line: null });
     if (readAloudRef.current) speakQuestion(dealt.prompt, dealt.choices);
   }, []);
 
@@ -182,7 +191,7 @@ export default function RoboMasters() {
         setSay({ who: bossName(id), text: line });
         if (readAloudRef.current) speak(line);
       },
-      onQuestion: () => ask(),
+      onQuestion: (kind, n) => ask(kind, n),
       onCleared: () => {
         const id = stageIdRef.current;
         setQuiz(null);
@@ -226,6 +235,7 @@ export default function RoboMasters() {
         return engineRef.current?.sim ?? null;
       },
       warpToBoss: () => engineRef.current?.warpToBoss(),
+      giveBoost: (id: BoostId) => engineRef.current?.giveBoost(id),
       forceQuestion: () => engineRef.current?.forceQuestion(),
     };
     w.__rmQuiz = quiz;
@@ -283,11 +293,11 @@ export default function RoboMasters() {
       audio.unlock();
       const correct = i === quiz.q.answer;
       recordAnswer(GAME_ID, quiz.q, correct);
-      setLog((l) => [...l, { subject: quiz.q.subject, standard: quiz.q.standard, skill: quiz.q.skill, correct }]);
+      setLog((l) => [...l, { stage: quiz.stage, bot: quiz.kind === "bot", subject: quiz.q.subject, standard: quiz.q.standard, skill: quiz.q.skill, correct }]);
       const result = engineRef.current?.answer(correct) ?? null;
       const lines = bossLines(quiz.stage);
       const n = log.length;
-      const line = result?.defeated ? lines.defeat : correct ? lines.hit[n % lines.hit.length] : lines.block[n % lines.block.length];
+      const line = quiz.kind === "bot" ? null : result?.defeated ? lines.defeat : correct ? lines.hit[n % lines.hit.length] : lines.block[n % lines.block.length];
       setQuiz({ ...quiz, picked: i, result, line });
       if (readAloudRef.current) speak(correct ? `Correct! ${quiz.q.explanation}` : `The answer is ${quiz.q.choices[quiz.q.answer]}. ${quiz.q.explanation}`);
     },
@@ -473,6 +483,18 @@ export default function RoboMasters() {
         <div className="rm-stage" ref={stageRef}>
           <div className="rm-screen" style={screenWidth ? { width: screenWidth } : undefined}>
             <canvas ref={canvasRef} aria-label="Robo Masters game screen" />
+            {playing && hud.boosts.length > 0 && (
+              <div className="rm-boosts rm-pixel" aria-live="polite">
+                {hud.boosts.map((b) => (
+                  <span key={b.id} className={`rm-boost ${b.left < 120 ? "ending" : ""}`} data-boost={b.id} style={{ borderColor: BOOSTS[b.id].color }}>
+                    <BoostIcon id={b.id} />
+                    <span className="nm">{BOOSTS[b.id].name}</span>
+                    <span className="sec">{Math.ceil(b.left / 60)}s</span>
+                    <span className="meter" style={{ width: `${(100 * b.left) / b.max}%`, background: BOOSTS[b.id].color }} />
+                  </span>
+                ))}
+              </div>
+            )}
 
             {screen === "title" && (
               <TitleScreen grade={grade} onGrade={chooseGrade} focus={focus} focusNote={focusNote} onFocus={chooseFocus} onStart={toSelect} save={save} onErase={eraseSave} highScore={highScore} />
@@ -496,7 +518,7 @@ export default function RoboMasters() {
             )}
 
             {screen === "cleared" && stage !== "fortress" && (
-              <Cleared robot={robotById(stage as RobotId)} save={save} onNext={toSelect} />
+              <Cleared robot={robotById(stage as RobotId)} save={save} onNext={toSelect} bots={log.filter((l) => l.bot && l.stage === stage).slice(-QUIZ_BOTS_PER_STAGE)} />
             )}
 
             {screen === "over" && (
@@ -580,6 +602,17 @@ function Portrait({ who, size = 2 }: { who: RobotId | "static" | "hero"; size?: 
   return <canvas ref={ref} width={40 * size} height={46 * size} aria-hidden="true" />;
 }
 
+function BoostIcon({ id }: { id: BoostId }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const ctx = ref.current?.getContext("2d");
+    if (!ctx) return;
+    ctx.imageSmoothingEnabled = false;
+    drawBoostIcon(ctx, id, 0, 0, 2);
+  }, [id]);
+  return <canvas ref={ref} width={20} height={20} className="ico" aria-hidden="true" />;
+}
+
 function PowerIcon({ p }: { p: PowerId }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -597,17 +630,25 @@ function QuizPanel({ quiz, grade, focus, onAnswer, onNext, onSpeak }: { quiz: Qu
   const done = picked !== null;
   const correct = done && picked === q.answer;
   const src = sourceLabel(resolveRobot(robotById(quiz.from), grade, focus, catalog));
+  const bot = quiz.kind === "bot";
+  const reward = result?.reward;
   let verdict = "";
-  if (done) {
+  if (done && bot) {
+    const got = reward ? `+${reward.energy} ENERGY${reward.boost ? ` + ${BOOSTS[reward.boost].name.toUpperCase()}` : ""}` : "";
+    verdict = correct ? `✔ RIGHT! QUIZ BOT REBOOTED! ${got}` : `✘ THE ANSWER IS ${"ABCD"[q.answer]}. THE QUIZ BOT STILL REBOOTS: ${got}`;
+  } else if (done) {
     if (!correct) verdict = `✘ BLOCKED! THE ANSWER IS ${"ABCD"[q.answer]}`;
     else if (result?.defeated) verdict = `✔ ${result.weakness ? "DOUBLE REBOOT! " : ""}${name} IS REBOOTED!`;
     else if (result?.weakness) verdict = "✔ WEAK SPOT! DOUBLE REBOOT HIT!";
     else verdict = "✔ RIGHT! BIG REBOOT HIT!";
   }
   return (
-    <div className={`rm-quiz ${done ? (correct ? "correct" : "wrong") : ""}`} role="dialog" aria-label="Robo Master question">
+    <div className={`rm-quiz ${bot ? "bot" : ""} ${done ? (correct ? "correct" : "wrong") : ""}`} role="dialog" aria-label={bot ? "Quiz Bot question" : "Robo Master question"} data-kind={quiz.kind}>
       <div className="head rm-pixel">
-        <span>REBOOT PANEL · {name}{quiz.stage === "fortress" ? ` (${robotById(quiz.from).name}'S SUBJECT)` : ""}</span>
+        <span>
+          {bot ? `QUIZ BOT ${quiz.n + 1}/${QUIZ_BOTS_PER_STAGE} · ${robotById(quiz.from).name}'S QUESTION` : `REBOOT PANEL · ${name}`}
+          {!bot && quiz.stage === "fortress" ? ` (${robotById(quiz.from).name}'S SUBJECT)` : ""}
+        </span>
         <span className="std">
           {src} · {q.standard}
           {speechSupported() && (
@@ -636,8 +677,14 @@ function QuizPanel({ quiz, grade, focus, onAnswer, onNext, onSpeak }: { quiz: Qu
           <div className="why">{q.explanation}</div>
           {quiz.line && <div className="boss-line">{name}: “{quiz.line}”</div>}
           <div className="row">
-            <span className="dim">{!correct ? "Wrong answers never cost energy or lives. Open the panel again for a new question!" : ""}</span>
-            <button className="rm-cta" autoFocus onClick={onNext}>{result?.defeated ? "Reboot complete ▶" : "Back to the fight ▶"}</button>
+            <span className="dim">
+              {bot
+                ? correct
+                  ? reward?.boost ? `${BOOSTS[reward.boost].name}: ${BOOSTS[reward.boost].desc}.` : "Energy refilled!"
+                  : "No problem: wrong answers never cost energy or lives. The barrier is gone either way."
+                : !correct ? "Wrong answers never cost energy or lives. Open the panel again for a new question!" : ""}
+            </span>
+            <button className="rm-cta" autoFocus onClick={onNext}>{bot ? "Keep going ▶" : result?.defeated ? "Reboot complete ▶" : "Back to the fight ▶"}</button>
           </div>
         </div>
       )}
@@ -659,6 +706,17 @@ function HowToPlay() {
       reboot hit, a wrong one is only blocked (you never lose a fight by answering wrong). Reboot a Robo Master to earn its <span className="y">power</span>.
       Use a robot's <span className="y">weak-spot power</span> during its fight to make your next right answer a double reboot, and use the matching power at a
       stage's glowing <span className="y">power spot</span> for a 1-up. Reboot all eight to open the <span className="r">Static Citadel</span>!
+      <br />
+      Every stage is long: halfway there is a <span className="g">REST stop</span> with energy cells. After it, three glowing{" "}
+      <span className="y">Quiz Bots</span> (the hover bots with a <b>?</b> screen) guard static barriers. Beam one to get a question from the stage's
+      robot: a right answer gives a big <span className="y">energy refill</span> and often a <span className="c">power-up</span>; a wrong answer is fine
+      too (a little energy, nothing lost) and the barrier still goes away. Power-ups last a few seconds (watch the timer at the top):{" "}
+      {BOOST_IDS.map((id, i) => (
+        <span key={id}>
+          <b style={{ color: BOOSTS[id].color }}>{BOOSTS[id].name}</b> ({BOOSTS[id].desc}, {Math.round(BOOSTS[id].frames / 60)} s){i < BOOST_IDS.length - 1 ? " · " : "."}
+        </span>
+      ))}{" "}
+      Grabbing one you already have restarts its timer. Look for hidden <b>?</b> capsules on high shelves, and use Spring Boots to reach the tall sky ledges!
     </div>
   );
 }
@@ -857,7 +915,7 @@ function StageSelect({ grade, focus, save, onPick, onBack, sel, onSel }: { grade
   );
 }
 
-function Cleared({ robot, save, onNext }: { robot: Robot; save: SaveData; onNext: () => void }) {
+function Cleared({ robot, save, onNext, bots }: { robot: Robot; save: SaveData; onNext: () => void; bots: LogEntry[] }) {
   const P = POWERS[robot.power];
   const helps = ROBOTS.filter((r) => r.weakness === robot.power || gatePowerFor(r.id) === robot.power);
   const weakTo = ROBOTS.find((r) => r.weakness === robot.power);
@@ -874,6 +932,11 @@ function Cleared({ robot, save, onNext }: { robot: Robot; save: SaveData; onNext
             {weakTo && <div className="rm-help rm-hint">Tip: {weakTo.name} has a weak spot for it, and {helps.map((r) => r.stage.name).filter((v, i, a) => a.indexOf(v) === i).join(" and ")} hides a power spot it opens.</div>}
           </div>
         </div>
+        {bots.length > 0 && (
+          <div className="rm-help" data-quizbots={bots.filter((b) => b.correct).length}>
+            Quiz Bots: <b className="g">{bots.filter((b) => b.correct).length}/{bots.length}</b> right
+          </div>
+        )}
         <div className="rm-help">Rebooted {save.beaten.length}/8{fortressOpen(save) ? " — the STATIC CITADEL is open!" : ""}</div>
         <div style={{ marginTop: 12 }}>
           <button className="rm-cta" autoFocus onClick={onNext}>Stage select ▶</button>
@@ -892,6 +955,7 @@ function Victory({ log, grade, focus, score, highScore, onMenu, onSelect }: { lo
     byStd.set(l.standard, cur);
   }
   const right = log.filter((l) => l.correct).length;
+  const bots = log.filter((l) => l.bot);
   const practice = [...byStd.entries()].filter(([, v]) => v.c / v.n < 0.75);
   return (
     <div className="rm-overlay">
@@ -900,7 +964,8 @@ function Victory({ log, grade, focus, score, highScore, onMenu, onSelect }: { lo
         <div className="rm-help">“{FINAL_BOSS.lines.defeat}”</div>
         <div className="rm-help big">
           Every robot is rebooted. You are a true <b className="y">ROBO MASTER</b>! Score <b className="y">{score}</b>
-          {score >= highScore && score > 0 ? " — NEW HIGH SCORE!" : ""} · Questions <b className="g">{right}/{log.length}</b> · {focusLabel(focus)}
+          {score >= highScore && score > 0 ? " — NEW HIGH SCORE!" : ""} · Questions <b className="g">{right}/{log.length}</b>
+          {bots.length > 0 ? <> (Quiz Bots <b className="g">{bots.filter((b) => b.correct).length}/{bots.length}</b>)</> : null} · {focusLabel(focus)}
         </div>
         {byStd.size > 0 && (
           <div className="rm-tablewrap">

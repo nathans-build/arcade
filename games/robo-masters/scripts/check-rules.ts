@@ -12,6 +12,11 @@
  *    stage and the fortress in every grade band, drawing real questions for every reboot panel.
  * 6. Powers: each one works in the sim, the power spot opens only to its power, and earned powers persist in
  *    the password-free save (localStorage keys start with arcade.robo-masters.).
+ * 8. Longer stages, Quiz Bots and power-ups: every stage is about twice its old length with a checkpoint per
+ *    section and a rest stop; exactly 3 Quiz Bots, each in front of a barrier before the boss door, in the second
+ *    half; Quiz Bot rewards (energy, power-up weighting, nothing lost to wrong answers); each power-up's effect and
+ *    duration (Phase Cloak ignores mini-bots and zaps but not pits or spikes; Spring Boots reach the sky ledges;
+ *    timers refresh instead of stacking); the bot answers every Quiz Bot in every band.
  * 7. Subject/topic picker: arcade topic ids, ?topic= / ?subject= parsing, saved choice, grade fallback; and
  *    (through Vite's SSR loader) the real kit wiring offers the same topics.
  */
@@ -20,6 +25,9 @@ import { STAGE_SONGS } from "../src/music";
 import type { Grade, Question, Subject } from "../src/kit/types";
 import { BANDS, QUICK_CHOICE, QUICK_PROMPT, bandOf, type Band } from "../src/robo/band";
 import { playStage } from "../src/robo/bot";
+import {
+  BOOSTS, BOOST_IDS, QUIZ_BOTS_PER_STAGE, SPRING_JUMP_V, TURBO, boostChance, boostFromRoll, quizBotReward,
+} from "../src/robo/boosts";
 import { ALL_EXTRAS, EXTRAS } from "../src/robo/extras";
 import {
   FOCUS_TOPICS, FocusCatalog, MIXED, SUBJECT_CHOICES, SUBJECT_KEY, TOPIC_KEY, classifyTopic, focusFromUrl, focusTopic,
@@ -32,7 +40,7 @@ import {
   EMPTY_SAVE, SAVE_KEY, applyAnswer, bossHp, fortressOpen, loadSave, markBeaten, markFortress, newFight, panelHits, panelTimeout,
   parseSave, powersOf, writeSave,
 } from "../src/robo/rules";
-import { MAX_ENERGY, NO_INPUT, PH, POWER_MAX, Sim, bumpDamage, startLives, type Input } from "../src/robo/sim";
+import { CELL_ENERGY, JUMP_V, MAX_ENERGY, NO_INPUT, PH, POWER_MAX, PW, RUN, Sim, bumpDamage, startLives, type Input } from "../src/robo/sim";
 
 let failures = 0;
 let checks = 0;
@@ -261,6 +269,7 @@ check(buildLevel("splitz", "k2").enemies.length < buildLevel("splitz", "g68").en
 // with a real question drawn for every reboot panel.
 const botGrades: Record<Band, Grade> = { k2: "1", g35: "4", g68: "7", hs: "10" };
 let botFrames = 0;
+let botQb = 0;
 for (const band of BANDS) {
   const g = botGrades[band];
   const qs = new RoboQuestions(g, MIXED, catalog, { adaptive: false });
@@ -281,6 +290,17 @@ for (const band of BANDS) {
       else check(a.hpAfter < a.hpBefore, () => `${id} ${band}: a right answer did not deplete HP`);
     }
     check(res.questions - res.wrong === bossHp(band, id === "fortress"), () => `${id} ${band}: ${res.questions - res.wrong} right answers for HP ${bossHp(band, id === "fortress")}`);
+    check(res.quizBots.length === QUIZ_BOTS_PER_STAGE && res.quizBotsBeforeBoss === QUIZ_BOTS_PER_STAGE, () => `${id} ${band}: the bot answered ${res.quizBots.length} Quiz Bots (${res.quizBotsBeforeBoss} before the boss)`);
+    check(res.quizBots.some((q) => !q.correct) && res.quizBots.some((q) => q.correct), () => `${id} ${band}: the bot should answer Quiz Bots both ways`);
+    for (const q of res.quizBots) {
+      check(q.livesAfter === q.livesBefore && q.energyAfter >= q.energyBefore && q.powerAfter >= q.powerBefore, () => `${id} ${band}: a Quiz Bot answer took something (${JSON.stringify(q)})`);
+      check(q.energyAfter === Math.min(MAX_ENERGY, q.energyBefore + q.reward.energy), () => `${id} ${band}: Quiz Bot energy reward not applied`);
+      check(q.correct ? q.reward.energy >= 10 : q.reward.energy > 0 && q.reward.energy < 10, () => `${id} ${band}: Quiz Bot reward size ${q.reward.energy} (correct ${q.correct})`);
+    }
+    // The first right Quiz Bot answer in a stage always gives a power-up.
+    const firstRight = res.quizBots.find((q) => q.correct)!;
+    check(!!firstRight.reward.boost || res.quizBots.indexOf(firstRight) > 0 && res.quizBots.slice(0, res.quizBots.indexOf(firstRight)).some((q) => !!q.reward.boost), () => `${id} ${band}: first right Quiz Bot answer should give a power-up`);
+    botQb += res.quizBots.length;
   }
 }
 
@@ -460,6 +480,300 @@ for (const r of ROBOTS) {
   check(EMPTY_SAVE.beaten.length === 0, () => "EMPTY_SAVE untouched");
 }
 
+/* ------------------------------------------------------------ 8. longer stages, Quiz Bots, power-ups */
+
+// Boss-door x of every stage before this update (grades 6-8 tuning), from the previous layouts.
+const OLD_ARENA: Record<StageId, number> = { splitz: 1978, igneous: 2076, syntaxor: 1958, meridian: 1746, cumulo: 1792, polarix: 1964, chlorophil: 1928, clio: 1892, fortress: 2824 };
+const lengthReport: string[] = [];
+for (const band of BANDS) {
+  for (const id of STAGES) {
+    const L = buildLevel(id, band);
+    const ratio = L.arenaX / OLD_ARENA[id];
+    if (band === "g68") lengthReport.push(`${id} ${OLD_ARENA[id]}->${L.arenaX} (x${ratio.toFixed(2)})`);
+    if (band !== "k2") check(ratio >= (id === "fortress" ? 1.6 : 1.85) && ratio <= 2.6, () => `${id} ${band}: stage is x${ratio.toFixed(2)} its old length`);
+    else check(L.arenaX >= (id === "fortress" ? 4500 : 3500), () => `${id} k2: stage only ${L.arenaX} long`);
+    // Checkpoints: one per section (3 before the rest stop, the rest stop, one past each Quiz Bot barrier).
+    check(L.checkpoints.length >= 7, () => `${id} ${band}: ${L.checkpoints.length} checkpoints`);
+    const xs = [L.start.x, ...L.checkpoints.map((c) => c.x), L.arenaX];
+    const longest = Math.max(...xs.slice(1).map((x, i) => x - xs[i]));
+    check(longest <= 1100, () => `${id} ${band}: ${longest}px between checkpoints`);
+    check(L.restX > L.arenaX * 0.3 && L.restX < L.arenaX * 0.7 && L.checkpoints.some((c) => c.x === L.restX), () => `${id} ${band}: rest stop at ${L.restX}`);
+    check(L.items.filter((it) => it.kind === "cell").length >= 3, () => `${id} ${band}: energy cells`);
+    check(L.items.some((it) => it.kind === "boost"), () => `${id} ${band}: a hidden power-up capsule`);
+    check(L.skyLedges.length >= 1, () => `${id} ${band}: a sky ledge`);
+    // Exactly 3 Quiz Bots, all in the second half, each in front of its own barrier, all before the boss door.
+    check(L.quizBots.length === QUIZ_BOTS_PER_STAGE, () => `${id} ${band}: ${L.quizBots.length} Quiz Bots`);
+    const barriers = L.solids.filter((sd) => sd.kind === "barrier");
+    check(barriers.length === QUIZ_BOTS_PER_STAGE, () => `${id} ${band}: ${barriers.length} barriers`);
+    L.quizBots.forEach((q, i) => {
+      const b = barriers.find((sd) => sd.qb === i);
+      check(!!b && b.x === q.barrierX && q.x < b.x && b.x + b.w < L.arenaX - 16, () => `${id} ${band}: Quiz Bot ${i} barrier`);
+      check(!!b && b.y < -200 && b.y + b.h >= L.arenaY - 200, () => `${id} ${band}: barrier ${i} should be too tall to jump`);
+      check(q.x > L.restX && q.x > L.arenaX / 2, () => `${id} ${band}: Quiz Bot ${i} at ${q.x} should be in the second half (arena ${L.arenaX})`);
+      if (i > 0) check(q.x - L.quizBots[i - 1].x > 300, () => `${id} ${band}: Quiz Bots ${i - 1} and ${i} too close`);
+    });
+  }
+}
+
+// Rewards: pure rules.
+for (const band of BANDS) {
+  check(boostChance(true, band) >= 0.5 && boostChance(false, band) <= 0.2 && boostChance(true, band) > boostChance(false, band) * 3, () => `${band}: power-ups should be weighted to right answers`);
+  const right = quizBotReward(true, band, 0.99, 0.2, true);
+  const wrong = quizBotReward(false, band, 0.99, 0.2, true);
+  check(right.energy >= 10 && right.power > 0 && right.boost === null, () => `${band}: right reward ${JSON.stringify(right)}`);
+  check(wrong.energy > 0 && wrong.energy < right.energy && wrong.power === 0 && wrong.boost === null, () => `${band}: wrong reward ${JSON.stringify(wrong)}`);
+  check(quizBotReward(true, band, 0.99, 0.5, false).boost !== null, () => `${band}: first right answer always gives a power-up`);
+  check(quizBotReward(false, band, 0.99, 0.5, false).boost === null, () => `${band}: a wrong answer is not guaranteed a power-up`);
+  check(quizBotReward(true, band, 0.0, 0.5, true).boost !== null && quizBotReward(false, band, 0.0, 0.5, true).boost !== null, () => `${band}: low rolls give a power-up either way`);
+  // Over many rolls, right answers give far more power-ups.
+  let r = 0;
+  let w = 0;
+  for (let i = 0; i < 1000; i++) {
+    if (quizBotReward(true, band, (i * 0.618) % 1, (i * 0.37) % 1, true).boost) r++;
+    if (quizBotReward(false, band, (i * 0.618) % 1, (i * 0.37) % 1, true).boost) w++;
+  }
+  check(r > 450 && w < 220 && r > 3 * w, () => `${band}: power-up weighting right ${r} vs wrong ${w} in 1000`);
+}
+check(new Set(Array.from({ length: 60 }, (_, i) => boostFromRoll(i / 60))).size === BOOST_IDS.length && boostFromRoll(0.9999) === BOOST_IDS[BOOST_IDS.length - 1], () => "every power-up can be rolled");
+check(BOOST_IDS.length >= 5 && BOOST_IDS.includes("phase") && BOOST_IDS.includes("spring"), () => "power-up list");
+for (const id of BOOST_IDS) {
+  const B = BOOSTS[id];
+  check(B.frames >= 5 * 60 && B.frames <= 20 * 60 && B.name.length > 3 && B.desc.length > 8, () => `${id}: power-up data`);
+  check(!Object.values(POWERS).some((p) => p.name === B.name), () => `${id}: power-up name clashes with a Robo Master power`);
+}
+check(BOOSTS.phase.frames === 8 * 60 && BOOSTS.spring.frames === 10 * 60, () => "Phase Cloak ~8 s, Spring Boots ~10 s");
+
+/** A sim with the hero standing on flat ground at x (mini-bots cleared unless kept). */
+function standAt(id: StageId, x: number, band: Band = "g68", keepFoes = false): Sim {
+  const sim = new Sim(buildLevel(id, band), band, []);
+  if (!keepFoes) sim.s.enemies = [];
+  const g = sim.level.solids.find((sd) => sd.kind === "ground" && sd.x <= x && sd.x + sd.w >= x + PW)!;
+  sim.s.p.x = x;
+  sim.s.p.y = g.y - PH;
+  sim.s.p.vy = 0;
+  sim.s.p.inv = 0;
+  for (let i = 0; i < 3; i++) sim.step(NO_INPUT);
+  return sim;
+}
+
+// A Quiz Bot in the sim: beaming it opens a question; the barrier blocks until it is answered; wrong costs nothing.
+for (const band of BANDS) {
+  for (const right of [true, false]) {
+    const L = buildLevel("splitz", band);
+    const q = L.quizBots[0];
+    const sim = standAt("splitz", q.x - 90, band);
+    sim.s.energy = 8;
+    sim.s.power = 10;
+    // Walking into the barrier: blocked.
+    for (let i = 0; i < 120; i++) sim.step({ ...NO_INPUT, right: true });
+    check(sim.s.p.x + PW <= q.barrierX + 0.01 && sim.s.mode === "play", () => `${band}: the barrier should block (x ${sim.s.p.x}, barrier ${q.barrierX})`);
+    for (let i = 0; i < 40 && sim.s.mode === "play"; i++) sim.step({ ...NO_INPUT, shoot: i % 9 === 0 });
+    check(sim.s.mode === "quiz" && sim.s.ask === 0, () => `${band}: beaming a Quiz Bot opens its question (mode ${sim.s.mode}, ask ${sim.s.ask})`);
+    const before = { e: sim.s.energy, p: sim.s.power, l: sim.s.lives };
+    const res = sim.answer(right);
+    check(!!res.reward && res.damage === 0 && sim.s.qbDone[0] && sim.s.qbAnswered === 1 && sim.s.qbRight === (right ? 1 : 0), () => `${band}: Quiz Bot answer bookkeeping`);
+    check(sim.s.lives === before.l && sim.s.energy === Math.min(MAX_ENERGY, before.e + res.reward!.energy) && sim.s.power >= before.p, () => `${band} ${right}: Quiz Bot reward applied, nothing lost`);
+    if (right) check(!!res.reward!.boost && sim.s.boosts[res.reward!.boost!] === BOOSTS[res.reward!.boost!].frames, () => `${band}: first right answer starts a power-up`);
+    sim.resume();
+    check(sim.s.mode === "play" && sim.s.ask === "boss", () => `${band}: back to the stage after a Quiz Bot`);
+    for (let i = 0; i < 60; i++) sim.step({ ...NO_INPUT, right: true });
+    check(sim.s.p.x > q.barrierX + 12, () => `${band}: the barrier should be gone after the answer (x ${sim.s.p.x})`);
+    check(!sim.s.fight && !sim.s.locked, () => `${band}: a Quiz Bot never touches the boss fight`);
+  }
+}
+// Quiz Bots only open in play (never during the boss), and a rebooted one cannot be asked twice.
+{
+  const sim = standAt("igneous", buildLevel("igneous", "g35").quizBots[1].x - 60, "g35");
+  for (let i = 0; i < 40 && sim.s.mode === "play"; i++) sim.step({ ...NO_INPUT, shoot: i % 9 === 0 });
+  check(sim.s.mode === "quiz" && sim.s.ask === 1, () => "second Quiz Bot opens");
+  sim.answer(true);
+  sim.resume();
+  for (let i = 0; i < 40; i++) sim.step({ ...NO_INPUT, shoot: i % 9 === 0 });
+  check(sim.s.mode === "play" && sim.s.qbAnswered === 1, () => "a rebooted Quiz Bot is gone");
+}
+
+// Power-ups: effects, durations, no stacking.
+{
+  const id: StageId = "splitz";
+  const flatX = 60; // the first flat of every stage is long
+  // Duration: counts down to zero and ends.
+  for (const b of BOOST_IDS) {
+    const sim = standAt(id, flatX);
+    sim.giveBoost(b);
+    check(sim.s.boosts[b] === BOOSTS[b].frames, () => `${b}: starts at its full duration`);
+    for (let i = 0; i < 100; i++) sim.step(NO_INPUT);
+    // Refresh, not stack.
+    sim.giveBoost(b);
+    check(sim.s.boosts[b] === BOOSTS[b].frames, () => `${b}: picking it again refreshes the timer (no stacking): ${sim.s.boosts[b]}`);
+    for (let i = 0; i < BOOSTS[b].frames; i++) sim.step(NO_INPUT);
+    check(sim.s.boosts[b] === 0, () => `${b}: ends after ${BOOSTS[b].frames / 60} s`);
+  }
+  // Two different power-ups run side by side.
+  {
+    const sim = standAt(id, flatX);
+    sim.giveBoost("spring");
+    sim.giveBoost("turbo");
+    check(sim.s.boosts.spring > 0 && sim.s.boosts.turbo > 0, () => "different power-ups can run together");
+  }
+  // Phase Cloak: mini-bots and zaps pass through; spikes and pits still count.
+  {
+    const sim = standAt(id, flatX);
+    sim.giveBoost("phase");
+    const e0 = sim.s.energy;
+    sim.s.enemies = [{ kind: "walker", x: sim.s.p.x, y: sim.s.p.y + 8, w: 14, h: 12, vx: 0, vy: 0, hp: 1, dead: false, t: 0, dir: -1, sx: sim.s.p.x, sy: sim.s.p.y + 8, flash: 0 }];
+    for (let i = 0; i < 5; i++) {
+      sim.s.shots.push({ x: sim.s.p.x, y: sim.s.p.y + 4, w: 8, h: 8, vx: 0, vy: 0, grav: 0, life: 60, from: "foe", kind: "zap", delay: 0, floor: "none" });
+      sim.step(NO_INPUT);
+    }
+    check(sim.s.energy === e0 && sim.s.hurts === 0, () => `Phase Cloak: mini-bots and zaps should pass through (energy ${e0} -> ${sim.s.energy})`);
+    check(sim.s.shots.some((x) => x.from === "foe"), () => "Phase Cloak: zaps pass through rather than popping");
+    const plain = standAt(id, flatX);
+    plain.s.shots.push({ x: plain.s.p.x, y: plain.s.p.y + 4, w: 8, h: 8, vx: 0, vy: 0, grav: 0, life: 60, from: "foe", kind: "zap", delay: 0, floor: "none" });
+    plain.step(NO_INPUT);
+    check(plain.s.energy < MAX_ENERGY, () => "without the cloak a zap hurts");
+    // Spikes still hurt.
+    const sp = buildLevel(id, "g68").spikes[0];
+    const spk = standAt(id, flatX);
+    spk.giveBoost("phase");
+    spk.s.p.x = sp.x + 30;
+    spk.s.p.y = sp.y + sp.h - PH;
+    spk.step(NO_INPUT);
+    check(spk.s.hurts === 1, () => "Phase Cloak does not protect from spikes");
+    // Pits still cost a life (g68) / energy (K-2).
+    for (const band of ["g68", "k2"] as Band[]) {
+      const pit = standAt(id, flatX, band);
+      pit.giveBoost("phase");
+      pit.s.p.y = 240;
+      pit.s.p.vy = 3;
+      pit.step(NO_INPUT);
+      if (band === "k2") check(pit.s.energy === MAX_ENERGY - 4, () => `Phase Cloak K-2 pit: energy ${pit.s.energy}`);
+      else check(pit.s.lives === startLives(band) - 1, () => "Phase Cloak does not save you from pits");
+    }
+  }
+  // Shield Bubble: blocks exactly one bump.
+  {
+    const sim = standAt(id, flatX);
+    sim.giveBoost("bubble");
+    const zap = () => sim.s.shots.push({ x: sim.s.p.x, y: sim.s.p.y + 4, w: 8, h: 8, vx: 0, vy: 0, grav: 0, life: 60, from: "foe", kind: "zap", delay: 0, floor: "none" });
+    zap();
+    sim.step(NO_INPUT);
+    check(sim.s.energy === MAX_ENERGY && sim.s.boosts.bubble === 0, () => `Shield Bubble blocks one zap and pops (${sim.s.energy}, ${sim.s.boosts.bubble})`);
+    sim.s.p.inv = 0;
+    zap();
+    sim.step(NO_INPUT);
+    check(sim.s.energy < MAX_ENERGY, () => "the second zap hurts once the bubble popped");
+  }
+  // Spring Boots: much higher jump; reaches every sky ledge, which a normal jump cannot.
+  {
+    const peak = (spring: boolean) => {
+      const sim = standAt(id, flatX);
+      if (spring) sim.giveBoost("spring");
+      const y0 = sim.s.p.y;
+      let top = y0;
+      for (let i = 0; i < 60; i++) {
+        sim.step({ ...NO_INPUT, jump: true });
+        top = Math.min(top, sim.s.p.y);
+      }
+      return y0 - top;
+    };
+    const hn = peak(false);
+    const hs = peak(true);
+    check(hs > hn + 35 && hs < 130, () => `Spring Boots jump ${hs.toFixed(1)} vs normal ${hn.toFixed(1)}`);
+    check(SPRING_JUMP_V < JUMP_V, () => "Spring Boots jump speed");
+    for (const sid of STAGES) {
+      for (const band of ["k2", "g68"] as Band[]) {
+        const L = buildLevel(sid, band);
+        const ledge = L.skyLedges[0];
+        const reach = (spring: boolean) => {
+          const sim = standAt(sid, ledge.x - 30, band);
+          if (spring) sim.giveBoost("spring");
+          for (let i = 0; i < 90; i++) sim.step({ ...NO_INPUT, jump: true, right: i > 2 && i < 40 });
+          for (let i = 0; i < 30; i++) sim.step(NO_INPUT);
+          return Math.abs(sim.s.p.y + PH - ledge.y) < 0.5 && sim.s.p.onGround;
+        };
+        check(reach(true), () => `${sid} ${band}: Spring Boots should reach the sky ledge`);
+        check(!reach(false), () => `${sid} ${band}: a normal jump should not reach the sky ledge`);
+      }
+    }
+  }
+  // Turbo Treads: faster run.
+  {
+    const a = standAt(id, flatX);
+    const b = standAt(id, flatX);
+    b.giveBoost("turbo");
+    const x0 = a.s.p.x;
+    for (let i = 0; i < 30; i++) {
+      a.step({ ...NO_INPUT, right: true });
+      b.step({ ...NO_INPUT, right: true });
+    }
+    check(Math.abs((b.s.p.x - x0) - (a.s.p.x - x0) * TURBO) < 2 && a.s.p.x - x0 > RUN * 25, () => `Turbo Treads ${b.s.p.x - x0} vs ${a.s.p.x - x0}`);
+  }
+  // Rapid Beam: more beams in the same time.
+  {
+    const count = (rapid: boolean) => {
+      const sim = standAt(id, flatX);
+      if (rapid) sim.giveBoost("rapid");
+      let n = 0;
+      for (let i = 0; i < 60; i++) {
+        const before = sim.s.shots.filter((x) => x.from === "hero").length;
+        sim.step({ ...NO_INPUT, shoot: true });
+        if (sim.s.shots.filter((x) => x.from === "hero").length > before) n++;
+      }
+      return n;
+    };
+    const n0 = count(false);
+    const n1 = count(true);
+    check(n1 >= n0 * 1.6, () => `Rapid Beam fires faster (${n1} vs ${n0} beams/s)`);
+  }
+  // Bolt Magnet: pulls pickups in.
+  {
+    const a = standAt(id, flatX);
+    const b = standAt(id, flatX);
+    b.giveBoost("magnet");
+    for (const s of [a, b]) {
+      s.s.pickups = [{ x: s.s.p.x + 70, y: s.s.p.y - 30, kind: "bolt", life: 400 }];
+      for (let i = 0; i < 80; i++) s.step(NO_INPUT);
+    }
+    check(a.s.pickups.length === 1 && b.s.pickups.length === 0 && b.s.score > a.s.score, () => "Bolt Magnet pulls a bolt to you");
+  }
+  // Energy cells and hidden capsules.
+  {
+    const sim = standAt(id, flatX);
+    sim.s.energy = 5;
+    sim.s.pickups = [{ x: sim.s.p.x, y: sim.s.p.y + 4, kind: "cell", life: Infinity }];
+    sim.step(NO_INPUT);
+    check(sim.s.energy === 5 + CELL_ENERGY, () => `energy cell gives ${CELL_ENERGY}`);
+    sim.s.pickups = [{ x: sim.s.p.x, y: sim.s.p.y + 4, kind: "boost", life: Infinity }];
+    sim.step(NO_INPUT);
+    check(BOOST_IDS.some((b) => sim.s.boosts[b] > 0), () => "a hidden capsule gives a random power-up");
+    const L = buildLevel(id, "g68");
+    const fresh = new Sim(L, "g68", []);
+    check(fresh.s.pickups.length === L.items.length && fresh.s.pickups.every((p) => p.life === Infinity), () => "placed items start in the level and do not expire");
+  }
+  // Power-ups never skip the boss quiz: with every power-up on, the boss still needs its right answers.
+  {
+    const sim = new Sim(buildLevel("clio", "g68"), "g68", []);
+    sim.warpToBoss();
+    for (const b of BOOST_IDS) sim.giveBoost(b);
+    for (let i = 0; i < 400; i++) sim.step({ ...NO_INPUT, shoot: i % 5 === 0 });
+    check(!!sim.s.fight && sim.s.fight.hp === sim.s.fight.maxHp, () => "power-ups never lower boss HP");
+    // Lost on a respawn.
+    sim.s.mode = "respawn";
+    sim.s.modeT = 49;
+    sim.step(NO_INPUT);
+    check(BOOST_IDS.every((b) => sim.s.boosts[b] === 0), () => "power-ups end when Rivet respawns");
+  }
+  // The save is untouched by Quiz Bots and power-ups (only beaten robots and the citadel flag).
+  {
+    store.clear();
+    const s0 = markBeaten(loadSave(), "splitz");
+    writeSave(s0);
+    const back = JSON.parse(store.get(SAVE_KEY)!) as Record<string, unknown>;
+    check(Object.keys(back).sort().join() === "beaten,fortress", () => `save fields: ${Object.keys(back)}`);
+  }
+}
+console.log(`Stage length (grades 6-8, boss door x): ${lengthReport.join(", ")}`);
+
 /* ------------------------------------------------------------ 7. subject/topic picker */
 
 {
@@ -503,7 +817,7 @@ for (const r of ROBOTS) {
 }
 
 console.log(`${checks} checks, ${failures} failures (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
-console.log(`Questions drawn: ${draws}. Extra questions: ${ALL_EXTRAS.length}. Bot frames played: ${botFrames}.`);
+console.log(`Questions drawn: ${draws}. Extra questions: ${ALL_EXTRAS.length}. Bot frames played: ${botFrames}. Quiz Bots answered by the bot: ${botQb}.`);
 if (flavorReport.length) console.log(`Flavour thin (whole topic used instead): ${flavorReport.join(", ")}`);
 console.log("Topics by grade:");
 for (const g of GRADES) console.log(`  ${g.padStart(2)}: ${catalog.available(g).join(", ")}`);

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChipAudio,
+  exposeMusicDebug,
   GRADES,
   QuestionDeck,
   arcadeLink,
@@ -27,12 +28,11 @@ import {
 } from "@/kit";
 import { LeapEngine, W, H, type Action, type HudState } from "@/leap/engine";
 import { RulePicker, rulesFor, type Rule } from "@/leap/rules";
+import { HOME_SAFE, JINGLES, LAST_LEAP, SHIELD_EARNED, SONGS, levelSong } from "@/music";
 import "@/leap/leap.css";
 
 const GAME_ID = "lane-leap";
 
-/** Lane Leap's own 16-step bassline (a bouncy G major hop; Hz, 0 = rest). */
-const BASS = [98, 0, 147, 98, 123, 0, 147, 0, 110, 0, 165, 110, 131, 147, 165, 196];
 
 type Screen = "title" | "playing" | "over";
 
@@ -80,7 +80,7 @@ function randomRule(g: Grade): Rule | null {
 export default function LaneLeap() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<LeapEngine | null>(null);
-  const audio = useMemo(() => new ChipAudio(BASS, 148), []);
+  const audio = useMemo(() => new ChipAudio(), []);
   const pickerRef = useRef<RulePicker | null>(null);
   const homeDecksRef = useRef<Partial<Record<Subject, QuestionDeck>>>({});
   const cpDeckRef = useRef<QuestionDeck | null>(null);
@@ -96,6 +96,12 @@ export default function LaneLeap() {
   const [log, setLog] = useState<LogEntry[]>([]);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
+  useEffect(() => exposeMusicDebug(audio, SONGS, JINGLES), [audio]);
+  /** True during a real game (the title-screen traffic never asks for music). */
+  const liveRef = useRef(false);
+  const earlyRef = useRef(false);
   const [readAloud, setReadAloud] = useState(() => readAloudPref(isEarlyReader(initialGrade("3"))));
   const [touch, setTouch] = useState(false);
   const [highScore, setHighScore] = useState(() => loadProgress(GAME_ID).highScore);
@@ -128,7 +134,14 @@ export default function LaneLeap() {
   useEffect(() => {
     const canvas = canvasRef.current!;
     const engine = new LeapEngine(canvas, audio, {
-      onHud: setHud,
+      onHud: (h) => {
+        setHud(h);
+        // Hurry-up when the crossing timer is nearly out (not for K-2).
+        if (liveRef.current && !earlyRef.current) {
+          if (h.time < 0.25 && engine.mode === "play") audio.setTempoScale(1.12);
+          else if (h.time > 0.3 || engine.mode !== "play") audio.setTempoScale(1);
+        }
+      },
       requestRound: () => {
         const rule = pickerRef.current!.next();
         const decks = homeDecksRef.current;
@@ -136,6 +149,10 @@ export default function LaneLeap() {
         return { rule, q: deck.draw() };
       },
       onRoundStart: (level, rule, q) => {
+        if (liveRef.current) {
+          audio.playSong(levelSong(level));
+          audio.setIntensity("full");
+        }
         setRound({ level, rule, q, picked: null, correct: null });
         setMessage(null);
         if (readAloudRef.current) sayRound(rule, q);
@@ -151,6 +168,7 @@ export default function LaneLeap() {
           addLog({ subject: q.subject, standard: q.standard, skill: q.skill, correct, kind: "homes" });
         }
         setRound((r) => (r && r.q.id === q.id ? { ...r, picked: first ? choice : r.picked, correct: first ? correct : r.correct } : r));
+        if (correct && liveRef.current) audio.playJingle(HOME_SAFE);
         if (correct) setMessage({ text: `✔ Home ${"ABCD"[choice]} is right! ${q.explanation}`, tone: "good" });
         else setMessage({ text: `✘ Not home ${"ABCD"[choice]}. The answer is ${"ABCD"[q.answer]}: ${q.choices[q.answer]}. ${q.explanation}`, tone: "bad" });
         if (readAloudRef.current) speak(correct ? `Correct! ${q.explanation}` : `The answer is ${q.choices[q.answer]}. ${q.explanation}`);
@@ -166,9 +184,16 @@ export default function LaneLeap() {
         setCpPicked(null);
         setCheckpoint({ q, level });
         audio.checkpoint();
+        // Thin the music to lead + bass while the transmission question is on screen.
+        audio.setIntensity("calm");
+        audio.setTempoScale(1);
         if (readAloudRef.current) speakQuestion(q.prompt, q.choices);
       },
       onGameOver: () => {
+        liveRef.current = false;
+        audio.setTempoScale(1);
+        audio.setIntensity("full");
+        audio.playJingle(LAST_LEAP, { then: "stop" });
         setHighScore(submitScore(GAME_ID, engine.score));
         setScreen("over");
       },
@@ -180,12 +205,19 @@ export default function LaneLeap() {
     engine.start();
     return () => {
       engine.stop();
+      liveRef.current = false;
       audio.stopMusic();
       stopSpeaking();
     };
     // The engine is created once; grade changes are pushed to it below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audio, addLog, sayRound]);
+
+  // ?debug: let playtests see the transmission question.
+  useEffect(() => {
+    const w = window as unknown as { __ll?: unknown; __llCheckpoint?: unknown };
+    if (w.__ll) w.__llCheckpoint = checkpoint;
+  }, [checkpoint]);
 
   useEffect(() => {
     const mq = window.matchMedia("(pointer: coarse)");
@@ -205,7 +237,13 @@ export default function LaneLeap() {
   const startGame = useCallback(
     (m: SubjectMode) => {
       audio.unlock();
-      audio.startMusic();
+      liveRef.current = true;
+      earlyRef.current = isEarlyReader(grade);
+      audio.duckLevel = earlyRef.current ? 0.18 : 0.28;
+      audio.duck(false);
+      audio.setTempoScale(1);
+      audio.setIntensity("full");
+      audio.playSong(levelSong(1), { restart: true });
       rememberGrade(grade);
       setMode(m);
       pickerRef.current = new RulePicker(grade, m);
@@ -228,7 +266,7 @@ export default function LaneLeap() {
       if (!checkpoint || cpPicked !== null) return;
       setCpPicked(i);
       const correct = i === checkpoint.q.answer;
-      if (correct) audio.correct();
+      if (correct) audio.playJingle(SHIELD_EARNED);
       else audio.wrong();
       recordAnswer(GAME_ID, checkpoint.q, correct);
       addLog({ subject: checkpoint.q.subject, standard: checkpoint.q.standard, skill: checkpoint.q.skill, correct, kind: "transmissions" });
@@ -251,8 +289,10 @@ export default function LaneLeap() {
     if (!e) return;
     const p = e.togglePause(force);
     setPaused(p);
+    // Paused: the music carries on quietly underneath.
+    audio.duck(p);
     if (p) stopSpeaking();
-  }, []);
+  }, [audio]);
 
   const toggleReadAloud = useCallback(() => {
     setReadAloud((on) => {
@@ -361,7 +401,14 @@ export default function LaneLeap() {
         <a href={arcadeLink(grade)}>◀ ARCADE</a>
         <div className="ll-tools">
           {screen === "playing" && <button onClick={() => togglePause()}>{paused ? "RESUME" : "PAUSE"}</button>}
-          <button onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && (
             <button onClick={toggleReadAloud} aria-pressed={readAloud}>
               {readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}
@@ -471,6 +518,7 @@ export default function LaneLeap() {
                 highScore={highScore}
                 onAgain={() => startGame(mode)}
                 onMenu={() => {
+                  audio.stopSong();
                   engineRef.current?.demo(gradeNumber(grade), randomRule(grade));
                   setScreen("title");
                 }}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChipAudio,
+  exposeMusicDebug,
   GRADES,
   QuestionDeck,
   arcadeLink,
@@ -24,6 +25,7 @@ import {
 } from "@/kit";
 import { H, ShieldEngine, W, type Action, type HudState, type WaveSummary } from "@/shield/engine";
 import { gradeSkills, sayMath, type Round } from "@/shield/missions";
+import { CITY_REBUILT, JINGLES, NIGHT_WATCH_SONG, RED_ALERT_SONG, SONGS } from "@/music";
 import "@/shield/shield.css";
 
 const GAME_ID = "city-shield";
@@ -64,6 +66,9 @@ export default function CityShield() {
   const [log, setLog] = useState<LogEntry[]>([]);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
+  useEffect(() => exposeMusicDebug(audio, SONGS, JINGLES), [audio]);
   const [readAloud, setReadAloud] = useState(() => readAloudPref(isEarlyReader(initialGrade("5"))));
   const [touch, setTouch] = useState(false);
   const [highScore, setHighScore] = useState(() => loadProgress(GAME_ID).highScore);
@@ -143,7 +148,9 @@ export default function CityShield() {
 
   const startGame = useCallback(() => {
     audio.unlock();
-    audio.startMusic();
+    audio.setTempoScale(1);
+    audio.setIntensity("full");
+    audio.playSong(NIGHT_WATCH_SONG);
     rememberGrade(grade);
     deckRef.current = new QuestionDeck(grade, "math", { gameId: GAME_ID });
     setLog([]);
@@ -159,7 +166,7 @@ export default function CityShield() {
       if (!checkpoint || picked !== null) return;
       setPicked(i);
       const correct = i === checkpoint.q.answer;
-      if (correct) audio.correct();
+      if (correct) audio.playJingle(CITY_REBUILT);
       else audio.wrong();
       recordAnswer(GAME_ID, checkpoint.q, correct);
       addLog({ standard: checkpoint.q.standard, skill: checkpoint.q.skill, correct, kind: "checkpoint" });
@@ -289,13 +296,37 @@ export default function CityShield() {
 
   const ammo = hud.ammo.reduce((a, b) => a + b, 0);
 
+  // Music: a night patrol for TARGET waves, an alarm for STOP THE WRONG ANSWERS waves, thinner while the
+  // between-wave question is open, faster when only one city is left, and turned down while paused.
+  const alarm = round?.mode === "wrong";
+  useEffect(() => {
+    if (screen === "playing") audio.playSong(alarm ? RED_ALERT_SONG : NIGHT_WATCH_SONG);
+  }, [audio, screen, alarm]);
+  useEffect(() => {
+    audio.setIntensity(checkpoint ? "calm" : "full");
+  }, [audio, checkpoint]);
+  const lastCity = screen === "playing" && hud.cities === 1;
+  useEffect(() => {
+    audio.setTempoScale(lastCity ? 1.1 : 1);
+  }, [audio, lastCity]);
+  useEffect(() => {
+    audio.duck(screen === "playing" && paused);
+  }, [audio, screen, paused]);
+
   return (
     <div className={`cs-root ${early ? "early" : ""}`}>
       <div className="cs-toolbar">
         <a href={arcadeLink(grade)}>◀ ARCADE</a>
         <div className="cs-tools">
           {screen === "playing" && <button onClick={() => togglePause()}>{paused ? "RESUME" : "PAUSE"}</button>}
-          <button onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && (
             <button onClick={toggleReadAloud} aria-pressed={readAloud}>
               {readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}

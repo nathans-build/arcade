@@ -8,7 +8,7 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "tsx scripts/check-maze.ts"
+    "test": "tsx scripts/check-maze.ts && tsx scripts/check-music.ts"
   },
   "dependencies": {
     "react": "^18.3.1",

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChipAudio,
+  exposeMusicDebug,
   GRADES,
   QuestionDeck,
   arcadeLink,
@@ -24,6 +25,7 @@ import {
 } from "@/kit";
 import { BlasterEngine, MAX_SHIELD, type Action, type HudState } from "@/blaster/engine";
 import { gradeInfo, type Rule } from "@/blaster/splits";
+import { JINGLES, SHIELDS_UP, SONGS, levelSong } from "@/music";
 import "@/blaster/blaster.css";
 
 const GAME_ID = "factor-blaster";
@@ -63,6 +65,9 @@ export default function FactorBlaster() {
   const [log, setLog] = useState<LogEntry[]>([]);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
+  useEffect(() => exposeMusicDebug(audio, SONGS, JINGLES), [audio]);
   const [readAloud, setReadAloud] = useState(() => readAloudPref(isEarlyReader(initialGrade("4"))));
   const [touch, setTouch] = useState(false);
   const [highScore, setHighScore] = useState(() => loadProgress(GAME_ID).highScore);
@@ -142,7 +147,9 @@ export default function FactorBlaster() {
 
   const startGame = useCallback(() => {
     audio.unlock();
-    audio.startMusic();
+    audio.setTempoScale(1);
+    audio.setIntensity("full");
+    audio.playSong(levelSong(1));
     rememberGrade(grade);
     deckRef.current = new QuestionDeck(grade, "math", { gameId: GAME_ID });
     setLog([]);
@@ -157,7 +164,7 @@ export default function FactorBlaster() {
       if (!checkpoint || picked !== null) return;
       setPicked(i);
       const correct = i === checkpoint.q.answer;
-      if (correct) audio.correct();
+      if (correct) audio.playJingle(SHIELDS_UP);
       else audio.wrong();
       recordAnswer(GAME_ID, checkpoint.q, correct);
       addLog({ standard: checkpoint.q.standard, skill: checkpoint.q.skill, correct, kind: "checkpoint" });
@@ -249,13 +256,36 @@ export default function FactorBlaster() {
 
   const rule = hud.rule;
 
+  // Music follows the levels (a deep-field version from level 5), thins out while a transmission is
+  // open, hurries on the last ship with no shield left, and drops back while paused.
+  useEffect(() => {
+    if (screen === "playing") audio.playSong(levelSong(hud.level));
+  }, [audio, screen, hud.level]);
+  useEffect(() => {
+    audio.setIntensity(checkpoint ? "calm" : "full");
+  }, [audio, checkpoint]);
+  const lastStand = screen === "playing" && hud.lives <= 1 && hud.shield === 0;
+  useEffect(() => {
+    audio.setTempoScale(lastStand ? 1.08 : 1);
+  }, [audio, lastStand]);
+  useEffect(() => {
+    audio.duck(screen === "playing" && paused);
+  }, [audio, screen, paused]);
+
   return (
     <div className={`fb-root ${early ? "early" : ""}`}>
       <div className="fb-toolbar">
         <a href={arcadeLink(grade)}>◀ ARCADE</a>
         <div className="fb-tools">
           {screen === "playing" && <button onClick={() => togglePause()}>{paused ? "RESUME" : "PAUSE"}</button>}
-          <button onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && <button onClick={toggleReadAloud}>{readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}</button>}
         </div>
       </div>

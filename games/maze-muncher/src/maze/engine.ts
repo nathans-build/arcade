@@ -4,6 +4,7 @@
  * and relays what happens to the React layer. Also plays the title-screen demo.
  */
 import type { ChipAudio } from "../kit/audio";
+import { GAME_OVER, MAZE_CLEAR, RIGHT_PELLET } from "../music";
 import { QuestionDeck } from "../kit/deck";
 import type { DealtQuestion, Grade } from "../kit/types";
 import { drawText, LINE_H, measure } from "./font";
@@ -223,7 +224,10 @@ export class MazeEngine {
         break;
       case "answer":
         this.answerFlash = 0.8;
-        if (sound) (e.correct ? a.correct() : a.wrong());
+        if (sound) {
+          if (e.correct) a.playJingle(RIGHT_PELLET);
+          else a.wrong();
+        }
         if (this.playing && this.q) this.cb.onAnswer(e.index, e.correct, this.q);
         break;
       case "eat": {
@@ -249,7 +253,7 @@ export class MazeEngine {
         break;
       case "cleared":
         if (this.playing) {
-          if (sound) a.levelUp();
+          if (sound) a.playJingle(MAZE_CLEAR);
           this.cb.onMazeClear(sim.level);
         } else sim.nextMaze(false);
         break;
@@ -259,7 +263,8 @@ export class MazeEngine {
         break;
       case "over":
         if (this.playing) {
-          a.gameOver();
+          a.stopMusic();
+          a.playJingle(GAME_OVER, { then: "stop" });
           this.cb.onGameOver();
         }
         break;

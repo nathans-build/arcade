@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChipAudio } from "@/lunar/audio";
 import { LunarEngine, SECTOR_LETTERS, WAVE_TIME, type Action, type HudState, type WaveResult } from "@/lunar/engine";
 import {
   QuestionDeck,
@@ -13,8 +12,10 @@ import {
   type SubjectMode,
 } from "@/lunar/questions";
 import {
+  ChipAudio,
   GRADES,
   arcadeLink,
+  exposeMusicDebug,
   courseName,
   gradeLabel,
   initialGrade,
@@ -28,6 +29,7 @@ import {
   stopSpeaking,
   gradeFromArcade,
 } from "@/kit";
+import { GAME_OVER, JINGLES, REFUELED, SONGS, SQUADRON_SONG, sectorSong } from "@/music";
 import "@/lunar/lunar.css";
 
 type Screen = "title" | "playing" | "over";
@@ -75,12 +77,25 @@ export default function LunarPatrol({ standalone = false }: { standalone?: boole
   const [overReason, setOverReason] = useState<"lives" | "fuel">("lives");
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
   const [touch, setTouch] = useState(false);
   const [highScore, setHighScore] = useState(progressRef.current.highScore);
   const waveHideTimer = useRef<number | null>(null);
   const [waveChoice, setWaveChoice] = useState<number | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const [screenWidth, setScreenWidth] = useState<number | null>(null);
+
+  useEffect(() => {
+    // The game used to keep its own mute switch; carry it over to the arcade-wide one once.
+    try {
+      if (localStorage.getItem("lunarPatrol.muted") === "1" && !audio.muted) setMuted(audio.toggleMute());
+      localStorage.removeItem("lunarPatrol.muted");
+    } catch {
+      // ignore
+    }
+    exposeMusicDebug(audio, SONGS, JINGLES);
+  }, [audio]);
 
   // Fit the 16:10 screen inside the space left over, limited by width or height.
   useEffect(() => {
@@ -133,6 +148,7 @@ export default function LunarPatrol({ standalone = false }: { standalone?: boole
       },
       onGameOver: (reason) => {
         setOverReason(reason);
+        audio.playJingle(GAME_OVER, { then: "stop" });
         const p = progressRef.current;
         if (engine.score > p.highScore) {
           p.highScore = engine.score;
@@ -143,6 +159,8 @@ export default function LunarPatrol({ standalone = false }: { standalone?: boole
       },
     });
     engineRef.current = engine;
+    // Playtest hook: ?debug exposes the engine to automated tests.
+    if (new URLSearchParams(window.location.search).has("debug")) (window as unknown as { __lp: LunarEngine }).__lp = engine;
     engine.demo();
     engine.start();
     return () => {
@@ -162,7 +180,9 @@ export default function LunarPatrol({ standalone = false }: { standalone?: boole
   const startGame = useCallback(
     (m: SubjectMode) => {
       audio.unlock();
-      audio.startMusic();
+      audio.setTempoScale(1);
+      audio.setIntensity("full");
+      audio.playSong(sectorSong(0));
       setMode(m);
       rememberGrade(grade);
       deckRef.current = new QuestionDeck(m, grade);
@@ -196,7 +216,7 @@ export default function LunarPatrol({ standalone = false }: { standalone?: boole
       if (!checkpoint || picked !== null) return;
       setPicked(i);
       const correct = i === checkpoint.q.answer;
-      if (correct) audio.correct();
+      if (correct) audio.playJingle(REFUELED);
       else audio.wrong();
       if (readAloudRef.current) speak(correct ? `Correct! ${checkpoint.q.explanation}` : `The answer is ${checkpoint.q.choices[checkpoint.q.answer]}. ${checkpoint.q.explanation}`);
       record(checkpoint.q, correct, "checkpoint");
@@ -291,6 +311,24 @@ export default function LunarPatrol({ standalone = false }: { standalone?: boole
     onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
   });
 
+  // Music follows the run: a song per stretch of sectors, an alarm while the Quiz Squadron is up,
+  // a thinner arrangement while a checkpoint question is open, and a faster beat when fuel runs low.
+  const squadronUp = !!wave && !wave.result;
+  useEffect(() => {
+    if (screen !== "playing") return;
+    audio.playSong(squadronUp ? SQUADRON_SONG : sectorSong(hud.sector));
+  }, [audio, screen, squadronUp, hud.sector]);
+  useEffect(() => {
+    audio.setIntensity(checkpoint ? "calm" : "full");
+  }, [audio, checkpoint]);
+  const lowFuel = screen === "playing" && hud.fuel < 25;
+  useEffect(() => {
+    audio.setTempoScale(lowFuel ? 1.1 : 1);
+  }, [audio, lowFuel]);
+  useEffect(() => {
+    audio.duck(screen === "playing" && paused);
+  }, [audio, screen, paused]);
+
   const letter = SECTOR_LETTERS[hud.sector % 26];
   const nextLetter = SECTOR_LETTERS[(hud.sector + 1) % 26];
 
@@ -300,7 +338,14 @@ export default function LunarPatrol({ standalone = false }: { standalone?: boole
         {standalone ? <a href={arcadeLink(grade)}>◀ ARCADE</a> : <a href="/">◀ STORY SQUAD</a>}
         <div style={{ display: "flex", gap: 16 }}>
           {screen === "playing" && <button onClick={() => togglePause()}>{paused ? "RESUME" : "PAUSE"}</button>}
-          <button onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && <button onClick={toggleReadAloud}>{readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}</button>}
         </div>
       </div>
@@ -392,6 +437,7 @@ export default function LunarPatrol({ standalone = false }: { standalone?: boole
               highScore={highScore}
               onAgain={() => startGame(mode)}
               onMenu={() => {
+                audio.stopSong();
                 engineRef.current?.demo();
                 setScreen("title");
               }}

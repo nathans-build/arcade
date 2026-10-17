@@ -17,6 +17,7 @@ import { jumpQuestion, reweaveQuestions, sourceQuestions, whyQuestions } from ".
 import { lanternCost, lanternFor, musicOn, rankFor, type Rank } from "./rules";
 import { SKILL_NAMES } from "./standards";
 import type { Band, Bead, Case } from "./types";
+import { BEAD_WOVEN, LANTERN_OUT, REWOVEN } from "@/music";
 
 export const GAME_ID = "thread-chasers";
 
@@ -224,7 +225,6 @@ export class ThreadGame {
     this.ui.phase = "cases";
     this.ui.caseSel = Math.max(0, this.cases.findIndex((c) => !this.isSolved(c.id)));
     this.ui.msg = "Pick a loose thread to chase.";
-    this.audio.startMusic();
     this.changed();
   }
 
@@ -293,8 +293,6 @@ export class ThreadGame {
         ? "A quiet bead. Take your time: Wick's lantern rests here."
         : "Ask a witness (1 hour each) or read the plaque (free), then open the chrono-map."
       : "This is the last bead. Re-weave the thread!";
-    if (musicOn(b)) this.audio.startMusic();
-    else this.audio.stopMusic();
     this.hooks.say(`${b.title}. ${place(b.place).name}, ${b.era}. ${this.text(b.fact)}`);
     this.changed();
   }
@@ -363,7 +361,7 @@ export class ThreadGame {
   private slip() {
     this.ui.phase = "slip";
     this.ui.msg = "Wick's lantern went out. The thread slips! Back to the last bead, lantern refilled, points kept.";
-    this.audio.gameOver();
+    this.audio.playJingle(LANTERN_OUT);
     this.hooks.say(this.ui.msg);
     this.changed();
   }
@@ -575,7 +573,9 @@ export class ThreadGame {
     const odd = u.talkers.find((t) => t.kind !== "clue");
     const heardOdd = odd && u.heard.some((h) => h.who === odd.who);
     u.review = odd && heardOdd ? `${odd.kind === "herring" ? "Red herring" : "Unreliable witness"}: ${odd.who}. ${odd.note}` : null;
-    this.audio.levelUp();
+    // No celebration stinger when the next bead is a quiet (sensitive) one: its music is off.
+    if (musicOn(this.nextBead)) this.audio.playJingle(BEAD_WOVEN);
+    else this.audio.blip();
     this.arrive(u.beadIx + 1);
   }
 
@@ -587,7 +587,6 @@ export class ThreadGame {
     const why = whyQuestions(u.grade, u.band, c).map((q) => ({ q, purpose: "why" as const, title: "WHY DID IT MOVE?" }));
     u.queue = [...rw, ...why];
     u.woven = 1;
-    this.audio.startMusic();
     this.nextReweave();
   }
 
@@ -613,7 +612,7 @@ export class ThreadGame {
     submitScore(GAME_ID, u.score);
     u.phase = "solved";
     u.msg = `Thread re-woven! Knot is caught (gently) and wound back onto the Loom. +${bonus} points.`;
-    this.audio.levelUp();
+    this.audio.playJingle(REWOVEN);
     this.hooks.say(u.msg);
     this.changed();
   }

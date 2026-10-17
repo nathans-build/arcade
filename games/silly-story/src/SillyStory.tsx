@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChipAudio } from "@/kit/audio";
+import { ChipAudio, exposeMusicDebug, type Song } from "@/kit/audio";
+import { CURTAIN_SONG, DOODLE_SONG, JINGLES, SHELVED, SONGS, STORY_READY, WORKSHOP_SONG } from "@/music";
 import { GRADES, arcadeLink, gradeFromArcade, gradeLabel, gradeNumber, initialGrade, isEarlyReader, rememberGrade } from "@/kit/grades";
 import { readAloudPref, setReadAloudPref, speak, speechSupported, stopSpeaking } from "@/kit/speak";
 import type { Grade } from "@/kit/types";
@@ -32,6 +33,11 @@ const MAX_CUSTOM_BLANKS = 20;
 
 type Screen = "title" | "pick" | "fill" | "reveal" | "write" | "shelf" | "handoff";
 
+/** Menus get the bouncy workshop tune, filling in and writing the calm doodle, the reveal the curtain call. */
+function songFor(s: Screen): Song {
+  return s === "fill" || s === "write" || s === "handoff" ? DOODLE_SONG : s === "reveal" ? CURTAIN_SONG : WORKSHOP_SONG;
+}
+
 interface Play {
   title: string;
   storyId: string;
@@ -60,6 +66,8 @@ export default function SillyStory() {
   const [grade, setGrade] = useState<Grade>(() => initialGrade("3"));
   const [screen, setScreen] = useState<Screen>("title");
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
   const [readAloud, setReadAloud] = useState(() => readAloudPref(isEarlyReader(initialGrade("3"))));
   const [play, setPlay] = useState<Play | null>(null);
   const [words, setWords] = useState<string[]>([]);
@@ -88,7 +96,26 @@ export default function SillyStory() {
     (window as unknown as { __ss: unknown }).__ss = { screen, play, words, grade };
   }, [screen, play, words, grade]);
 
-  const unlock = () => audio.unlock();
+  // Music starts on the first tap (browsers block autoplay), then follows the screen. It ducks under read-aloud.
+  const musicStarted = useRef(false);
+  const screenRef = useRef(screen);
+  screenRef.current = screen;
+  useEffect(() => {
+    audio.duckLevel = 0.22;
+    exposeMusicDebug(audio, SONGS, JINGLES);
+    return () => audio.stopMusic();
+  }, [audio]);
+  useEffect(() => {
+    if (musicStarted.current) audio.playSong(songFor(screen));
+  }, [audio, screen]);
+
+  const unlock = () => {
+    audio.unlock();
+    if (!musicStarted.current) {
+      musicStarted.current = true;
+      audio.playSong(songFor(screenRef.current));
+    }
+  };
 
   const toggleMute = () => {
     audio.unlock();
@@ -115,7 +142,7 @@ export default function SillyStory() {
     setWords(ws);
     setMade(countStory());
     setScreen("reveal");
-    audio.levelUp();
+    audio.playJingle(STORY_READY, { then: CURTAIN_SONG });
     // Read the finished story from this tap (iPad only allows speech that starts from a tap).
     say(`${play.title}. ${filledText(play.parsed, ws)}`);
   };
@@ -130,7 +157,7 @@ export default function SillyStory() {
   };
 
   return (
-    <div className="ss-root" onPointerDown={unlock}>
+    <div className="ss-root" onPointerDown={unlock} onKeyDown={unlock}>
       <div className="ss-toolbar">
         <a href={arcadeLink(grade)} className="ss-tool">◀ ARCADE</a>
         <div className="ss-tools">
@@ -139,9 +166,20 @@ export default function SillyStory() {
               🔊 READ {readAloud ? "ON" : "OFF"}
             </button>
           )}
-          <button type="button" className="ss-tool" onClick={toggleMute} aria-pressed={muted} title="Sound effects">
-            {muted ? "♪ SOUND OFF" : "♪ SOUND ON"}
-          </button>
+          {muted ? (
+            <button type="button" className="ss-tool" onClick={toggleMute} aria-pressed={false} title="Sound is off on this device">
+              ♪ SOUND OFF
+            </button>
+          ) : (
+            <>
+              <button type="button" className={`ss-tool ${musicOn ? "on" : ""}`} onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">
+                ♪ MUSIC {musicOn ? "ON" : "OFF"}
+              </button>
+              <button type="button" className={`ss-tool ${sfxOn ? "on" : ""}`} onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off">
+                ✦ SFX {sfxOn ? "ON" : "OFF"}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -223,7 +261,7 @@ export default function SillyStory() {
             };
             const { list, ok } = addToShelf(item);
             setShelf(list);
-            if (ok) audio.correct();
+            if (ok) audio.playJingle(SHELVED);
             return ok;
           }}
           onUnshelve={(id) => {

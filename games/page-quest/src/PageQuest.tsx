@@ -22,6 +22,8 @@ import { GradePicker, Library } from "@/ui/Library";
 import { Reader, type ReaderStart } from "@/ui/Reader";
 import { WriterDesk } from "@/ui/WriterDesk";
 import { isTyping } from "@/game";
+import { exposeMusicDebug, type Song } from "@/kit/audio";
+import { JINGLES, LIBRARY_SONG, SONGS, songForGenre } from "@/music";
 import "@/ui/pq.css";
 
 /** Page Quest's own 16-step bassline: a gentle walking line in D (Hz; 0 = rest). */
@@ -49,6 +51,8 @@ export default function PageQuest() {
   const [writerDraft, setWriterDraft] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
   const [readAloud, setReadAloud] = useState(() => readAloudPref(isEarlyReader(initialGrade("6"))));
   const [layout, setLayout] = useState<{ mode: "stack" | "side"; cw: number }>({ mode: "stack", cw: 640 });
   const [touch, setTouch] = useState(false);
@@ -56,6 +60,36 @@ export default function PageQuest() {
 
   const g = gradeNumber(grade);
   const tooYoung = g < 4;
+
+  // Music: the library tune, or the open book's genre mood. Nothing before the first tap or key.
+  const musicStarted = useRef(false);
+  const songFor = useCallback((s: Screen, r: Reading | null): Song => (s === "read" && r ? songForGenre(r.book.story.genre) : LIBRARY_SONG), []);
+  const songRef = useRef<Song>(LIBRARY_SONG);
+  songRef.current = songFor(screen, reading);
+  useEffect(() => {
+    audio.duckLevel = 0.22;
+    exposeMusicDebug(audio, SONGS, JINGLES);
+  }, [audio]);
+  useEffect(() => {
+    if (musicStarted.current && !paused) audio.playSong(songFor(screen, reading));
+  }, [audio, screen, reading, paused, songFor]);
+  const startMusic = useCallback(() => {
+    audio.unlock();
+    if (!musicStarted.current) {
+      musicStarted.current = true;
+      audio.playSong(songRef.current);
+    }
+  }, [audio]);
+
+  // The first tap or key anywhere starts the music (browsers block autoplay).
+  useEffect(() => {
+    window.addEventListener("pointerdown", startMusic);
+    window.addEventListener("keydown", startMusic);
+    return () => {
+      window.removeEventListener("pointerdown", startMusic);
+      window.removeEventListener("keydown", startMusic);
+    };
+  }, [startMusic]);
 
   // Scene renderer (one canvas for the library and the reading screen)
   useEffect(() => {
@@ -106,13 +140,12 @@ export default function PageQuest() {
 
   const openBook = useCallback(
     (book: Book, start: ReaderStart, playtest = false) => {
-      audio.unlock();
-      audio.startMusic();
+      startMusic();
       setPaused(false);
       setReading({ book, start, playtest });
       setScreen("read");
     },
-    [audio],
+    [startMusic],
   );
 
   const exitReading = useCallback(() => {
@@ -138,8 +171,8 @@ export default function PageQuest() {
       if (viewRef.current) viewRef.current.paused = np;
       if (np) {
         stopSpeaking();
-        audio.stopMusic();
-      } else if (screen === "read") audio.startMusic();
+        audio.stopSong();
+      }
       return np;
     });
   }, [audio, screen]);
@@ -184,7 +217,14 @@ export default function PageQuest() {
         <a href={arcadeLink(grade)} className="pq-pixel">◀ ARCADE</a>
         <div className="pq-tools">
           {screen === "read" && <button className="pq-pixel" onClick={togglePause}>{paused ? "RESUME" : "PAUSE"}</button>}
-          <button className="pq-pixel" onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button className="pq-pixel" onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button className="pq-pixel" onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button className="pq-pixel" onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off (M mutes everything)">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && (
             <button className="pq-pixel" onClick={toggleReadAloud} aria-pressed={readAloud}>
               {readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}

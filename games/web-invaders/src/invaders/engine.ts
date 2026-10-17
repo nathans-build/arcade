@@ -1,4 +1,5 @@
 import type { ChipAudio, DealtQuestion } from "@/kit";
+import { BUG_BUSTED, GAME_OVER, WAVE_CLEAR } from "@/music";
 import {
   BUNKER_H,
   BUNKER_W,
@@ -371,7 +372,6 @@ export class InvadersEngine {
       this.updateCarriersLeaving(dt);
       if (this.clearT <= 0) {
         this.level++;
-        this.audio.levelUp();
         this.startWave();
       }
       this.emitSlots();
@@ -636,7 +636,7 @@ export class InvadersEngine {
       c.alive = false;
       this.burst(p.x + c.w / 2, p.y + c.h / 2, 40, PALETTE.green);
       this.burst(p.x + c.w / 2, p.y + c.h / 2, 20, PALETTE.yellow);
-      this.audio.correct();
+      this.audio.playJingle(BUG_BUSTED);
       // Chain-pop the rest of the formation for their points.
       let n = 0;
       for (const inv of this.invaders) {
@@ -689,6 +689,7 @@ export class InvadersEngine {
         this.clearT = 2;
         this.bombs = [];
         this.banner = { text: "WAVE CLEAR", color: PALETTE.yellow, t: 2 };
+        this.audio.playJingle(WAVE_CLEAR);
         this.cb.onWaveClear(this.level);
       }
     }
@@ -773,7 +774,7 @@ export class InvadersEngine {
       this.wave = null;
       this.emitSlots();
       this.audio.stopMusic();
-      this.audio.gameOver();
+      this.audio.playJingle(GAME_OVER, { then: "stop" });
       this.cb.onGameOver();
       return;
     }

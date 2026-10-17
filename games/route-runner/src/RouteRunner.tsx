@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChipAudio,
+  exposeMusicDebug,
   GRADES,
   QuestionDeck,
   arcadeLink,
@@ -30,12 +31,12 @@ import { RouteEngine, W, H, type Action, type HouseEvent, type HudState, type St
 import { plainLabel } from "@/route/font";
 import { rulesFor, type DeliveryRule } from "@/route/rules";
 import { RuleRotation } from "@/route/street";
+import { BULLSEYE, JINGLES, PERFECT_STREET, ROUTE_END, SONGS, STREET_DONE, YARD_SONG, streetSong } from "@/music";
 import "@/route/route.css";
 
 const GAME_ID = "route-runner";
 
 /** An original 16-step bassline for Route Runner (Hz, 0 = rest): a bouncy paper-route shuffle. */
-const BASSLINE = [98, 0, 147, 98, 0, 123, 0, 147, 110, 0, 165, 110, 0, 131, 147, 165];
 
 type Screen = "title" | "playing" | "over";
 
@@ -105,7 +106,7 @@ const sayLabel = (s: string) => plainLabel(s).replace(/\//g, " over ").replace(/
 export default function RouteRunner() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<RouteEngine | null>(null);
-  const audio = useMemo(() => new ChipAudio(BASSLINE, 128), []);
+  const audio = useMemo(() => new ChipAudio(), []);
   const deckRef = useRef<QuestionDeck | null>(null);
   const rotationRef = useRef<RuleRotation | null>(null);
 
@@ -118,6 +119,11 @@ export default function RouteRunner() {
   const [log, setLog] = useState<LogEntry[]>([]);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
+  useEffect(() => exposeMusicDebug(audio, SONGS, JINGLES), [audio]);
+  /** True during a real game (the title-screen demo never asks for music). */
+  const liveRef = useRef(false);
   const [readAloud, setReadAloud] = useState(() => readAloudPref(isEarlyReader(initialGrade("4"))));
   const [touch, setTouch] = useState(false);
   const [highScore, setHighScore] = useState(() => loadProgress(GAME_ID).highScore);
@@ -150,6 +156,7 @@ export default function RouteRunner() {
     const engine = new RouteEngine(canvas, audio, {
       onHud: setHud,
       onStreet: (rule, n) => {
+        if (liveRef.current) audio.playSong(streetSong(n));
         setStreet({ rule, street: n, target: null, feedback: null });
         setYard(null);
         setCrashNote(null);
@@ -169,11 +176,17 @@ export default function RouteRunner() {
       },
       requestQuestion: () => deckRef.current!.draw(),
       onYard: (q, tally) => {
+        // Pull into the bonus yard: a short stinger, then the calm yard tune while the question waits.
+        if (liveRef.current) audio.playJingle(tally.perfect ? PERFECT_STREET : STREET_DONE, { then: YARD_SONG });
         setYard({ q, tally, picked: null, correct: null, bonus: 0 });
         if (readAloudRef.current) speakQuestion(q.prompt, q.choices);
       },
       onYardPick: (choice) => setYard((y) => (y ? { ...y, picked: choice } : y)),
       onYardResult: (q, choice, correct, bonus) => {
+        if (correct && liveRef.current) {
+          audio.playSong(YARD_SONG); // in case the yard stinger is still playing
+          audio.playJingle(BULLSEYE);
+        }
         recordAnswer(GAME_ID, q, correct);
         setLog((l) => [...l, { subject: q.subject, standard: q.standard, skill: q.skill, correct, kind: "yard" }]);
         setYard((y) => (y && y.q.id === q.id ? { ...y, picked: choice, correct, bonus } : y));
@@ -184,6 +197,8 @@ export default function RouteRunner() {
       },
       onCrash: (what) => setCrashNote(`CRASH! You hit ${what}.`),
       onGameOver: () => {
+        liveRef.current = false;
+        audio.playJingle(ROUTE_END, { then: "stop" });
         setHighScore(submitScore(GAME_ID, engine.score));
         setScreen("over");
         stopSpeaking();
@@ -197,6 +212,7 @@ export default function RouteRunner() {
     }
     return () => {
       engine.stop();
+      liveRef.current = false;
       audio.stopMusic();
       stopSpeaking();
     };
@@ -219,7 +235,10 @@ export default function RouteRunner() {
   const startGame = useCallback(
     (m: SubjectMode) => {
       audio.unlock();
-      audio.startMusic();
+      liveRef.current = true;
+      audio.duckLevel = isEarlyReader(grade) ? 0.18 : 0.28;
+      audio.duck(false);
+      audio.playSong(streetSong(1), { restart: true });
       rememberGrade(grade);
       setMode(m);
       deckRef.current = new QuestionDeck(grade, m, { gameId: GAME_ID });
@@ -248,8 +267,10 @@ export default function RouteRunner() {
     if (!e) return;
     const p = e.togglePause(force);
     setPaused(p);
+    // Paused: the music carries on quietly underneath.
+    audio.duck(p);
     if (p) stopSpeaking();
-  }, []);
+  }, [audio]);
 
   const toggleReadAloud = useCallback(() => {
     setReadAloud((on) => {
@@ -346,7 +367,14 @@ export default function RouteRunner() {
         <a href={arcadeLink(grade)}>◀ ARCADE</a>
         <div className="rr-tools">
           {screen === "playing" && <button onClick={() => togglePause()}>{paused ? "RESUME" : "PAUSE"}</button>}
-          <button onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && (
             <button onClick={toggleReadAloud} aria-pressed={readAloud}>
               {readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}
@@ -401,6 +429,7 @@ export default function RouteRunner() {
                 highScore={highScore}
                 onAgain={() => startGame(mode)}
                 onMenu={() => {
+                  audio.stopSong();
                   engineRef.current?.demo(rulesFor("4", "science")[0]);
                   setScreen("title");
                 }}

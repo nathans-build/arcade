@@ -475,7 +475,7 @@ export class LeapEngine {
         if (this.modeT <= 0) {
           if (this.lives <= 0) {
             this.mode = "over";
-            this.audio.gameOver();
+            // The "Last Leap" jingle (src/music.ts) plays from onGameOver.
             this.cb.onGameOver();
           } else {
             this.respawn();
@@ -710,7 +710,7 @@ export class LeapEngine {
       this.streak++;
       this.mode = "clear";
       this.modeT = 1.8;
-      this.audio.levelUp();
+      // The "Home Safe" jingle plays from onHome.
       this.banner = { title: "HOME SAFE!", sub: `+${bonus}`, t: 1.8, color: PALETTE.green };
       this.target = null;
       this.cb.onTarget(null);

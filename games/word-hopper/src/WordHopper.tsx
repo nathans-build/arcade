@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChipAudio } from "@/kit/audio";
+import { ChipAudio, exposeMusicDebug } from "@/kit/audio";
+import { ANOTHER_STICKER, GARDEN_SONG, JINGLES, NEW_STICKER, POND_SONG, SONGS } from "@/music";
 import { arcadeLink, gradeFromArcade, gradeLabel, initialGrade, rememberGrade } from "@/kit/grades";
 import { recordAnswer, submitScore } from "@/kit/progress";
 import { readAloudPref, setReadAloudPref, speak, speechSupported, stopSpeaking } from "@/kit/speak";
@@ -90,6 +91,8 @@ export default function WordHopper() {
   const [book, setBook] = useState<Book>(() => loadBook());
   const [reward, setReward] = useState<{ sticker: string; isNew: boolean } | null>(null);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
   const [readAloud, setReadAloud] = useState(() => readAloudPref(true));
   const [confetti, setConfetti] = useState(0);
   const [hop, setHop] = useState(false);
@@ -111,9 +114,32 @@ export default function WordHopper() {
     stopSpeaking();
   }, []);
 
+  // Hoppy talks a lot (K-2 read-aloud), so the music drops right down whenever speech is playing.
+  useEffect(() => {
+    audio.duckLevel = 0.12;
+    exposeMusicDebug(audio, SONGS, JINGLES);
+    return () => audio.stopMusic();
+  }, [audio]);
+
+  // The song for each screen: the gentle garden stroll, or the softer waltz inside an activity.
+  // Nothing plays before the first tap (browsers block autoplay); the reward jingle leads back.
+  const screenRef = useRef<Screen>(screen);
+  screenRef.current = screen;
+  const musicStarted = useRef(false);
+  const songForScreen = (s: Screen) => (s === "play" ? POND_SONG : GARDEN_SONG);
+  useEffect(() => {
+    if (musicStarted.current && screen !== "reward") audio.playSong(songForScreen(screen));
+  }, [audio, screen]);
+
   // Browsers only start audio from a tap.
   useEffect(() => {
-    const unlock = () => audio.unlock();
+    const unlock = () => {
+      audio.unlock();
+      if (!musicStarted.current) {
+        musicStarted.current = true;
+        audio.playSong(songForScreen(screenRef.current));
+      }
+    };
     window.addEventListener("pointerdown", unlock);
     window.addEventListener("keydown", unlock);
     return () => {
@@ -170,7 +196,8 @@ export default function WordHopper() {
       setReward({ sticker: won.sticker, isNew: won.isNew });
       talk(`${praise} You finished the round! ${won.isNew ? `You earned the ${won.sticker} sticker!` : `Here is another ${won.sticker} sticker!`}`);
       timer.current = window.setTimeout(() => {
-        audio.levelUp();
+        if (musicStarted.current) audio.playJingle(won.isNew ? NEW_STICKER : ANOTHER_STICKER, { then: GARDEN_SONG });
+        else audio.levelUp();
         setConfetti((c) => c + 1);
         setScreen("reward");
       }, NEXT_DELAY);
@@ -374,9 +401,20 @@ export default function WordHopper() {
               <SpeakerIcon />
             </button>
           )}
-          <button className="wh-btn" onClick={() => setMuted(audio.toggleMute())} aria-label={muted ? "Sound effects off" : "Sound effects on"} aria-pressed={!muted}>
-            <NoteIcon off={muted} />
-          </button>
+          {muted ? (
+            <button className="wh-btn" onClick={() => setMuted(audio.toggleMute())} aria-label="Sound off" aria-pressed={false} title="Sound is off on this device">
+              <NoteIcon off />
+            </button>
+          ) : (
+            <>
+              <button className="wh-btn" onClick={() => setMusicOn(audio.toggleMusic())} aria-label={musicOn ? "Music on" : "Music off"} aria-pressed={musicOn} title={musicOn ? "Music on" : "Music off"}>
+                <NoteIcon off={!musicOn} />
+              </button>
+              <button className="wh-btn" onClick={() => setSfxOn(audio.toggleSfx())} aria-label={sfxOn ? "Sound effects on" : "Sound effects off"} aria-pressed={sfxOn} title={sfxOn ? "Sound effects on" : "Sound effects off"}>
+                <SfxIcon off={!sfxOn} />
+              </button>
+            </>
+          )}
         </div>
       </header>
 
@@ -879,6 +917,13 @@ function NoteIcon({ off }: { off: boolean }) {
     <Icon rows={["#..........#", ".#....####.#", "..#..#####..", "...#.##..#..", "....##...#..", "....#.#..#..", "....#..#.#..", "..###...##..", ".####..###..", ".####.####.#", "..##..###...", "#.........#."]} />
   ) : (
     <Icon rows={["......####..", ".....#####..", ".....##..#..", ".....#...#..", ".....#...#..", ".....#...#..", ".....#...#..", "...###.###..", "..####.####.", "..####.####.", "...##...##..", "............"]} />
+  );
+}
+function SfxIcon({ off }: { off: boolean }) {
+  return off ? (
+    <Icon rows={["#....##.....", ".#...##.....", "..#..##..#..", "...#.##.#...", "....#.##....", "####.#.#####", "#####.#.####", "....##.#....", "...#.##.#...", "..#..##..#..", ".....##...#.", ".....##....#"]} />
+  ) : (
+    <Icon rows={[".....##.....", ".....##.....", "..#..##..#..", "...#.##.#...", "....####....", "############", "############", "....####....", "...#.##.#...", "..#..##..#..", ".....##.....", ".....##....."]} />
   );
 }
 function AgainIcon() {

@@ -608,7 +608,7 @@ export class HopEngine {
     const bonus = 300 * this.level + (clean ? 200 : 0);
     const full = round.unlit() === 0;
     this.score += bonus + (full ? 1000 : 0) + this.pads.filter((p) => !p.used).length * 100;
-    this.audio.levelUp();
+    // The "Round Clear" jingle plays from onRoundClear.
     this.flashBanner(full ? `CLEAR! FULL COLOR +1000` : clean ? "PERFECT ROUND!" : "ROUND CLEAR!", PAL.green);
     const spec = round.spec;
     this.msg = { text: spec.kind === "build" ? spec.item.explain : `All the ${spec.rule.target.toLowerCase()} are colored!`, ok: true };
@@ -789,7 +789,7 @@ export class HopEngine {
     this.emitHud();
     if (this.lives <= 0) {
       this.mode = "over";
-      this.audio.gameOver();
+      // The "Signal Lost" jingle (src/music.ts) plays from onGameOver.
       this.flashBanner("GAME OVER", PAL.red);
       this.cb.onGameOver();
     }

@@ -412,7 +412,7 @@ export class ChefEngine {
         if (this.lives <= 0) {
           this.mode = "over";
           this.pushHud(true);
-          this.audio.gameOver();
+          // The "Kitchen Closed" jingle (src/music.ts) plays from onGameOver.
           this.cb.onGameOver();
           return;
         }
@@ -734,7 +734,7 @@ export class ChefEngine {
       this.mode = "done";
       this.doneT = 2.4;
       this.releaseAllKeys();
-      this.audio.correct();
+      // The "Order Up" jingle plays from onStackDone.
       this.showBanner([clean ? "ORDER UP! PERFECT!" : "ORDER UP!", `BONUS ${bonus}`], PALETTE.yellow, 2.4);
       this.pushHud(true);
       this.cb.onStackDone(this.seq, clean);

@@ -49,6 +49,12 @@ button { font: inherit; color: inherit; }
 .wh-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
 .wh-btn[aria-pressed="false"] { opacity: 0.6; }
 @media (max-width: 420px) { .wh-btn-label { display: none; } }
+/* Phones: the Music and Sound-effects buttons keep their full 56px size, so the progress pads
+   move to their own row under the bar while playing. */
+@media (max-width: 480px) {
+  .wh-bar { flex-wrap: wrap; row-gap: 6px; }
+  .wh-bar .wh-pads { order: 3; flex: 1 0 100%; }
+}
 
 .wh-pads { flex: 1; display: flex; justify-content: center; gap: clamp(4px, 1.5vw, 10px); min-width: 0; }
 .wh-pad {

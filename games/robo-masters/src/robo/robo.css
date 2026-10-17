@@ -338,3 +338,27 @@
 .rm-overlay { align-items: flex-start; }
 .rm-overlay > .rm-panel, .rm-overlay > .rm-select { margin-top: auto; margin-bottom: auto; }
 .rm-select .rm-help { font-size: clamp(15px, 1.9vw, 18px); }
+
+/* ---------------------------------------------------------------- power-ups and Quiz Bots */
+
+/* Active power-ups: chips over the bottom-left of the screen (pointer-transparent, no layout shift). */
+.rm-boosts {
+  position: absolute; left: 4px; bottom: 4px; right: 4px;
+  display: flex; flex-wrap: wrap; gap: 4px;
+  pointer-events: none;
+  font-size: clamp(6px, 1.2vw, 9px);
+}
+.rm-boost {
+  position: relative; display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 5px 4px 3px; background: #000000bb; border: 1px solid; color: var(--rm-white);
+  max-width: 100%; overflow: hidden; white-space: nowrap;
+}
+.rm-boost .ico { width: 12px; height: 12px; image-rendering: pixelated; flex: none; }
+.rm-boost .sec { color: var(--rm-yellow); }
+.rm-boost .meter { position: absolute; left: 0; bottom: 0; height: 2px; }
+.rm-boost.ending { animation: rm-blink 0.4s steps(2) infinite; }
+@keyframes rm-blink { 50% { opacity: 0.35; } }
+@media (max-width: 520px) { .rm-boost .nm { display: none; } }
+
+.rm-quiz.bot { border-left-color: var(--rm-yellow); }
+.rm-quiz.bot .head { color: var(--rm-yellow); }

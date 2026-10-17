@@ -1,4 +1,5 @@
-import { ChipAudio } from "./audio";
+import type { ChipAudio } from "@/kit";
+import { DIRECT_HIT } from "@/music";
 import { getSprites, makeRover, PALETTE, ROVER_COLORS, type SpriteSheet } from "./sprites";
 import type { DealtQuestion } from "./questions";
 
@@ -519,7 +520,7 @@ export class LunarEngine {
       this.streak++;
       this.score += 500 * Math.min(this.streak, 5);
       this.fuel = Math.min(100, this.fuel + FUEL.waveRight);
-      this.audio.correct();
+      this.audio.playJingle(DIRECT_HIT);
     } else {
       this.streak = 0;
       if (result === "wrong") this.fuel = Math.max(1, this.fuel + FUEL.waveWrong);

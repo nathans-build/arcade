@@ -88,7 +88,8 @@ in the same cabinet layout as Lunar Patrol Academy. Numbers use a built-in propo
 font (`src/stack/font.ts`), with smaller sub- and superscript digits in an accent colour, so
 `log₂8`, `x²` and `3/4` stay crisp even before the Press Start 2P / VT323 web fonts load. The
 palette is SpiderBen10 red and blue on navy, and the well has a spider-web background. Sound
-uses the kit's `ChipAudio` with Sum Stack's own 16-step bassline.
+uses the kit's `ChipAudio`: an original 4-channel chiptune soundtrack (`src/music.ts`) with separate
+**MUSIC** and **SFX** switches in the toolbar.
 
 ## Code map
 

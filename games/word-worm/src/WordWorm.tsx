@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChipAudio,
+  exposeMusicDebug,
   GRADES,
   QuestionDeck,
   arcadeLink,
@@ -26,6 +27,7 @@ import { MAX_SHIELD, W, H, WormEngine, type Action, type HudState } from "@/worm
 import { letterMode, trayCells, type Challenge } from "@/worm/challenges";
 import { ChallengeDeck } from "@/worm/deck";
 import { GRADE_BLURB } from "@/words";
+import { JINGLES, SONGS, levelSong } from "@/music";
 import "@/worm/worm.css";
 
 const GAME_ID = "word-worm";
@@ -99,6 +101,9 @@ export default function WordWorm() {
   const [log, setLog] = useState<LogEntry[]>([]);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
+  useEffect(() => exposeMusicDebug(audio, SONGS, JINGLES), [audio]);
   const [readAloud, setReadAloud] = useState(() => readAloudPref(isEarlyReader(initialGrade("2"))));
   const [touch, setTouch] = useState(false);
   const [highScore, setHighScore] = useState(() => loadProgress(GAME_ID).highScore);
@@ -194,7 +199,9 @@ export default function WordWorm() {
 
   const startGame = useCallback(() => {
     audio.unlock();
-    audio.startMusic();
+    audio.setTempoScale(1);
+    audio.setIntensity("full");
+    audio.playSong(levelSong(1));
     rememberGrade(grade);
     deckRef.current = new QuestionDeck(grade, "ela", { gameId: GAME_ID });
     wormDeckRef.current = new ChallengeDeck(grade);
@@ -339,13 +346,40 @@ export default function WordWorm() {
     engineRef.current?.tapAt(x, y);
   };
 
+  // Music follows the levels (a quicker version from level 4), hurries when a worm nears the bottom,
+  // thins out while the end-of-level question is open, and drops back while paused. Early readers
+  // get a deeper duck so read-aloud letter sounds stay clear.
+  useEffect(() => {
+    if (screen === "playing") audio.playSong(levelSong(hud.level));
+  }, [audio, screen, hud.level]);
+  useEffect(() => {
+    audio.setIntensity(checkpoint ? "calm" : "full");
+  }, [audio, checkpoint]);
+  const hurry = screen === "playing" && hud.danger >= 0.75;
+  useEffect(() => {
+    audio.setTempoScale(hurry ? 1.1 : 1);
+  }, [audio, hurry]);
+  useEffect(() => {
+    audio.duck(screen === "playing" && paused);
+  }, [audio, screen, paused]);
+  useEffect(() => {
+    audio.duckLevel = early ? 0.18 : 0.28;
+  }, [audio, early]);
+
   return (
     <div className={`ww-root ${early ? "early" : ""}`}>
       <div className="ww-toolbar">
         <a href={arcadeLink(grade)}>◀ ARCADE</a>
         <div className="ww-tools">
           {screen === "playing" && <button onClick={() => togglePause()}>{paused ? "RESUME" : "PAUSE"}</button>}
-          <button onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && (
             <button onClick={toggleReadAloud} aria-pressed={readAloud}>
               {readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}
