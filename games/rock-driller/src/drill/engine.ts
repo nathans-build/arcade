@@ -5,6 +5,7 @@
  */
 import type { ChipAudio, Grade } from "@/kit";
 import { gradeNumber } from "@/kit";
+import { GAME_OVER, GOAL_COMPLETE } from "@/music";
 import { SPECIMENS, TYPE_NAMES, TYPE_TAGS, type Specimen } from "./geology";
 import { makeChallenge, type Challenge, type ChallengeKind } from "./challenges";
 import { drawText, measure } from "./font";
@@ -444,7 +445,7 @@ export class DrillEngine {
     const bonus = 1000 * this.level;
     this.score += bonus;
     this.banner = { lines: ["GOAL COMPLETE!", `BONUS ${bonus}`], t: 2.2, color: PAL.green };
-    this.audio.levelUp();
+    this.audio.playJingle(GOAL_COMPLETE);
     if (this.challenge && !this.chResult) {
       this.challenge = null;
       this.cb.onChallengeDone();
@@ -941,8 +942,8 @@ export class DrillEngine {
   private afterDeath() {
     if (this.lives <= 0) {
       this.mode = "over";
-      this.audio.gameOver();
       this.audio.stopMusic();
+      this.audio.playJingle(GAME_OVER, { then: "stop" });
       if (this.challenge && !this.chResult) {
         this.challenge = null;
         this.cb.onChallengeDone();

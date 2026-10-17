@@ -226,7 +226,7 @@
 .rm-dot.ela { background: var(--rm-cyan); }
 .rm-dot.social { background: #ff8a8a; }
 
-.rm-toolbar { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; margin-bottom: 4px; gap: 8px; }
+.rm-toolbar { position: relative; z-index: 10; display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; margin-bottom: 4px; gap: 8px; }
 .rm-tools { display: flex; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
 .rm-toolbar a, .rm-toolbar button {
   font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--rm-dim);
@@ -238,9 +238,17 @@
 .rm-root.early .rm-quiz { font-size: clamp(22px, 3vw, 30px); }
 .rm-root.early .rm-quiz .opt { min-height: 48px; }
 
+/* The toolbar (ARCADE link, MUSIC, SFX, READ ALOUD) has z-index 10, above every overlay, so it stays tappable
+   on the title, pause and game-over screens. Where an overlay covers the whole viewport (small screens,
+   below) it keeps this much room at the top for the toolbar; more where the toolbar wraps. */
+.rm-root { --rm-tb-room: 40px; }
+@media (max-width: 555px) { .rm-root { --rm-tb-room: 74px; } }
+@media (max-width: 520px) { .rm-root { --rm-tb-room: 40px; } }
+@media (max-width: 423px) { .rm-root { --rm-tb-room: 64px; } }
+
 @media (max-width: 700px), (max-height: 640px) {
   /* Small screens: the game screen is too short for text panels, so they take the viewport */
-  .rm-overlay { position: fixed; padding: 12px; align-items: flex-start; }
+  .rm-overlay { position: fixed; padding: 12px; padding-top: var(--rm-tb-room); align-items: flex-start; }
   .rm-panel { max-height: none; }
 }
 
@@ -338,3 +346,27 @@
 .rm-overlay { align-items: flex-start; }
 .rm-overlay > .rm-panel, .rm-overlay > .rm-select { margin-top: auto; margin-bottom: auto; }
 .rm-select .rm-help { font-size: clamp(15px, 1.9vw, 18px); }
+
+/* ---------------------------------------------------------------- power-ups and Quiz Bots */
+
+/* Active power-ups: chips over the bottom-left of the screen (pointer-transparent, no layout shift). */
+.rm-boosts {
+  position: absolute; left: 4px; bottom: 4px; right: 4px;
+  display: flex; flex-wrap: wrap; gap: 4px;
+  pointer-events: none;
+  font-size: clamp(6px, 1.2vw, 9px);
+}
+.rm-boost {
+  position: relative; display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 5px 4px 3px; background: #000000bb; border: 1px solid; color: var(--rm-white);
+  max-width: 100%; overflow: hidden; white-space: nowrap;
+}
+.rm-boost .ico { width: 12px; height: 12px; image-rendering: pixelated; flex: none; }
+.rm-boost .sec { color: var(--rm-yellow); }
+.rm-boost .meter { position: absolute; left: 0; bottom: 0; height: 2px; }
+.rm-boost.ending { animation: rm-blink 0.4s steps(2) infinite; }
+@keyframes rm-blink { 50% { opacity: 0.35; } }
+@media (max-width: 520px) { .rm-boost .nm { display: none; } }
+
+.rm-quiz.bot { border-left-color: var(--rm-yellow); }
+.rm-quiz.bot .head { color: var(--rm-yellow); }

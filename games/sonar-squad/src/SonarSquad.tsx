@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "r
 import {
   ChipAudio,
   GRADES,
+  exposeMusicDebug,
   arcadeLink,
   gradeFromArcade,
   gradeLabel,
@@ -23,10 +24,9 @@ import { GAME_ID, SonarGame, shotGrade, type GameMode, type LogEntry, type PlayM
 import type { PowerUp } from "@/sonar/match";
 import { formatCoord, notationHelp, schemeFor, type Scheme } from "@/sonar/notation";
 import { SonarScreen, geomFor, spotAt } from "@/sonar/render";
+import { DEPLOY_SONG, JINGLES, PATROL_SONG, SONGS } from "@/music";
 import "@/sonar/sonar.css";
 
-/** Sonar Squad's own 16-step bassline: a slow, sneaky submarine groove (Hz; 0 = rest). */
-const BASS = [98, 0, 0, 98, 117, 0, 98, 0, 87, 0, 0, 87, 110, 0, 131, 117];
 
 const SUBJECTS: { id: GameMode; label: string; note: string }[] = [
   { id: "math", label: "MATH", note: "Adaptive math" },
@@ -58,7 +58,7 @@ function schemeLine(s: Scheme): string {
 
 export default function SonarSquad() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const audio = useMemo(() => new ChipAudio(BASS, 104), []);
+  const audio = useMemo(() => new ChipAudio(), []);
   const [, bump] = useReducer((x: number) => x + 1, 0);
   const [readAloud, setReadAloud] = useState(() => readAloudPref(isEarlyReader(initialGrade("3"))));
   const readAloudRef = useRef(readAloud);
@@ -83,6 +83,11 @@ export default function SonarSquad() {
   const [subject, setSubject] = useState<GameMode>("math");
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
+  useEffect(() => exposeMusicDebug(audio, SONGS, JINGLES), [audio]);
+  /** True once a match has been started from a tap (no music before that). */
+  const liveRef = useRef(false);
   const [touch, setTouch] = useState(false);
   const [highScore, setHighScore] = useState(() => loadProgress(GAME_ID).highScore);
   const [reportSeat, setReportSeat] = useState(0);
@@ -136,6 +141,28 @@ export default function SonarSquad() {
     return () => mq.removeEventListener?.("change", onChange);
   }, []);
 
+  // Music follows the phase: the deployment tune while fleets are placed, the patrol for the battle
+  // (thinned to lead + bass while a question is up, a little faster when a side is down to its last
+  // ship). The win / lose jingles are played by the game (src/sonar/game.ts).
+  const phase = u.phase;
+  const coverWhy = u.coverWhy;
+  const lastShip = !!game.match && game.match.fleets.length === 2 && game.match.fleets.some((f) => f.remaining().length === 1);
+  useEffect(() => {
+    if (!liveRef.current) return;
+    if (phase === "title") {
+      audio.stopSong();
+      return;
+    }
+    if (phase === "over") {
+      audio.setTempoScale(1);
+      return;
+    }
+    const deploying = phase === "place" || (phase === "cover" && coverWhy === "place");
+    audio.playSong(deploying ? DEPLOY_SONG : PATROL_SONG);
+    audio.setIntensity(phase === "question" ? "calm" : "full");
+    audio.setTempoScale(!deploying && lastShip ? 1.08 : 1);
+  }, [audio, phase, coverWhy, lastShip]);
+
   useEffect(() => {
     if (u.phase === "over") setHighScore(loadProgress(GAME_ID).highScore);
   }, [u.phase]);
@@ -151,7 +178,12 @@ export default function SonarSquad() {
 
   const startGame = useCallback(() => {
     audio.unlock();
-    audio.startMusic();
+    liveRef.current = true;
+    audio.duckLevel = isEarlyReader(game.ui.grade) ? 0.18 : 0.28;
+    audio.duck(false);
+    audio.setTempoScale(1);
+    audio.setIntensity("full");
+    audio.playSong(DEPLOY_SONG, { restart: true });
     rememberGrade(game.ui.grade);
     setPaused(false);
     game.setPaused(false);
@@ -166,11 +198,13 @@ export default function SonarSquad() {
       setPaused((p) => {
         const np = force ?? !p;
         game.setPaused(np);
+        // Paused: the music carries on quietly underneath.
+        audio.duck(np);
         if (np) stopSpeaking();
         return np;
       });
     },
-    [game],
+    [game, audio],
   );
 
   const toggleReadAloud = useCallback(() => {
@@ -327,7 +361,14 @@ export default function SonarSquad() {
             </button>
           )}
           {playing && <button onClick={() => togglePause()}>{paused ? "RESUME" : "PAUSE"}</button>}
-          <button onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && (
             <button onClick={toggleReadAloud} aria-pressed={readAloud}>
               {readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}

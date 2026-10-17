@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChipAudio } from "@/kit/audio";
+import { ChipAudio, exposeMusicDebug } from "@/kit/audio";
 import { GRADES, arcadeLink, gradeFromArcade, gradeLabel, initialGrade, isEarlyReader, rememberGrade } from "@/kit/grades";
 import { loadProgress, recordAnswer, submitScore } from "@/kit/progress";
 import { readAloudPref, setReadAloudPref, speak, speakQuestion, speechSupported, stopSpeaking } from "@/kit/speak";
@@ -14,14 +14,13 @@ import {
   SUBJECT_MODES, focusName, subjectNote, focusTag, gradesNote, loadPref, prefOf, readUrlFocus, resolveFocus, savePref, setForLevel, topicAvailable, topicsFor,
   type Focus, type FocusPref,
 } from "@/lab/topics";
+import { BOTTLE_FULL, CHAIN_REACTION, EUREKA, JINGLES, LAB_CLEAN, SONGS, speedSong } from "@/music";
 import "@/lab/lab.css";
 
 const GAME_ID = "lab-capsules";
 const SPEED_KEY = "arcade.lab-capsules.speed";
 const HINT_KEY = "arcade.lab-capsules.hints";
 
-/** Lab Capsules' own bassline: a bouncy, bubbling minor riff (Hz, 0 = rest). */
-const BASS = [131, 0, 196, 0, 175, 165, 0, 147, 131, 0, 196, 0, 220, 196, 175, 165];
 
 type Screen = "title" | "play" | "clear" | "quiz" | "over";
 
@@ -100,7 +99,7 @@ function demoGame(g: Grade, f: Focus): LabGame {
 }
 
 export default function LabCapsules() {
-  const audio = useMemo(() => new ChipAudio(BASS, 132), []);
+  const audio = useMemo(() => new ChipAudio(), []);
   const [grade, setGrade] = useState<Grade>(() => initialGrade("3"));
   const [urlFocus] = useState(() => readUrlFocus(window.location.search, initialGrade("3")));
   const [pref, setPref] = useState<FocusPref>(() => urlFocus.pref ?? loadPref());
@@ -110,6 +109,9 @@ export default function LabCapsules() {
   const [screen, setScreen] = useState<Screen>("title");
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
+  useEffect(() => exposeMusicDebug(audio, SONGS, JINGLES), [audio]);
   const [readAloud, setReadAloud] = useState(() => readAloudPref(isEarlyReader(initialGrade("3"))));
   const [touch, setTouch] = useState(false);
   const [hud, setHud] = useState<Hud>({ score: 0, level: 1, germs: 0, nextKey: "" });
@@ -221,7 +223,11 @@ export default function LabCapsules() {
     setQuiz(null);
     setScreen("play");
     showLevel(run);
-    audio.startMusic();
+    audio.duckLevel = isEarlyReader(grade) ? 0.18 : 0.28;
+    audio.duck(false);
+    audio.setTempoScale(1);
+    audio.setIntensity("full");
+    audio.playSong(speedSong(speed), { restart: true });
   }, [audio, grade, focus, speed, showLevel]);
 
   const openQuiz = useCallback(() => {
@@ -232,8 +238,11 @@ export default function LabCapsules() {
     setHud((h) => ({ ...h, score: run.score }));
     setQuiz({ q, picked: null });
     setScreen("quiz");
+    // Thin the music to lead + bass while the lab-quiz question is on screen.
+    audio.setTempoScale(1);
+    audio.setIntensity("calm");
     if (readAloudRef.current) speakQuestion(`Lab quiz! ${q.prompt}`, q.choices);
-  }, []);
+  }, [audio]);
 
   const answer = useCallback(
     (i: number) => {
@@ -245,7 +254,7 @@ export default function LabCapsules() {
       setQuiz({ ...cur, picked: i });
       setHud((h) => ({ ...h, score: run.score }));
       if (res.correct) {
-        audio.correct();
+        audio.playJingle(EUREKA);
         moodRef.current = { mood: "cheer", until: performance.now() + 1500 };
       } else audio.wrong();
       say(`${res.correct ? "Correct!" : `The answer is ${cur.q.choices[cur.q.answer]}.`} ${cur.q.explanation}`);
@@ -262,7 +271,8 @@ export default function LabCapsules() {
     setQuiz(null);
     setScreen("play");
     showLevel(run);
-  }, [showLevel]);
+    audio.setIntensity("full");
+  }, [audio, showLevel]);
 
   const retry = useCallback(() => {
     const run = runRef.current;
@@ -272,7 +282,10 @@ export default function LabCapsules() {
     setScreen("play");
     setPaused(false);
     showLevel(run);
-    audio.startMusic();
+    audio.duck(false);
+    audio.setTempoScale(1);
+    audio.setIntensity("full");
+    audio.playSong(speedSong(run.speed), { restart: true });
   }, [audio, showLevel]);
 
   const toTitle = useCallback(() => {
@@ -299,7 +312,7 @@ export default function LabCapsules() {
         case "clear": {
           if (ev.germs) audio.correct();
           else audio.checkpoint();
-          if (ev.chain > 1) audio.levelUp();
+          if (ev.chain > 1) audio.playJingle(CHAIN_REACTION);
           moodRef.current = { mood: "cheer", until: now + 1200 };
           const parts: React.ReactNode[] = [];
           const spoken: string[] = [];
@@ -330,7 +343,8 @@ export default function LabCapsules() {
           break;
         }
         case "won":
-          audio.levelUp();
+          audio.setTempoScale(1);
+          audio.playJingle(LAB_CLEAN);
           moodRef.current = { mood: "cheer", until: now + 2500 };
           setHud((h) => ({ ...h, germs: 0, score: game.score }));
           setScreen("clear");
@@ -340,8 +354,8 @@ export default function LabCapsules() {
           }, 1500);
           break;
         case "lost":
-          audio.gameOver();
-          audio.stopMusic();
+          audio.setTempoScale(1);
+          audio.playJingle(BOTTLE_FULL, { then: "stop" });
           moodRef.current = { mood: "worried", until: now + 60000 };
           run.lose();
           setHighScore(submitScore(GAME_ID, run.score));
@@ -355,6 +369,12 @@ export default function LabCapsules() {
     },
     [audio, openQuiz, say],
   );
+
+  // "Almost clean!": the music speeds up a little when only a few germs are left (not for K-2).
+  useEffect(() => {
+    if (screen !== "play") return;
+    audio.setTempoScale(!early && hud.germs > 0 && hud.germs <= 3 ? 1.1 : 1);
+  }, [audio, screen, hud.germs, early]);
 
   /* ------------------------------------------------------------------ main loop */
 
@@ -436,8 +456,8 @@ export default function LabCapsules() {
   const togglePause = useCallback(() => {
     if (screenRef.current !== "play") return;
     setPaused((p) => {
-      if (!p) audio.stopMusic();
-      else audio.startMusic();
+      // Paused: the music carries on quietly underneath.
+      audio.duck(!p);
       return !p;
     });
   }, [audio]);
@@ -651,7 +671,14 @@ export default function LabCapsules() {
               {screen === "play" ? (paused ? "▶ RESUME" : "❚❚ PAUSE") : "TITLE"}
             </button>
           )}
-          <button onClick={toggleMute} className={muted ? "" : "on"} aria-pressed={!muted}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button onClick={toggleMute} aria-pressed={false} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button onClick={() => setMusicOn(audio.toggleMusic())} className={musicOn ? "on" : ""} aria-pressed={musicOn} title="Music on/off">MUSIC {musicOn ? "ON" : "OFF"}</button>
+              <button onClick={() => setSfxOn(audio.toggleSfx())} className={sfxOn ? "on" : ""} aria-pressed={sfxOn} title="Sound effects on/off">SFX {sfxOn ? "ON" : "OFF"}</button>
+            </>
+          )}
           {speechSupported() && (
             <button onClick={toggleRead} className={readAloud ? "on" : ""} aria-pressed={readAloud}>
               READ ALOUD {readAloud ? "ON" : "OFF"}

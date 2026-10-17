@@ -11,8 +11,13 @@
  * rebooted, the power-earned screen, the power on stage select and in the save, and the power used in the
  * next stage. MATH only: every tile and every question is math (an ELA robot asks math).
  * Static Citadel: with all eight rebooted it opens, Lord Static mixes subjects, and the victory screen shows.
- * Touch on a 390x844 phone (and 360px): the pad shows, ◀ ▶ JUMP BEAM move and fire, an answer is tapped,
- * and nothing scrolls sideways. No console errors and no requests leave the site.
+ * Quiz Bots and power-ups (grades 3 and 8): play into a stage, beam a Quiz Bot and answer right (energy up, a
+ * power-up chip in the HUD) and wrong (nothing lost, the barrier still goes), use the Phase Cloak (zaps and
+ * mini-bots pass through) and Spring Boots (debug hook; a much higher jump onto the sky ledge), clear the last
+ * Quiz Bot, walk into the boss arena and reboot the boss; the cleared screen counts the Quiz Bots.
+ * Touch on a 390x844 phone (and 360px): the pad shows, ◀ ▶ JUMP BEAM move and fire, a Quiz Bot is beamed and
+ * answered by tapping, an answer is tapped, and nothing scrolls sideways. No console errors and no requests
+ * leave the site.
  */
 const path = require("path");
 const fs = require("fs");
@@ -20,6 +25,7 @@ const { execSync } = require("child_process");
 const { chromium } = require(path.join(execSync("npm root -g").toString().trim(), "playwright"));
 
 const BASE = process.env.BASE || "http://127.0.0.1:8843/robo-masters/";
+const ONLY = process.env.ONLY ? process.env.ONLY.split(",") : null;
 const ORIGIN = new URL(BASE).origin + "/";
 const SHOT = process.env.SHOT;
 
@@ -32,7 +38,21 @@ const sim = (page) =>
       hp: s.fight ? s.fight.hp : null, panel: s.boss ? s.boss.panel : null, sel: window.__rm.sim.selectedPower,
     };
   });
-const quiz = (page) => page.evaluate(() => (window.__rmQuiz ? { answer: window.__rmQuiz.q.answer, picked: window.__rmQuiz.picked, subject: window.__rmQuiz.q.subject, standard: window.__rmQuiz.q.standard, prompt: window.__rmQuiz.q.prompt, from: window.__rmQuiz.from } : null));
+const quiz = (page) => page.evaluate(() => (window.__rmQuiz ? { kind: window.__rmQuiz.kind, n: window.__rmQuiz.n, answer: window.__rmQuiz.q.answer, picked: window.__rmQuiz.picked, subject: window.__rmQuiz.q.subject, standard: window.__rmQuiz.q.standard, prompt: window.__rmQuiz.q.prompt, from: window.__rmQuiz.from } : null));
+/** Debug: puts Rivet on the ground a little before Quiz Bot i (or at x on the ground at feet y). */
+const placeAt = (page, x, feetY) =>
+  page.evaluate(([x, feetY]) => {
+    const sim = window.__rm.sim;
+    Object.assign(sim.s.p, { x, y: feetY - 20, vx: 0, vy: 0, onMover: -1, inv: 0 });
+  }, [x, feetY]);
+const toQuizBot = (page, i, back = 70) =>
+  page.evaluate(([i, back]) => {
+    const sim = window.__rm.sim;
+    const q = sim.level.quizBots[i];
+    sim.s.enemies.forEach((e) => { if (Math.abs(e.x - q.x) < 260) e.dead = true; });
+    Object.assign(sim.s.p, { x: q.barrierX - back, y: q.y + 30 - 20, vx: 0, vy: 0, onMover: -1, facing: 1, inv: 0 });
+    return { x: q.x, barrierX: q.barrierX };
+  }, [i, back]);
 const noSideways = (page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth && document.body.scrollWidth <= window.innerWidth);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -251,6 +271,194 @@ async function screenshot(page) {
   console.log(`saved ${SHOT} (${fs.statSync(SHOT).size} bytes)`);
 }
 
+/** Quiz Bots, power-ups and the boss at the end of a longer stage. */
+async function quizBots(browser, grade) {
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const page = await ctx.newPage();
+  const w = watch(page);
+  const problems = [];
+  await page.goto(`${BASE}?grade=${grade}&debug`, { waitUntil: "load" });
+  await page.waitForFunction(() => !!window.__rm);
+  await page.evaluate(() => localStorage.removeItem("arcade.robo-masters.save.v1"));
+  await page.keyboard.press("Enter");
+  await page.waitForSelector(".rm-grid");
+  await page.locator('.rm-tile[data-stage="splitz"]').click();
+  await waitFor(async () => (await sim(page))?.mode === "play", 4000);
+  const len = await page.evaluate(() => ({ arena: window.__rm.sim.level.arenaX, qb: window.__rm.sim.level.quizBots.length, cps: window.__rm.sim.level.checkpoints.length }));
+  if (len.arena < 3500 || len.qb !== 3 || len.cps < 7) problems.push(`stage shape: ${JSON.stringify(len)}`);
+  // Play into the stage with the keys.
+  const s0 = await sim(page);
+  await page.keyboard.down("ArrowRight");
+  for (let i = 0; i < 4; i++) {
+    await page.keyboard.press("z");
+    await sleep(280);
+  }
+  await page.keyboard.up("ArrowRight");
+  const s1 = await sim(page);
+  if (!(s1.x > s0.x + 60)) problems.push(`walking into the stage (${s0.x} -> ${s1.x})`);
+
+  // Quiz Bot 1: answer right.
+  await toQuizBot(page, 0);
+  await page.evaluate(() => { window.__rm.sim.s.energy = 6; });
+  await sleep(100);
+  // Walking into the barrier is blocked.
+  await page.keyboard.down("ArrowRight");
+  await sleep(900);
+  await page.keyboard.up("ArrowRight");
+  const blocked = await sim(page);
+  const qb0 = await page.evaluate(() => window.__rm.sim.level.quizBots[0]);
+  if (blocked.x + 12 > qb0.barrierX + 0.5 && !(await quiz(page))) problems.push(`the barrier did not stop Rivet (${blocked.x} vs ${qb0.barrierX})`);
+  if (!(await quiz(page))) {
+    await page.keyboard.down("z");
+    await waitFor(() => quiz(page), 3000, 50);
+    await page.keyboard.up("z");
+  }
+  let q = await quiz(page);
+  if (!q || q.kind !== "bot") problems.push(`beaming the Quiz Bot did not ask a Quiz Bot question (${JSON.stringify(q)})`);
+  else {
+    const head = await page.locator(".rm-quiz .head").innerText();
+    if (!head.includes("QUIZ BOT 1/3")) problems.push(`Quiz Bot header "${head}"`);
+    if (q.subject !== "math") problems.push(`Splitz's Quiz Bot asked ${q.subject} in MIXED`);
+    const e0 = (await sim(page)).energy;
+    await page.keyboard.press("ABCD"[q.answer].toLowerCase());
+    await sleep(200);
+    const v = await page.locator(".rm-quiz .verdict").innerText();
+    if (!v.includes("QUIZ BOT REBOOTED") || !v.includes("ENERGY")) problems.push(`Quiz Bot right verdict "${v}"`);
+    const e1 = (await sim(page)).energy;
+    if (!(e1 >= e0 + 10)) problems.push(`a right Quiz Bot answer should refill energy (${e0} -> ${e1})`);
+    await page.keyboard.press("Enter");
+    const chip = await waitFor(() => page.locator(".rm-boost").count(), 1500, 50);
+    if (!chip) problems.push("no power-up chip in the HUD after the first right Quiz Bot answer");
+    else {
+      const t = await page.locator(".rm-boost").first().innerText();
+      if (!/\d+s/.test(t)) problems.push(`power-up chip has no timer: "${t}"`);
+    }
+    const b = await page.evaluate(() => Object.entries(window.__rm.sim.s.boosts).filter(([, v]) => v > 0).map(([k]) => k));
+    if (b.length !== 1) problems.push(`one power-up should be running: ${b}`);
+    await page.keyboard.down("ArrowRight");
+    await sleep(700);
+    await page.keyboard.up("ArrowRight");
+    const past = await sim(page);
+    if (!(past.x > qb0.barrierX + 12)) problems.push(`the barrier should be gone (x ${past.x})`);
+  }
+
+  // Quiz Bot 2: answer wrong. Nothing lost, the barrier still goes.
+  await toQuizBot(page, 1, 50);
+  await sleep(100);
+  await page.keyboard.down("z");
+  await waitFor(() => quiz(page), 3000, 50);
+  await page.keyboard.up("z");
+  q = await quiz(page);
+  if (!q || q.kind !== "bot") problems.push("second Quiz Bot did not ask");
+  else {
+    const before = await sim(page);
+    await page.keyboard.press(String(((q.answer + 1) % 4) + 1));
+    await sleep(200);
+    const after = await sim(page);
+    const v = await page.locator(".rm-quiz .verdict").innerText();
+    if (!v.includes("STILL REBOOTS")) problems.push(`Quiz Bot wrong verdict "${v}"`);
+    if (after.lives !== before.lives || after.energy < before.energy || after.power < before.power) problems.push(`a wrong Quiz Bot answer cost something ${JSON.stringify(before)} -> ${JSON.stringify(after)}`);
+    if (!(await page.locator(".rm-quiz .why").innerText()).length) problems.push("no explanation after a wrong Quiz Bot answer");
+    await page.keyboard.press("Enter");
+    await sleep(100);
+  }
+
+  // Phase Cloak (invisibility): zaps and a mini-bot pass right through.
+  await page.evaluate(() => window.__rm.giveBoost("phase"));
+  await sleep(150);
+  if (!(await page.locator('.rm-boost[data-boost="phase"]').count())) problems.push("Phase Cloak chip not shown");
+  const ph0 = await sim(page);
+  await page.evaluate(() => {
+    const s = window.__rm.sim.s;
+    s.enemies.push({ kind: "walker", x: s.p.x, y: s.p.y + 8, w: 14, h: 12, vx: 0, vy: 0, hp: 1, dead: false, t: 0, dir: -1, sx: s.p.x, sy: s.p.y + 8, flash: 0 });
+    for (let i = 0; i < 3; i++) s.shots.push({ x: s.p.x + i * 3, y: s.p.y + 4, w: 8, h: 8, vx: 0, vy: 0, grav: 0, life: 40, from: "foe", kind: "zap", delay: 0, floor: "none" });
+  });
+  await sleep(500);
+  const ph1 = await sim(page);
+  const hurts = await page.evaluate(() => window.__rm.sim.s.hurts);
+  if (ph1.energy < ph0.energy || hurts > 0) problems.push(`Phase Cloak: hurt by a zap/mini-bot (energy ${ph0.energy} -> ${ph1.energy}, hurts ${hurts})`);
+  await page.evaluate(() => { const s = window.__rm.sim.s; s.enemies = s.enemies.filter((e) => !(e.kind === "walker" && Math.abs(e.x - s.p.x) < 30)); s.boosts.phase = 0; });
+
+  // Spring Boots: a much higher jump, onto the sky ledge.
+  const ledge = await page.evaluate(() => window.__rm.sim.level.skyLedges[0]);
+  await placeAt(page, ledge.x - 30, ledge.y + 80);
+  await sleep(150);
+  const jumpPeak = async () => {
+    const y0 = (await sim(page)).y;
+    let top = y0;
+    await page.keyboard.down("ArrowUp");
+    const t0 = Date.now();
+    let right = false;
+    while (Date.now() - t0 < 1300) {
+      const s = await sim(page);
+      top = Math.min(top, s.y);
+      if (!right && Date.now() - t0 > 60) { await page.keyboard.down("ArrowRight"); right = true; }
+      if (right && Date.now() - t0 > 520) { await page.keyboard.up("ArrowRight"); right = null; }
+      await sleep(15);
+    }
+    if (right) await page.keyboard.up("ArrowRight");
+    await page.keyboard.up("ArrowUp");
+    await sleep(300);
+    return y0 - top;
+  };
+  const plainH = await jumpPeak();
+  await placeAt(page, ledge.x - 30, ledge.y + 80);
+  await page.evaluate(() => window.__rm.giveBoost("spring"));
+  await sleep(150);
+  if (!(await page.locator('.rm-boost[data-boost="spring"]').count())) problems.push("Spring Boots chip not shown");
+  const springH = await jumpPeak();
+  const onLedge = await page.evaluate((ly) => { const p = window.__rm.sim.s.p; return Math.abs(p.y + 20 - ly) < 1 && p.onGround; }, ledge.y);
+  if (!(springH > plainH + 30)) problems.push(`Spring Boots jump ${springH.toFixed(0)} px vs normal ${plainH.toFixed(0)} px`);
+  if (!onLedge) problems.push("Spring Boots did not land on the sky ledge");
+
+  // Quiz Bot 3, then on to the boss on foot.
+  await toQuizBot(page, 2, 50);
+  await sleep(100);
+  await page.keyboard.down("z");
+  await waitFor(() => quiz(page), 3000, 50);
+  await page.keyboard.up("z");
+  q = await quiz(page);
+  if (!q || q.kind !== "bot" || q.n !== 2) problems.push(`third Quiz Bot: ${JSON.stringify(q)}`);
+  else {
+    await page.locator(".rm-quiz .opt").nth(q.answer).click();
+    await sleep(150);
+    await page.locator(".rm-quiz .rm-cta").click();
+  }
+  const door = await page.evaluate(() => ({ x: window.__rm.sim.level.arenaX, y: window.__rm.sim.level.arenaY }));
+  await placeAt(page, door.x - 70, door.y);
+  await page.keyboard.down("ArrowRight");
+  const intro = await waitFor(async () => (await sim(page))?.mode === "bossIntro" || (await sim(page))?.mode === "boss", 4000, 50);
+  await page.keyboard.up("ArrowRight");
+  if (!intro) problems.push("walking right did not enter the boss arena");
+  await waitFor(async () => (await sim(page))?.mode === "boss", 4000);
+  let rounds = 0;
+  while (rounds++ < 12) {
+    const s = await sim(page);
+    if (!s || s.mode === "clear" || s.mode === "bossDown") break;
+    if (!(await quiz(page))) {
+      if (rounds === 1) await openPanel(page, problems, `grade ${grade} quiz-bot stage boss panel`);
+      else await page.evaluate(() => window.__rm.forceQuestion());
+      await waitFor(() => quiz(page), 2000);
+    }
+    q = await quiz(page);
+    if (!q) break;
+    if (q.kind !== "boss") problems.push(`boss panel kind ${q.kind}`);
+    await page.keyboard.press(String(q.answer + 1));
+    await sleep(120);
+    await page.keyboard.press("Enter");
+    await sleep(120);
+  }
+  const cleared = await waitFor(() => page.locator("[data-power]").isVisible().catch(() => false), 6000);
+  if (!cleared) problems.push("boss not rebooted");
+  else {
+    const n = await page.locator("[data-quizbots]").getAttribute("data-quizbots").catch(() => null);
+    if (n !== "2") problems.push(`cleared screen Quiz Bots right: ${n} (want 2)`);
+  }
+  if (!(await noSideways(page))) problems.push("sideways scroll");
+  await ctx.close();
+  return { problems, errors: w.errors, external: w.external };
+}
+
 async function mathOnly(browser) {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const page = await ctx.newPage();
@@ -368,6 +576,31 @@ async function phone(browser, grade, width) {
   await sleep(30);
   if (!((await sim(page)).shots > 0) && !(await waitFor(async () => (await sim(page)).shots > 0, 300, 20))) problems.push(`${width}px: BEAM did not fire`);
   if (!(await noSideways(page))) problems.push(`${width}px: sideways scroll while playing`);
+  // A Quiz Bot, beamed with the touch BEAM button and answered with a tap.
+  await toQuizBot(page, 0, 60);
+  await sleep(100);
+  {
+    const el = page.locator('[aria-label="Reboot beam"]');
+    await el.dispatchEvent("pointerdown", { pointerId: 8, pointerType: "touch", isPrimary: true });
+    await waitFor(() => quiz(page), 3000, 50);
+    await el.dispatchEvent("pointerup", { pointerId: 8, pointerType: "touch", isPrimary: true });
+  }
+  const bq = await quiz(page);
+  if (!bq || bq.kind !== "bot") problems.push(`${width}px: BEAM did not open a Quiz Bot question`);
+  else {
+    await page.locator(".rm-quiz .opt").nth(bq.answer).tap();
+    await sleep(150);
+    if (!(await page.locator(".rm-quiz .verdict").innerText()).includes("QUIZ BOT REBOOTED")) problems.push(`${width}px: Quiz Bot right verdict`);
+    if (!(await noSideways(page))) problems.push(`${width}px: sideways scroll with a Quiz Bot question open`);
+    await page.locator(".rm-quiz .rm-cta").tap();
+    const chip = await waitFor(() => page.locator(".rm-boost").count(), 1500, 50);
+    if (!chip) problems.push(`${width}px: no power-up chip`);
+    else {
+      const box = await page.locator(".rm-boost").first().boundingBox();
+      if (!box || box.x < 0 || box.x + box.width > width + 0.5) problems.push(`${width}px: power-up chip off screen`);
+    }
+    if (!(await noSideways(page))) problems.push(`${width}px: sideways scroll with a power-up chip`);
+  }
   await page.evaluate(() => window.__rm.warpToBoss());
   await waitFor(async () => (await sim(page))?.mode === "boss", 4000);
   await page.evaluate(() => window.__rm.forceQuestion());
@@ -391,12 +624,14 @@ async function phone(browser, grade, width) {
   const browser = await chromium.launch();
   const results = [];
   try {
-    for (const g of ["3", "8"]) results.push([`desktop grade ${g}`, await desktop(browser, g)]);
-    results.push(["MATH only", await mathOnly(browser)]);
-    results.push(["Static Citadel", await citadel(browser)]);
-    results.push(["phone 390 grade 3", await phone(browser, "3", 390)]);
-    results.push(["phone 390 grade 8", await phone(browser, "8", 390)]);
-    results.push(["phone 360 grade 3", await phone(browser, "3", 360)]);
+    const want = (name) => !ONLY || ONLY.some((o) => name.includes(o));
+    for (const g of ["3", "8"]) if (want(`desktop grade ${g}`)) results.push([`desktop grade ${g}`, await desktop(browser, g)]);
+    for (const g of ["3", "8"]) if (want(`quiz bots grade ${g}`)) results.push([`quiz bots + power-ups grade ${g}`, await quizBots(browser, g)]);
+    if (want("MATH only")) results.push(["MATH only", await mathOnly(browser)]);
+    if (want("Static Citadel")) results.push(["Static Citadel", await citadel(browser)]);
+    if (want("phone 390 grade 3")) results.push(["phone 390 grade 3", await phone(browser, "3", 390)]);
+    if (want("phone 390 grade 8")) results.push(["phone 390 grade 8", await phone(browser, "8", 390)]);
+    if (want("phone 360 grade 3")) results.push(["phone 360 grade 3", await phone(browser, "3", 360)]);
   } finally {
     await browser.close();
   }

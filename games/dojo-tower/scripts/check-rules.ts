@@ -511,9 +511,13 @@ function placeEnemy(sim: DojoSim, kind: "ninja" | "blob" | "thrower" | "scroll",
   }
   // Checkpoint: a run can start at floor 6 (Continue after a game over on 6+).
   check(CHECKPOINT === 6, () => "checkpoint is floor 6");
-  const c = new DojoSim("g35", { floor: CHECKPOINT });
-  check(c.floor === 6 && c.dir === -1 && c.lives === START_LIVES && c.score === 0 && c.mode === "intro", () => `continue from floor 6: floor ${c.floor} dir ${c.dir}`);
+  // Continue keeps the score the student had at game over.
+  const over = new DojoSim("g35", { floor: 7 });
+  over.score = 12340;
+  const c = new DojoSim("g35", { floor: CHECKPOINT, score: over.score });
+  check(c.floor === 6 && c.dir === -1 && c.lives === START_LIVES && c.score === 12340 && c.mode === "intro", () => `continue from floor 6: floor ${c.floor} dir ${c.dir} score ${c.score} (should keep 12340)`);
   check(c.events.some((e) => e.type === "floorStart" && e.floor === 6), () => "continue emits floorStart 6");
+  check(new DojoSim("g35").score === 0 && new DojoSim("g35", { floor: CHECKPOINT }).score === 0, () => "a fresh climb starts at score 0");
 }
 
 {

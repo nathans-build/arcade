@@ -1,4 +1,5 @@
 import type { ChipAudio, Grade } from "@/kit";
+import { GAME_OVER, PAGE_COMPLETE, WORD_BUILT } from "@/music";
 import {
   SEG_H,
   bandOf,
@@ -396,7 +397,7 @@ export class WormEngine {
     const bonus = 200 + 100 * this.level + (this.wrongs === 0 ? 200 : 0);
     this.score += bonus;
     this.showBanner([ch.word, `+${bonus}${this.wrongs === 0 ? " PERFECT!" : ""}`], PALETTE.green, 2);
-    this.audio.correct();
+    this.audio.playJingle(WORD_BUILT);
     this.homing = [];
     this.cb.onSolved(ch, this.wrongs === 0);
   }
@@ -724,7 +725,8 @@ export class WormEngine {
       if (this.dyingT <= 0) {
         if (this.lives <= 0) {
           this.mode = "over";
-          this.audio.gameOver();
+          this.audio.stopMusic();
+          this.audio.playJingle(GAME_OVER, { then: "stop" });
           this.cb.onGameOver();
         } else {
           this.mode = "play";
@@ -785,7 +787,7 @@ export class WormEngine {
         if (this.wordNo >= tune.perLevel) {
           this.mode = "checkpoint";
           this.releaseAllKeys();
-          this.audio.checkpoint();
+          this.audio.playJingle(PAGE_COMPLETE);
           this.cb.onLevelClear(this.level);
         } else {
           this.mode = "play";

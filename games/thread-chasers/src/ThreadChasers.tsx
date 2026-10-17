@@ -23,6 +23,9 @@ import { BAND_RULES } from "@/game/bands";
 import { GAME_ID, ThreadGame } from "@/game/engine";
 import { Screen, W, H } from "@/game/render";
 import "@/tc.css";
+import { exposeMusicDebug } from "@/kit/audio";
+import { musicOn } from "@/game/rules";
+import { ARCHIVE_SONG, JINGLES, LOOM_SONG, SONGS, THREAD_SONG } from "@/music";
 
 /** Thread Chasers' own 16-step bassline: a winding, spinning-wheel line in E minor (Hz; 0 = rest). */
 const BASS = [82, 0, 98, 123, 0, 110, 98, 0, 73, 0, 92, 110, 0, 98, 87, 0];
@@ -55,6 +58,8 @@ export default function ThreadChasers() {
   );
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOnState, setMusicOnState] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
   const [touch, setTouch] = useState(false);
   const [layout, setLayout] = useState<{ mode: "stack" | "side"; cw: number }>({ mode: "stack", cw: 640 });
   const [highScore, setHighScore] = useState(() => loadProgress(GAME_ID).highScore);
@@ -108,6 +113,46 @@ export default function ThreadChasers() {
     if (u.phase === "report" || u.phase === "solved") setHighScore(loadProgress(GAME_ID).highScore);
   }, [u.phase]);
 
+  // Music: the Archive tune on the title, shelf, briefs and report; the thread tune while chasing; the
+  // Loom waltz while re-weaving. It starts on the first tap or key, stays silent on sensitive beads,
+  // thins to lead + bass while a question or a dead-end explanation is up, and hurries a little when
+  // the lantern is nearly out.
+  const musicStarted = useRef(false);
+  const startMusic = useCallback(() => {
+    audio.unlock();
+    if (!musicStarted.current) {
+      musicStarted.current = true;
+      bump();
+    }
+  }, [audio]);
+  useEffect(() => {
+    window.addEventListener("pointerdown", startMusic);
+    window.addEventListener("keydown", startMusic);
+    return () => {
+      window.removeEventListener("pointerdown", startMusic);
+      window.removeEventListener("keydown", startMusic);
+    };
+  }, [startMusic]);
+  useEffect(() => {
+    audio.duckLevel = 0.22;
+    exposeMusicDebug(audio, SONGS, JINGLES);
+  }, [audio]);
+  const purpose = u.phase === "question" ? u.q?.purpose : undefined;
+  const weaving = purpose === "reweave" || purpose === "why" || purpose === "transmission" || u.phase === "solved";
+  const archive = u.phase === "title" || u.phase === "cases" || u.phase === "brief" || u.phase === "report";
+  const quiet = !archive && !weaving && !musicOn(game.bead);
+  const lanternLow = (u.phase === "bead" || u.phase === "map") && !u.sensitive && u.lantern <= 3;
+  useEffect(() => {
+    if (!musicStarted.current || paused) return;
+    if (quiet) {
+      audio.stopSong();
+      return;
+    }
+    audio.playSong(archive ? ARCHIVE_SONG : weaving ? LOOM_SONG : THREAD_SONG);
+    audio.setIntensity(u.phase === "question" || u.phase === "deadend" ? "calm" : "full");
+    audio.setTempoScale(lanternLow ? 1.06 : 1);
+  });
+
   const chooseGrade = useCallback(
     (g: Grade) => {
       rememberGrade(g);
@@ -118,10 +163,10 @@ export default function ThreadChasers() {
   );
 
   const start = useCallback(() => {
-    audio.unlock();
+    startMusic();
     rememberGrade(game.ui.grade);
     game.start();
-  }, [audio, game]);
+  }, [startMusic, game]);
 
   const togglePause = useCallback(
     (force?: boolean) => {
@@ -131,8 +176,8 @@ export default function ThreadChasers() {
         if (screenRef.current) screenRef.current.paused = np;
         if (np) {
           stopSpeaking();
-          audio.stopMusic();
-        } else if (!game.ui.sensitive) audio.startMusic();
+          audio.stopSong();
+        }
         return np;
       });
     },
@@ -263,7 +308,14 @@ export default function ThreadChasers() {
         <a href={arcadeLink(grade)} className="tc-pixel">◀ ARCADE</a>
         <div className="tc-tools">
           {playing && <button className="tc-pixel" onClick={() => togglePause()}>{paused ? "RESUME" : "PAUSE"}</button>}
-          <button className="tc-pixel" onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button className="tc-pixel" onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button className="tc-pixel" onClick={() => setMusicOnState(audio.toggleMusic())} aria-pressed={musicOnState} title="Music on/off">{musicOnState ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button className="tc-pixel" onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off (M mutes everything)">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && (
             <button className="tc-pixel" onClick={toggleReadAloud} aria-pressed={readAloud}>
               {readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}

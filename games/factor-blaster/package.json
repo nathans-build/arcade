@@ -9,7 +9,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "check": "tsx scripts/check-splits.ts",
-    "test": "npm run check"
+    "test": "npm run check && tsx scripts/check-music.ts"
   },
   "dependencies": {
     "react": "^18.3.1",

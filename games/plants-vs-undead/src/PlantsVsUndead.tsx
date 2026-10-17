@@ -28,6 +28,8 @@ import { H, LEVELS, PLANTS, TRAY, UNDEAD, W, availableOn, tuningFor, type Undead
 import { Engine, type HudState, type Tool } from "@/pvu/engine";
 import type { Stats } from "@/pvu/sim";
 import { spriteURL } from "@/pvu/sprites";
+import { exposeMusicDebug } from "@/kit/audio";
+import { JINGLES, SONGS } from "@/music";
 import "@/pvu/pvu.css";
 
 const GAME_ID = "plants-vs-undead";
@@ -112,6 +114,8 @@ export default function PlantsVsUndead() {
   const [log, setLog] = useState<LogEntry[]>([]);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
   const [readAloud, setReadAloud] = useState(() => readAloudPref(isEarlyReader(initialGrade("3"))));
   const [touch, setTouch] = useState(false);
   const [highScore, setHighScore] = useState(() => loadProgress(GAME_ID).highScore);
@@ -146,6 +150,12 @@ export default function PlantsVsUndead() {
     mq.addEventListener?.("change", on);
     return () => mq.removeEventListener?.("change", on);
   }, []);
+
+  useEffect(() => exposeMusicDebug(audio, SONGS, JINGLES), [audio]);
+  // While a question is on screen the music thins to lead + bass.
+  useEffect(() => {
+    audio.setIntensity(asking ? "calm" : "full");
+  }, [audio, asking]);
 
   const addLog = useCallback((e: LogEntry) => setLog((l) => [...l, e]), []);
 
@@ -199,7 +209,8 @@ export default function PlantsVsUndead() {
 
   const startGame = useCallback(() => {
     audio.unlock();
-    audio.startMusic();
+    audio.setTempoScale(1);
+    audio.setIntensity("full");
     rememberGrade(grade);
     deckRef.current = new PlantDeck(grade, GAME_ID);
     setLog([]);
@@ -244,7 +255,7 @@ export default function PlantsVsUndead() {
     if (p) {
       stopSpeaking();
       audio.stopMusic();
-    } else audio.startMusic();
+    } else audio.playSong(e.currentSong());
   }, [audio]);
 
   const toggleReadAloud = useCallback(() => {
@@ -367,7 +378,14 @@ export default function PlantsVsUndead() {
         <a href={arcadeLink(grade)}>◀ ARCADE</a>
         <div className="pvu-tools">
           {playing && <button onClick={() => togglePause()}>{paused ? "RESUME" : "PAUSE"}</button>}
-          <button onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off (M mutes everything)">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && (
             <button onClick={toggleReadAloud} aria-pressed={readAloud}>
               {readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}

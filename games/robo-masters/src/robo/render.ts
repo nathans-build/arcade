@@ -1,6 +1,7 @@
 import { moverPos, pulseOn, pulseWarn, SCREEN_H, SCREEN_W, type Level } from "./levels";
 import { FINAL_BOSS, POWERS, ROBOTS, type PowerId, type RobotId, type StageTheme } from "./robots";
-import { BOSS_H, BOSS_W, MAX_ENERGY, PH, POWER_MAX, PW, type Sim } from "./sim";
+import { BOOSTS, type BoostId } from "./boosts";
+import { BOSS_H, BOSS_W, MAX_ENERGY, PH, POWER_MAX, PW, QUIZ_BOT_H, QUIZ_BOT_W, type Sim } from "./sim";
 
 /*
  * Pixel art, all drawn in code on a 320x200 logical screen (the canvas is 640x400, scaled x2).
@@ -44,6 +45,11 @@ export interface HeroPose {
   dash?: boolean;
   glide?: boolean;
   blink?: boolean;
+  /** Power-ups: see-through Phase Cloak, Spring Boots, Shield Bubble, Turbo Treads. */
+  phase?: boolean;
+  spring?: boolean;
+  bubble?: boolean;
+  turbo?: boolean;
 }
 
 /** Rivet, drawn with its hitbox (12x20) at x,y; the sprite is 16x22. */
@@ -51,6 +57,7 @@ export function drawHero(ctx: Ctx, x: number, y: number, pose: HeroPose) {
   if (pose.blink) return;
   const { main, dark } = pose.colors;
   ctx.save();
+  if (pose.phase) ctx.globalAlpha = 0.45 + 0.1 * Math.sin(pose.frame);
   ctx.translate(Math.round(x + PW / 2), Math.round(y));
   if (pose.facing < 0) ctx.scale(-1, 1);
   const ox = -8;
@@ -68,8 +75,11 @@ export function drawHero(ctx: Ctx, x: number, y: number, pose: HeroPose) {
   const step = pose.air ? 0 : pose.frame % 2;
   r(ctx, ox + 3, 15, 4, 5 - step, dark);
   r(ctx, ox + 9, 15, 4, 4 + step, dark);
-  r(ctx, ox + 2, 19 - step, 5, 2, "#222a44");
-  r(ctx, ox + 9, 18 + step, 5, 2, "#222a44");
+  const boot = pose.spring ? "#3fdf5a" : "#222a44";
+  r(ctx, ox + 2, 19 - step, 5, 2, boot);
+  r(ctx, ox + 9, 18 + step, 5, 2, boot);
+  if (pose.spring) { r(ctx, ox + 3, 21, 3, 1, "#ffd23f"); r(ctx, ox + 10, 21, 3, 1, "#ffd23f"); }
+  if (pose.turbo) { r(ctx, ox - 6, 17, 6, 1, "#ffb35e"); r(ctx, ox - 9, 19, 7, 1, "#ffb35e88"); }
   // body
   r(ctx, ox + 3, 8, 10, 8, main);
   r(ctx, ox + 5, 10, 4, 3, "#f2f4ff");
@@ -86,6 +96,14 @@ export function drawHero(ctx: Ctx, x: number, y: number, pose: HeroPose) {
   r(ctx, ox + 6, 3, 7, 3, "#0a1030"); // visor
   r(ctx, ox + 10, 4, 2, 1, "#5ef0ff");
   ctx.restore();
+  if (pose.bubble) {
+    ctx.strokeStyle = "#9ad1ffcc";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(Math.round(x + PW / 2), Math.round(y + PH / 2), 14, 0, Math.PI * 2);
+    ctx.stroke();
+    r(ctx, x + PW / 2 - 7, y + PH / 2 - 9, 3, 2, "#ffffffcc");
+  }
   if (pose.shield) {
     ctx.strokeStyle = "#9ad1ff";
     ctx.lineWidth = 1;
@@ -386,7 +404,27 @@ function drawPickup(ctx: Ctx, kind: string, x: number, y: number, t: number) {
   if (kind === "bolt") {
     r(ctx, x + 2, y, 6, 3, "#cfd6ff"); r(ctx, x + 4, y + 3, 2, 7, "#9aa4c8"); r(ctx, x + 3, y + 1, 4, 1, "#5a6488");
   } else if (kind === "energy") {
+    if (Math.floor(t / 12) % 2) r(ctx, x - 1, y - 1, 12, 12, "#ffe06644");
     r(ctx, x + 1, y + 1, 8, 8, "#f2f4ff"); r(ctx, x + 1, y + 5, 8, 4, "#e3262f"); r(ctx, x, y + 4, 10, 1, "#5a6488");
+    r(ctx, x + 4, y + 2, 2, 2, "#ffe066");
+  } else if (kind === "cell") {
+    // A big energy cell: a glowing battery with a bolt.
+    r(ctx, x - 2, y - 3, 14, 15, Math.floor(t / 8) % 2 ? "#ffe06655" : "#ffe06622");
+    r(ctx, x + 3, y - 2, 4, 2, "#9aa4c8");
+    r(ctx, x, y, 10, 11, "#f2f4ff");
+    r(ctx, x + 1, y + 1, 8, 9, "#2a2a3a");
+    r(ctx, x + 1, y + 4, 8, 6, "#ffd23f");
+    r(ctx, x + 5, y + 2, 2, 3, "#ffffff"); r(ctx, x + 3, y + 5, 3, 2, "#ffffff"); r(ctx, x + 4, y + 7, 2, 2, "#ffffff");
+  } else if (kind === "boost" || kind.startsWith("boost:")) {
+    // A power-up capsule: a rainbow-flashing "?" bubble (or the power-up's own colour once known).
+    const id = kind.startsWith("boost:") ? (kind.slice(6) as BoostId) : null;
+    const cyc = ["#ff7ad1", "#7dff7a", "#5ef0ff", "#ffb35e", "#c9b8ff", "#9ad1ff"];
+    const c = id ? BOOSTS[id].color : cyc[Math.floor(t / 6) % cyc.length];
+    disc(ctx, x + 5, y + 5, 7, "#ffffff33");
+    disc(ctx, x + 5, y + 5, 5, c);
+    disc(ctx, x + 4, y + 4, 2, "#ffffffcc");
+    if (id) drawBoostIcon(ctx, id, x, y, 1);
+    else { r(ctx, x + 3, y + 2, 4, 1, "#2a1a4a"); r(ctx, x + 6, y + 3, 1, 2, "#2a1a4a"); r(ctx, x + 4, y + 5, 2, 1, "#2a1a4a"); r(ctx, x + 4, y + 7, 2, 1, "#2a1a4a"); }
   } else {
     r(ctx, x + 1, y + 1, 8, 8, "#f2f4ff"); r(ctx, x + 1, y + 5, 8, 4, "#2456e8"); r(ctx, x, y + 4, 10, 1, "#5a6488");
   }
@@ -408,6 +446,55 @@ export function drawPowerIcon(ctx: Ctx, p: PowerId, x: number, y: number, s = 1)
     case "leaf": R(3, 2, 4, 6, ink); R(2, 4, 6, 2, ink); R(5, 7, 1, 2, ink); break;
     case "time": R(2, 2, 6, 6, ink); R(3, 3, 4, 4, P.color); R(4, 3, 1, 2, ink); R(4, 5, 2, 1, ink); break;
   }
+}
+
+/** A 10x10 power-up icon (Phase Cloak, Spring Boots, Shield Bubble, Turbo Treads, Rapid Beam, Bolt Magnet). */
+export function drawBoostIcon(ctx: Ctx, id: BoostId, x: number, y: number, s = 1) {
+  const B = BOOSTS[id];
+  const R = (a: number, b: number, w: number, h: number, c: string) => r(ctx, x + a * s, y + b * s, w * s, h * s, c);
+  R(0, 0, 10, 10, B.color2);
+  R(1, 1, 8, 8, B.color);
+  const ink = B.color2;
+  switch (id) {
+    case "phase": R(3, 2, 4, 5, "#ffffff"); R(2, 4, 1, 4, "#ffffff"); R(7, 4, 1, 4, "#ffffff"); R(3, 7, 1, 1, "#ffffff"); R(5, 7, 1, 1, "#ffffff"); R(4, 3, 1, 1, ink); R(6, 3, 1, 1, ink); break;
+    case "spring": R(3, 2, 4, 1, ink); R(4, 3, 2, 1, ink); R(3, 4, 4, 1, ink); R(4, 5, 2, 1, ink); R(2, 7, 6, 2, ink); break;
+    case "bubble": R(3, 2, 4, 1, ink); R(2, 3, 1, 4, ink); R(7, 3, 1, 4, ink); R(3, 7, 4, 1, ink); R(3, 3, 1, 1, "#ffffff"); break;
+    case "turbo": R(2, 3, 5, 1, ink); R(1, 5, 6, 1, ink); R(2, 7, 5, 1, ink); R(7, 3, 1, 5, ink); break;
+    case "rapid": R(2, 3, 3, 1, ink); R(5, 3, 3, 1, "#ffffff"); R(2, 6, 3, 1, ink); R(5, 6, 3, 1, "#ffffff"); break;
+    case "magnet": R(2, 2, 2, 5, ink); R(6, 2, 2, 5, ink); R(2, 7, 6, 1, ink); R(2, 2, 2, 1, "#ffffff"); R(6, 2, 2, 1, "#ffffff"); break;
+  }
+}
+
+/** A Quiz Bot: a round, gold-rimmed hover bot carrying a big "?" screen, plugged into its static barrier. */
+function drawQuizBot(ctx: Ctx, x: number, y: number, t: number, i: number) {
+  const glow = Math.floor(t / 6) % 2;
+  disc(ctx, x + QUIZ_BOT_W / 2, y + QUIZ_BOT_H / 2, 14, glow ? "#ffd23f33" : "#c9b8ff33");
+  // propeller
+  const blade = Math.floor(t / 3) % 2;
+  r(ctx, x + (blade ? 1 : 4), y - 3, blade ? 14 : 8, 1, "#f2f4ff");
+  r(ctx, x + 7, y - 2, 2, 2, "#ffd23f");
+  // body: a TV screen with a gold frame
+  r(ctx, x, y, QUIZ_BOT_W, 15, "#ffd23f");
+  r(ctx, x + 1, y + 1, QUIZ_BOT_W - 2, 13, "#6a4ad1");
+  r(ctx, x + 2, y + 2, QUIZ_BOT_W - 4, 11, glow ? "#2a1a6a" : "#1a1050");
+  // "?" on the screen
+  const q = "#ffffff";
+  r(ctx, x + 6, y + 3, 4, 1, q); r(ctx, x + 10, y + 4, 1, 2, q); r(ctx, x + 5, y + 4, 1, 1, q);
+  r(ctx, x + 8, y + 6, 2, 1, q); r(ctx, x + 7, y + 7, 2, 2, q); r(ctx, x + 7, y + 10, 2, 2, q);
+  // little arms holding the screen, and a happy light
+  r(ctx, x - 3, y + 6, 3, 2, "#9aa4c8"); r(ctx, x + QUIZ_BOT_W, y + 6, 3, 2, "#9aa4c8");
+  r(ctx, x + 4, y + 15, 8, 3, "#9aa4c8");
+  r(ctx, x + 6, y + 18, 4, 3, i % 2 ? "#5fff8a" : "#ff7ad1");
+  // a cable into the barrier
+  r(ctx, x + QUIZ_BOT_W, y + 12, 4, 1, "#ffd23f");
+}
+
+/** A static barrier: a fizzing wall of glitch that only goes away when its Quiz Bot is rebooted. */
+function drawBarrier(ctx: Ctx, x: number, top: number, h: number, t: number, hazard: string) {
+  r(ctx, x, top, 12, h, "#1a1050cc");
+  for (let yy = top + ((t * 2) % 8); yy < top + h; yy += 8) r(ctx, x + ((yy >> 3) % 3) * 3, yy, 6, 2, (yy >> 3) % 2 ? "#c9b8ff" : hazard);
+  r(ctx, x, top, 1, h, "#ffd23f88");
+  r(ctx, x + 11, top, 1, h, "#ffd23f88");
 }
 
 // ------------------------------------------------------------------ scenery
@@ -551,10 +638,24 @@ function drawLevel(ctx: Ctx, L: Level, th: StageTheme, s: Sim["s"], t: number) {
       r(ctx, x, sd.y, sd.w, sd.h, th.edge);
       r(ctx, x + 1, sd.y + 1, sd.w - 2, sd.h - 2, th.ground);
       r(ctx, x + 2, sd.y + 2, sd.w - 4, 1, "#ffffff44");
+    } else if (sd.kind === "barrier") {
+      if (!s.qbDone[sd.qb!]) drawBarrier(ctx, x, 0, sd.y + sd.h, t, th.hazard);
     } else {
       r(ctx, x, sd.y, sd.w, sd.h, "#1a1a2a");
       r(ctx, x, sd.y, 2, sd.h, th.edge);
     }
+  }
+  // Rest stop: a recharge sign
+  if (L.restX && vis(L.restX - 30, 60)) {
+    const x = L.restX - camX;
+    const cp = L.checkpoints.find((c) => c.x === L.restX);
+    const y = cp ? cp.y : 160;
+    r(ctx, x + 14, y - 34, 2, 34, "#9aa4c8");
+    r(ctx, x + 2, y - 46, 28, 13, "#1a1a2a");
+    r(ctx, x + 3, y - 45, 26, 11, "#2a6a3a");
+    ctx.fillStyle = "#ffe066";
+    ctx.font = "5px 'Press Start 2P', monospace";
+    ctx.fillText("REST", x + 6, y - 37);
   }
   // Boss door (and the arena wall once it has closed)
   const doorX = L.arenaX - 16 - camX;
@@ -649,7 +750,13 @@ export function drawGame(ctx: Ctx, sim: Sim, look: Look, particles: Particle[], 
   ctx.save();
   ctx.translate(-Math.round(s.camX), 0);
   for (const e of s.enemies) if (!e.dead && e.x + e.w > s.camX - 4 && e.x < s.camX + SCREEN_W + 4) drawEnemy(ctx, e, s.wt, th.hazard);
-  for (const it of s.pickups) drawPickup(ctx, it.kind, it.x, it.y, t);
+  for (const it of s.pickups) if (it.x + 12 > s.camX && it.x < s.camX + SCREEN_W) drawPickup(ctx, it.kind === "boost" && it.boost ? `boost:${it.boost}` : it.kind, it.x, it.y, t);
+  // Quiz Bots
+  L.quizBots.forEach((_, i) => {
+    if (s.qbDone[i]) return;
+    const q = sim.quizBotRect(i);
+    if (q.x + 30 > s.camX && q.x - 20 < s.camX + SCREEN_W) drawQuizBot(ctx, q.x, q.y, t, i);
+  });
   // Boss
   const b = s.boss;
   if (b && s.mode !== "clear") {
@@ -684,6 +791,7 @@ export function drawGame(ctx: Ctx, sim: Sim, look: Look, particles: Particle[], 
       facing: p.facing, frame: Math.floor(Math.abs(p.x) / 6), air: !p.onGround,
       colors: powerColors(sim.selectedPower), shield: p.shieldT > 0, dash: p.dashT > 0, glide: p.glideT > 0,
       blink: p.inv > 0 && Math.floor(t / 3) % 2 === 0 && p.shieldT <= 0,
+      phase: s.boosts.phase > 0, spring: s.boosts.spring > 0, bubble: s.boosts.bubble > 0, turbo: s.boosts.turbo > 0 && p.vx !== 0,
     });
   }
   // Particles
@@ -720,6 +828,26 @@ function drawHud(ctx: Ctx, sim: Sim, look: Look, t: number) {
   const sel = sim.selectedPower;
   bar(ctx, 17, 6, sel ? s.power : 0, POWER_MAX, sel ? POWERS[sel].color : "#5a6488", "P");
   if (sel) drawPowerIcon(ctx, sel, 28, 6);
+  // Power-ups: icon + a shrinking timer bar (blinks in the last 2 s).
+  let bx = sel ? 42 : 28;
+  for (const id of Object.keys(s.boosts) as BoostId[]) {
+    const left = s.boosts[id];
+    if (left <= 0) continue;
+    if (left < 120 && Math.floor(t / 6) % 2) { bx += 14; continue; }
+    drawBoostIcon(ctx, id, bx, 6);
+    r(ctx, bx, 18, 10, 2, "#000000aa");
+    r(ctx, bx, 18, Math.max(1, Math.round((10 * left) / BOOSTS[id].frames)), 2, BOOSTS[id].color);
+    bx += 14;
+  }
+  // Quiz Bots rebooted in this stage.
+  if (L0(sim) > 0 && !s.locked) {
+    ctx.font = "5px 'Press Start 2P', monospace";
+    const txt = `? ${s.qbDone.filter(Boolean).length}/${L0(sim)}`;
+    ctx.fillStyle = "#000000aa";
+    ctx.fillRect(SCREEN_W - 40, 5, 36, 9);
+    ctx.fillStyle = "#ffd23f";
+    ctx.fillText(txt, SCREEN_W - 37, 12);
+  }
   if (s.fight && s.boss && (s.mode === "boss" || s.mode === "quiz" || s.mode === "bossIntro" || s.mode === "bossDown")) {
     const f = s.fight;
     const x = SCREEN_W - 14;
@@ -740,11 +868,18 @@ function drawHud(ctx: Ctx, sim: Sim, look: Look, t: number) {
   }
 }
 
+function L0(sim: Sim): number {
+  return sim.level.quizBots.length;
+}
+
 function drawBanner(ctx: Ctx, text: string, sub: string | undefined, t: number) {
   if (t % 30 > 26 && t < 40) return;
+  ctx.font = "6px 'Press Start 2P', monospace";
+  const ws = sub ? ctx.measureText(sub).width : 0;
   ctx.font = "10px 'Press Start 2P', monospace";
   const w = ctx.measureText(text).width;
-  r(ctx, SCREEN_W / 2 - w / 2 - 8, 70, w + 16, sub ? 34 : 22, "#000000bb");
+  const bw = Math.min(SCREEN_W - 8, Math.max(w, ws) + 16);
+  r(ctx, SCREEN_W / 2 - bw / 2, 70, bw, sub ? 34 : 22, "#000000bb");
   ctx.fillStyle = "#ffd23f";
   ctx.fillText(text, SCREEN_W / 2 - w / 2, 86);
   if (sub) {

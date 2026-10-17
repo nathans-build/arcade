@@ -8,7 +8,7 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "tsx scripts/check-trail.ts"
+    "test": "tsx scripts/check-trail.ts && tsx scripts/check-music.ts"
   },
   "dependencies": {
     "react": "^18.3.1",

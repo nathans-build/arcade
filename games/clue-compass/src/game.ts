@@ -9,6 +9,7 @@ import type { CaseDef } from "@/chase/types";
 import { BAND_CONFIG, COST, WORLD, bandOf, casesFor, elaFor, stdFor } from "@/data/bands";
 import type { Band } from "@/data/cases";
 import type { Screen, View } from "@/gfx/render";
+import { COO, GOTCHA, REPORT, TITLE_SONG, ZIPPED } from "@/music";
 
 export const GAME_ID = "clue-compass";
 const SOLVED_KEY = "arcade.clue-compass.solved.v1";
@@ -305,7 +306,7 @@ export class Game {
     const solved = loadSolved();
     solved.add(run.c.id);
     saveSolved(solved);
-    this.audio.levelUp();
+    this.audio.playJingle(GOTCHA);
     this.hooks.say(`Gotcha, Pocket! You found the hideout at ${run.hideout.name}. Pocket says: ${run.c.end}`);
     this.changed();
   }
@@ -315,7 +316,7 @@ export class Game {
     this.ui.phase = "escaped";
     this.ui.view = "scene";
     this.ui.results.push({ id: run.c.id, title: run.c.title, solved: false, mistakes: run.mistakes, lessons: this.lessons });
-    this.audio.gameOver();
+    this.audio.playJingle(ZIPPED);
     this.hooks.say(`Out of compass charges! Pocket zipped away, but left ${run.c.item} behind with a sorry note. The hideout was ${run.hideout.name}.`);
     this.changed();
   }
@@ -331,7 +332,7 @@ export class Game {
   private transmission() {
     this.ui.phase = "transmission";
     this.ui.q = { q: this.deck.draw(), picked: null };
-    this.audio.checkpoint();
+    this.audio.playJingle(COO);
     this.changed();
   }
 
@@ -360,7 +361,7 @@ export class Game {
   private report() {
     this.ui.phase = "report";
     submitScore(GAME_ID, this.ui.score);
-    this.audio.gameOver();
+    this.audio.playJingle(REPORT, { then: TITLE_SONG });
     const solved = this.ui.results.filter((r) => r.solved).length;
     this.hooks.say(`Mission report. You solved ${solved} of ${this.ui.results.length} cases. Score ${this.ui.score}.`);
     this.changed();

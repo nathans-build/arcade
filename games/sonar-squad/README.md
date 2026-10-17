@@ -5,8 +5,8 @@ Hide your fleet, then take turns firing torpedoes at the enemy's waters. **Calli
 reading a coordinate**: picture rows and numbers in K–2, letter–number grids in grades 3–4, the
 first quadrant in grade 5 and the full four-quadrant plane from grade 6. Every shot is armed by a
 quick question, and harder questions earn power-ups. 80s sonar-screen look: a 320×200 canvas with
-a sweeping scope, CRT scanlines, original pixel subs, splashes, explosions, sinking ships and a
-chiptune bassline.
+a sweeping scope, CRT scanlines, original pixel subs, splashes, explosions, sinking ships and an
+original 4-channel chiptune soundtrack (`src/music.ts`; MUSIC and SFX switches in the toolbar).
 
 ![Sonar Squad](docs/screenshot.png)
 

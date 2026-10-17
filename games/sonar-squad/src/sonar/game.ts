@@ -12,6 +12,7 @@ import { Match, type MatchEvent, type PowerUp, type TurnAction, type TurnView } 
 import { boardSize, formatCoord, parseCoord, schemeFor, spokenCoord, type Scheme } from "./notation";
 import { ComputerPlayer, LocalHumanPlayer, type HumanSeatUI } from "./players";
 import { PAL } from "./sprites";
+import { ENEMY_SUNK, FLEET_LOST, SHIP_LOST, VICTORY } from "@/music";
 import { SonarScreen, type BoardModel, type Scene } from "./render";
 
 export const GAME_ID = "sonar-squad";
@@ -940,7 +941,7 @@ export class SonarGame implements HumanSeatUI {
           st.score += 200 + 50 * ev.ship.len;
           const fl = this.match?.fleets[1 - ev.seat].ships.find((s) => s.def.id === ev.ship!.id);
           if (fl && sc) sc.sink(which, fl.def, fl.place);
-          this.audio.gameOver();
+          this.audio.playJingle(mine ? ENEMY_SUNK : SHIP_LOST);
         }
         st.score += bonus;
         if (bonus && sc) sc.floater(`+${bonus}`, which, { r: Math.max(0, ev.at.r - 1), c: ev.at.c }, PAL.green);
@@ -1017,12 +1018,11 @@ export class SonarGame implements HumanSeatUI {
     u.bigSide = "target";
     if (u.mode === "cpu") {
       submitScore(GAME_ID, u.stats[0].score);
-      if (winner === 0) this.audio.levelUp();
-      else this.audio.gameOver();
+      this.audio.playJingle(winner === 0 ? VICTORY : FLEET_LOST, { then: "stop" });
       this.hooks.say(winner === 0 ? "Victory! You sank the whole enemy fleet!" : "The enemy sank your fleet. Try again!");
     } else {
       u.stats.forEach((s) => submitScore(GAME_ID, s.score));
-      this.audio.levelUp();
+      this.audio.playJingle(VICTORY, { then: "stop" });
       this.hooks.say(`Player ${winner + 1} wins!`);
     }
     this.changed();

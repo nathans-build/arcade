@@ -33,7 +33,8 @@
 .dim { color: var(--lc-dim); }
 
 /* toolbar */
-.lc-toolbar { flex: none; display: flex; justify-content: space-between; align-items: center; gap: 8px; max-width: 1100px; width: 100%; margin: 0 auto 4px; }
+/* The toolbar sits above the overlays (title, quiz, pause), so MUSIC / SFX / READ ALOUD stay clickable. */
+.lc-toolbar { position: relative; z-index: 11; flex: none; display: flex; justify-content: space-between; align-items: center; gap: 8px; max-width: 1100px; width: 100%; margin: 0 auto 4px; }
 .lc-toolbar .brand { font-size: 10px; color: var(--lc-yellow); text-shadow: 2px 2px 0 var(--lc-red); white-space: nowrap; }
 .lc-tools { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
 .lc-toolbar a, .lc-toolbar button {
@@ -105,7 +106,7 @@
 /* overlays */
 .lc-overlay {
   position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;
-  padding: 12px; background: rgba(5, 8, 24, 0.82); overflow-y: auto;
+  padding: 36px 12px 12px; background: rgba(5, 8, 24, 0.82); overflow-y: auto;
 }
 .lc-overlay.clear { background: rgba(5, 8, 24, 0.35); pointer-events: none; }
 .lc-panel {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChipAudio,
+  exposeMusicDebug,
   GRADES,
   QuestionDeck,
   arcadeLink,
@@ -29,6 +30,7 @@ import { mapDeck, timelineDeck, type Rotation } from "@/jungle/decks";
 import type { MapChallenge } from "@/jungle/data/maps";
 import { dateLabel, orderKey, type TimelineSet } from "@/jungle/data/timelines";
 import { JungleEngine, TREASURE_NAMES, W, H, type Action, type Challenge, type HudState, type SceneInfo } from "@/jungle/engine";
+import { JINGLES, SONGS, TREK_SONG, TUNNEL_SONG } from "@/music";
 import "@/jungle/jungle.css";
 
 const GAME_ID = "jungle-run";
@@ -120,6 +122,9 @@ export default function JungleRun() {
   const [log, setLog] = useState<LogEntry[]>([]);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
+  useEffect(() => exposeMusicDebug(audio, SONGS, JINGLES), [audio]);
   const [readAloud, setReadAloud] = useState(() => readAloudPref(isEarlyReader(initialGrade("4"))));
   const [touch, setTouch] = useState(false);
   const [highScore, setHighScore] = useState(() => loadProgress(GAME_ID).highScore);
@@ -242,7 +247,9 @@ export default function JungleRun() {
   const startGame = useCallback(
     (m: Mode) => {
       audio.unlock();
-      audio.startMusic();
+      audio.setTempoScale(1);
+      audio.setIntensity("full");
+      audio.playSong(TREK_SONG);
       rememberGrade(grade);
       setMode(m);
       deckRef.current = new QuestionDeck(grade, m === "mixed" ? MIXED : m, { gameId: GAME_ID });
@@ -366,13 +373,38 @@ export default function JungleRun() {
     if (engineRef.current?.tap(x, y)) e.preventDefault();
   };
 
+  // Music: the trek above ground, cave music in the tunnel shortcut, lead + bass while a question,
+  // crossroads, gate or base-camp call is open, faster as the expedition clock runs low, and turned
+  // down while paused.
+  const inTunnel = scene?.kind === "tunnel";
+  useEffect(() => {
+    if (screen === "playing") audio.playSong(inTunnel ? TUNNEL_SONG : TREK_SONG);
+  }, [audio, screen, inTunnel]);
+  useEffect(() => {
+    audio.setIntensity(challenge ? "calm" : "full");
+  }, [audio, challenge]);
+  const hurry = screen !== "playing" ? 1 : hud.time <= 15 ? 1.18 : hud.time <= 30 ? 1.1 : 1;
+  useEffect(() => {
+    audio.setTempoScale(hurry);
+  }, [audio, hurry]);
+  useEffect(() => {
+    audio.duck(screen === "playing" && paused);
+  }, [audio, screen, paused]);
+
   return (
     <div className={`jr-root ${early ? "early" : ""}`}>
       <div className="jr-toolbar">
         <a href={arcadeLink(grade)}>◀ ARCADE</a>
         <div className="jr-tools">
           {screen === "playing" && <button onClick={() => togglePause()}>{paused ? "RESUME" : "PAUSE"}</button>}
-          <button onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && (
             <button onClick={toggleReadAloud} aria-pressed={readAloud}>
               {readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}

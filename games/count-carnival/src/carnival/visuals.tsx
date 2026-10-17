@@ -3,14 +3,14 @@ import type { ReactNode } from "react";
 import {
   BALLOON_COLORS, Balloon, Blocks, Clock, Coin, Duck, FracArt, Popcorn, ShapeArt, Sock, Star, Tally, TicketRoll,
 } from "./art";
-import type { ChoiceArt, Counter, Sprite, Visual } from "./items";
+import { COIN_CENTS, type ChoiceArt, type Counter, type Sprite, type Visual } from "./items";
 
 /** Puts a counting label over an object once the hint has reached it. */
-function Lit({ on, label, children }: { on: boolean; label: string; children: ReactNode }) {
+function Lit({ on, label, children, className = "" }: { on: boolean; label: ReactNode; children: ReactNode; className?: string }) {
   return (
     <span className={`cc-obj ${on ? "lit" : ""}`}>
       {children}
-      {on && <b className="cc-badge">{label}</b>}
+      {on && <b className={`cc-badge ${className}`}>{label}</b>}
     </span>
   );
 }
@@ -238,18 +238,28 @@ export function Scene({ v, lit, steps, solved, wrongTries, answerLabel }: {
           <Clock h={v.h} m={v.m} lit={Math.min(lit, 12)} />
         </div>
       );
-    case "coins":
+    case "coins": {
+      // The coins carry no printed value; the hint names each one ("quarter 25¢") and counts on.
+      const shown = Math.min(lit, v.coins.length);
       return (
-        <div className="cc-objects cc-coins">
-          <span className="cc-five">
-            {v.coins.map((c, i) => (
-              <Lit key={i} on={i < lit} label={`${steps[i]}¢`}>
-                <Coin name={c} />
-              </Lit>
-            ))}
-          </span>
+        <div className="cc-coinbox">
+          <div className="cc-objects cc-coins">
+            <span className="cc-five">
+              {v.coins.map((c, i) => (
+                <Lit key={i} on={i < lit} label={<><span className="nm">{c}</span><span>{COIN_CENTS[c]}¢</span></>} className="cc-coinlbl">
+                  <Coin name={c} />
+                </Lit>
+              ))}
+            </span>
+          </div>
+          {shown > 0 && (
+            <p className="cc-counton" aria-live="polite">
+              {steps.slice(0, shown).map((s, i) => (i ? ` → ${s}` : s)).join("")}¢
+            </p>
+          )}
         </div>
       );
+    }
   }
 }
 

@@ -5,6 +5,10 @@ import {
 } from "./levels";
 import { POWERS, ROBOTS, type PowerId, type Robot, type StageId } from "./robots";
 import { applyAnswer, newFight, panelHits, panelTimeout, type AnswerResult, type Fight } from "./rules";
+import {
+  BOOSTS, BOOST_IDS, MAGNET_PULL, MAGNET_RANGE, RAPID_COOLDOWN, RAPID_SHOTS, SPRING_JUMP_V, TURBO, boostFromRoll, quizBotReward,
+  type BoostId, type QuizReward,
+} from "./boosts";
 
 /*
  * The game simulation: pure and headless (no DOM), stepped once per 1/60 s frame, and cheap to
@@ -73,7 +77,22 @@ export interface Shot {
   floor: "stop" | "roll" | "stay" | "none";
 }
 
-export interface Pickup { x: number; y: number; kind: "bolt" | "energy" | "power"; life: number }
+export interface Pickup {
+  x: number; y: number;
+  /** cell = a big energy cell (+10); boost = a power-up capsule. */
+  kind: "bolt" | "energy" | "power" | "cell" | "boost";
+  life: number;
+  /** Fixed power-up for a boost dropped by a Quiz Bot or a mini-bot; hidden capsules roll when grabbed. */
+  boost?: BoostId;
+}
+
+export const CELL_ENERGY = 10;
+export const QUIZ_BOT_W = 16;
+export const QUIZ_BOT_H = 22;
+
+export function noBoosts(): Record<BoostId, number> {
+  return { phase: 0, spring: 0, bubble: 0, turbo: 0, rapid: 0, magnet: 0 };
+}
 
 export interface Boss {
   x: number; y: number; vx: number; vy: number; t: number; dir: 1 | -1;
@@ -109,6 +128,16 @@ export interface State {
   seed: number;
   livesLost: number;
   hurts: number;
+  /** Frames left on each power-up (0 = off). */
+  boosts: Record<BoostId, number>;
+  /** Quiz Bots rebooted (their barriers are gone). */
+  qbDone: boolean[];
+  /** Which question is open: the boss's reboot panel or a Quiz Bot (its index). */
+  ask: "boss" | number;
+  qbAnswered: number;
+  qbRight: number;
+  /** A Quiz Bot already gave a power-up in this stage. */
+  qbBoost: boolean;
 }
 
 export type SimEvent =
@@ -118,7 +147,9 @@ export type SimEvent =
   | { type: "gate" } | { type: "power"; power: PowerId } | { type: "noPower"; reason: "none" | "meter" | "ground" | "air" }
   | { type: "cycle"; power: PowerId } | { type: "bossIntro" } | { type: "bossStart" } | { type: "panelHit" }
   | { type: "question" } | { type: "weak" } | { type: "bossHit"; weakness: boolean } | { type: "blocked" }
-  | { type: "bossDown" } | { type: "clear" } | { type: "bossAttack" } | { type: "respawn" } | { type: "pit" };
+  | { type: "bossDown" } | { type: "clear" } | { type: "bossAttack" } | { type: "respawn" } | { type: "pit" }
+  | { type: "quizBot"; n: number; x: number; y: number } | { type: "quizBotDone"; correct: boolean; reward: QuizReward; x: number; y: number }
+  | { type: "boost"; boost: BoostId; from: "quiz" | "pickup" } | { type: "boostEnd"; boost: BoostId } | { type: "bubblePop" };
 
 export interface StageInfo {
   id: StageId;
@@ -160,6 +191,8 @@ function cloneState(s: State): State {
     pickups: s.pickups.map((x) => ({ ...x })),
     boss: s.boss ? { ...s.boss } : null,
     fight: s.fight ? { ...s.fight } : null,
+    boosts: { ...s.boosts },
+    qbDone: [...s.qbDone],
   };
 }
 
@@ -186,7 +219,9 @@ export class Sim {
       energy: MAX_ENERGY, lives: startLives(this.band), power: POWER_MAX, powers: [...powers], sel: 0,
       enemies: level.enemies.map((e) => newEnemy(e.kind, e.x, e.y)), shots: [], pickups: [], boss: null, fight: null,
       checkpoint: -1, camX: 0, locked: false, gateOpen: false, capsule: false, score: 0, seed: 12345 + level.width, livesLost: 0, hurts: 0,
+      boosts: noBoosts(), qbDone: level.quizBots.map(() => false), ask: "boss", qbAnswered: 0, qbRight: 0, qbBoost: false,
     };
+    this.s.pickups = level.items.map((it) => ({ x: it.x, y: it.y, kind: it.kind, life: Infinity }));
   }
 
   clone(): Sim {
@@ -232,7 +267,9 @@ export class Sim {
       for (const i of L.cols[c]) {
         if (!seen.has(i)) {
           seen.add(i);
-          out.push(L.solids[i]);
+          const sd = L.solids[i];
+          if (sd.kind === "barrier" && this.s.qbDone[sd.qb!]) continue;
+          out.push(sd);
         }
       }
     }
@@ -340,6 +377,9 @@ export class Sim {
     }
     if (p.inv > 0) p.inv--;
     if (p.shieldT > 0) p.shieldT--;
+    for (const id of BOOST_IDS) {
+      if (s.boosts[id] > 0 && --s.boosts[id] === 0) this.emit({ type: "boostEnd", boost: id });
+    }
     if (p.shootCd > 0) p.shootCd--;
 
     // Horizontal
@@ -351,7 +391,7 @@ export class Sim {
       p.vx = -p.facing * 0.8;
     } else {
       const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-      p.vx = dir * RUN;
+      p.vx = dir * RUN * (s.boosts.turbo > 0 ? TURBO : 1);
       if (dir !== 0) p.facing = dir as 1 | -1;
     }
 
@@ -360,7 +400,7 @@ export class Sim {
     else if (p.jumpBuf > 0) p.jumpBuf--;
     p.prevJump = input.jump;
     if (p.jumpBuf > 0 && (p.onGround || p.coyote > 0) && p.hurtT === 0) {
-      p.vy = JUMP_V;
+      p.vy = s.boosts.spring > 0 ? SPRING_JUMP_V : JUMP_V;
       p.onGround = false;
       p.onMover = -1;
       p.coyote = 0;
@@ -466,10 +506,18 @@ export class Sim {
     this.loseLife();
   }
 
-  private hurt(dmg: number) {
+  /** A bump or zap. `foe` hits (mini-bots, robots and their shots) pass through the Phase Cloak. */
+  private hurt(dmg: number, foe = false) {
     const s = this.s;
     const p = s.p;
     if (p.inv > 0 || p.shieldT > 0 || p.dashT > 0 || s.mode === "quiz") return;
+    if (foe && s.boosts.phase > 0) return;
+    if (s.boosts.bubble > 0) {
+      s.boosts.bubble = 0;
+      p.inv = 60;
+      this.emit({ type: "bubblePop" });
+      return;
+    }
     s.energy -= dmg;
     s.hurts++;
     p.inv = 60;
@@ -515,6 +563,7 @@ export class Sim {
       x, y: y - PH, vx: 0, vy: 0, onGround: false, onMover: -1, facing: 1, coyote: 0, jumpBuf: 0, boost: false,
       inv: 90, hurtT: 0, shieldT: 0, dashT: 0, glideT: 0, airJumped: false, safeX: x, safeY: y - PH,
     });
+    s.boosts = noBoosts();
     s.energy = MAX_ENERGY;
     s.power = Math.max(s.power, POWER_MAX / 2);
     s.shots = [];
@@ -552,8 +601,9 @@ export class Sim {
 
   private fire() {
     const p = this.s.p;
-    if (p.shootCd > 0 || this.heroShots() >= 3) return;
-    p.shootCd = 8;
+    const rapid = this.s.boosts.rapid > 0;
+    if (p.shootCd > 0 || this.heroShots() >= (rapid ? RAPID_SHOTS : 3)) return;
+    p.shootCd = rapid ? RAPID_COOLDOWN : 8;
     this.beam();
     this.emit({ type: "shoot" });
   }
@@ -650,8 +700,9 @@ export class Sim {
       s.score += 100;
       this.emit({ type: "short", x: e.x + e.w / 2, y: e.y + e.h / 2, kind: e.kind });
       const r = this.rand();
-      const kind: Pickup["kind"] | null = r < 0.22 ? "energy" : r < 0.42 ? "power" : r < 0.75 ? "bolt" : null;
-      if (kind) s.pickups.push({ x: e.x + e.w / 2 - 5, y: e.y + e.h - 10, kind, life: 480 });
+      // Now and then a mini-bot drops a power-up capsule.
+      const kind: Pickup["kind"] | null = r < 0.05 ? "boost" : r < 0.26 ? "energy" : r < 0.44 ? "power" : r < 0.75 ? "bolt" : null;
+      if (kind) s.pickups.push({ x: e.x + e.w / 2 - 5, y: e.y + e.h - 10, kind, life: kind === "boost" ? 720 : 480, boost: kind === "boost" ? boostFromRoll(this.rand()) : undefined });
     }
   }
 
@@ -734,6 +785,13 @@ export class Sim {
             break;
           }
         }
+        if (!hit && s.mode === "play") {
+          const qi = this.quizBotHit(sh);
+          if (qi >= 0) {
+            this.openQuizBot(qi);
+            return;
+          }
+        }
         if (!hit && s.boss && s.mode === "boss" && overlap(sh, this.bossRect())) {
           hit = true;
           this.hitBossPanel();
@@ -768,29 +826,47 @@ export class Sim {
     if (p.shieldT > 0 || p.dashT > 0) s.shots = s.shots.filter((sh) => sh.from === "hero" || sh.delay > 0 || !overlap({ x: p.x - 4, y: p.y - 4, w: PW + 8, h: PH + 8 }, sh));
     for (const r of this.level.spikes) if (overlap(box, r)) this.hurt(dmg);
     for (const r of this.level.pulses) if (pulseOn(r, s.wt) && overlap(box, r)) this.hurt(dmg);
-    for (const e of s.enemies) if (!e.dead && overlap(box, e)) this.hurt(dmg);
-    for (const sh of s.shots) {
-      if (sh.from === "foe" && sh.delay <= 0 && overlap(box, sh)) {
-        this.hurt(Math.max(1, dmg - 1));
-        sh.life = 0;
+    for (const e of s.enemies) if (!e.dead && overlap(box, e)) this.hurt(dmg, true);
+    // Under the Phase Cloak, zaps pass right through you.
+    if (s.boosts.phase <= 0) {
+      for (const sh of s.shots) {
+        if (sh.from === "foe" && sh.delay <= 0 && overlap(box, sh)) {
+          this.hurt(Math.max(1, dmg - 1), true);
+          sh.life = 0;
+        }
       }
+      s.shots = s.shots.filter((sh) => sh.life > 0);
     }
-    s.shots = s.shots.filter((sh) => sh.life > 0);
     const b = s.boss;
-    if (b && s.mode === "boss" && b.flinch <= 0 && overlap(box, this.bossRect())) this.hurt(dmg);
+    if (b && s.mode === "boss" && b.flinch <= 0 && overlap(box, this.bossRect())) this.hurt(dmg, true);
   }
 
   private collect() {
     const s = this.s;
     const p = s.p;
     const box = { x: p.x, y: p.y, w: PW, h: PH };
+    const magnet = s.boosts.magnet > 0;
     s.pickups = s.pickups.filter((it) => {
       it.life--;
       if (it.life <= 0) return false;
+      if (magnet) {
+        const dx = p.x + PW / 2 - (it.x + 5);
+        const dy = p.y + PH / 2 - (it.y + 5);
+        const d = Math.hypot(dx, dy);
+        if (d < MAGNET_RANGE && d > 0.5) {
+          const v = Math.min(d, MAGNET_PULL);
+          it.x += (dx / d) * v;
+          it.y += (dy / d) * v;
+        }
+      }
       if (!overlap(box, { x: it.x, y: it.y, w: 10, h: 10 })) return true;
       if (it.kind === "energy") s.energy = Math.min(MAX_ENERGY, s.energy + 6);
+      else if (it.kind === "cell") s.energy = Math.min(MAX_ENERGY, s.energy + CELL_ENERGY);
       else if (it.kind === "power") s.power = Math.min(POWER_MAX, s.power + 8);
-      else s.score += 50;
+      else if (it.kind === "boost") {
+        this.giveBoost(it.boost ?? boostFromRoll(this.rand()), "pickup");
+        s.score += 200;
+      } else s.score += 50;
       this.emit({ type: "pickup", kind: it.kind });
       return false;
     });
@@ -848,12 +924,73 @@ export class Sim {
     s.modeT = 0;
     s.shots = s.shots.filter((x) => x.from === "hero");
     s.p.dashT = 0;
+    s.ask = "boss";
     this.emit({ type: "question" });
   }
 
-  /** The boss's question was answered. Wrong answers never cost HP, energy or lives. */
+  // ------------------------------------------------------------------ Quiz Bots
+
+  /** Where Quiz Bot i floats now (it bobs gently in front of its barrier). */
+  quizBotRect(i: number): Rect {
+    const q = this.level.quizBots[i];
+    return { x: q.x, y: q.y + Math.round(Math.sin(this.s.t / 20 + i) * 2), w: QUIZ_BOT_W, h: QUIZ_BOT_H };
+  }
+
+  private quizBotHit(sh: Rect): number {
+    const s = this.s;
+    for (let i = 0; i < this.level.quizBots.length; i++) {
+      if (s.qbDone[i]) continue;
+      const q = this.level.quizBots[i];
+      if (q.x > s.camX + SCREEN_W || q.x + QUIZ_BOT_W < s.camX) continue;
+      // The bot is plugged into its barrier: a beam that reaches either one reboots it.
+      const r = this.quizBotRect(i);
+      if (overlap(sh, { x: r.x, y: r.y, w: q.barrierX + 12 - r.x, h: r.h })) return i;
+    }
+    return -1;
+  }
+
+  /** A beam rebooted Quiz Bot i: it shows its question. */
+  private openQuizBot(i: number) {
+    const s = this.s;
+    s.mode = "quiz";
+    s.modeT = 0;
+    s.ask = i;
+    s.shots = [];
+    s.p.dashT = 0;
+    const q = this.level.quizBots[i];
+    this.emit({ type: "quizBot", n: i, x: q.x + QUIZ_BOT_W / 2, y: q.y + QUIZ_BOT_H / 2 });
+  }
+
+  /** Starts (or refreshes: never stacks) a power-up. */
+  giveBoost(id: BoostId, from: "quiz" | "pickup" = "pickup") {
+    this.s.boosts[id] = BOOSTS[id].frames;
+    this.emit({ type: "boost", boost: id, from });
+  }
+
+  /** Quiz Bot answer: it always poofs (barrier gone); right answers give much more. Nothing is ever taken. */
+  private answerQuizBot(correct: boolean): AnswerResult {
+    const s = this.s;
+    const i = s.ask as number;
+    const reward = quizBotReward(correct, this.band, this.rand(), this.rand(), s.qbBoost);
+    s.qbDone[i] = true;
+    s.qbAnswered++;
+    if (correct) s.qbRight++;
+    s.energy = Math.min(MAX_ENERGY, s.energy + reward.energy);
+    s.power = Math.min(POWER_MAX, s.power + reward.power);
+    s.score += correct ? 500 : 100;
+    const q = this.level.quizBots[i];
+    this.emit({ type: "quizBotDone", correct, reward, x: q.x + QUIZ_BOT_W / 2, y: q.y + QUIZ_BOT_H / 2 });
+    if (reward.boost) {
+      s.qbBoost = true;
+      this.giveBoost(reward.boost, "quiz");
+    }
+    return { correct, damage: 0, weakness: false, defeated: false, reward };
+  }
+
+  /** The open question was answered. Wrong answers never cost HP, energy or lives. */
   answer(correct: boolean): AnswerResult {
     const s = this.s;
+    if (s.ask !== "boss") return this.answerQuizBot(correct);
     const b = s.boss!;
     const res = applyAnswer(s.fight!, correct);
     if (correct) {
@@ -874,6 +1011,12 @@ export class Sim {
     const s = this.s;
     if (s.mode !== "quiz") return;
     s.p.inv = Math.max(s.p.inv, 60);
+    if (s.ask !== "boss") {
+      s.ask = "boss";
+      s.mode = "play";
+      s.modeT = 0;
+      return;
+    }
     if (s.fight && s.fight.hp <= 0) {
       s.mode = "bossDown";
       s.modeT = 0;

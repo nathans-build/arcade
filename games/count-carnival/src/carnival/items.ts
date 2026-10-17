@@ -24,6 +24,16 @@ export const FLATS: FlatShape[] = ["circle", "square", "triangle", "rectangle", 
 export const SOLIDS: SolidShape[] = ["cube", "cone", "cylinder", "sphere"];
 export type CoinName = "penny" | "nickel" | "dime" | "quarter";
 export const COIN_CENTS: Record<CoinName, number> = { penny: 1, nickel: 5, dime: 10, quarter: 25 };
+/** Biggest value first (the order the coin guide and the coin items use). */
+export const COINS_BY_VALUE: CoinName[] = ["quarter", "dime", "nickel", "penny"];
+/** "1 quarter, 2 dimes, and 1 penny": the coins are drawn without values, so read-aloud names them. */
+export function nameCoins(coins: CoinName[]): string {
+  const parts = COINS_BY_VALUE.filter((k) => coins.includes(k)).map((k) => {
+    const n = coins.filter((c) => c === k).length;
+    return `${n} ${n === 1 ? k : k === "penny" ? "pennies" : `${k}s`}`;
+  });
+  return parts.length <= 1 ? parts.join("") : `${parts.slice(0, -1).join(", ")}${parts.length > 2 ? "," : ""} and ${parts[parts.length - 1]}`;
+}
 
 /** Counters under the tightrope: red/blue = the two parts, cross = taken away, ghost = the missing part (shown as a hint). */
 export type Counter = "red" | "blue" | "cross" | "ghost";
@@ -589,10 +599,10 @@ function coinItem(rng: Rng): CCItem {
     rng,
     {
       booth: "shapes", grade: "2", standard: "NC.2.MD.8", skill: "Count coins",
-      prompt: "How much money?", sayPrompt: "How much money is this? Count the cents.", readChoices: "list",
+      prompt: "How much money?", sayPrompt: `How much money is this? There ${coins.length === 1 ? "is" : "are"} ${nameCoins(coins)}. Count the cents.`, readChoices: "list",
       explanation: `${coins.map((c) => COIN_CENTS[c]).join(" + ")} = ${total}¢.`,
       visual: { kind: "coins", coins },
-      hint: "Start with the biggest coin. Count on: quarters are 25, dimes 10, nickels 5, pennies 1.",
+      hint: `${COINS_BY_VALUE.filter((k) => coins.includes(k)).map((k) => `A ${k} is ${COIN_CENTS[k]}¢.`).join(" ")} Start with the biggest coin and count on.`,
       hintSteps: coins.map((c) => String((run += COIN_CENTS[c]))),
     },
     cents(total),

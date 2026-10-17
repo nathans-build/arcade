@@ -29,9 +29,37 @@ pendulum, teleport) and punny intro / block / hit / reboot lines.
 
 ## How a stage plays
 
-- Side-scrolling run with gaps, moving platforms, lifts, stepping blocks over hazards, a timed hazard per theme
-  (pie cutters, magma geysers, ink stampers, boulders, lightning, zap gates, snapping vines, gear crushers),
-  glitched mini-bots (walkers, hoppers, flyers, zap turrets) and three checkpoints.
+- A long side-scrolling run (about twice the original length: boss door at roughly 3,900–4,500 px, the Static
+  Citadel about 5,300 px) in **two halves of three sections**: gaps, moving platforms, lifts, stepping blocks over
+  hazards, a timed hazard per theme (pie cutters, magma geysers, ink stampers, boulders, lightning, zap gates,
+  snapping vines, gear crushers) and glitched mini-bots (walkers, hoppers, flyers, zap turrets). Seven or eight
+  checkpoints: one per section, a **REST stop** halfway (checkpoint + two big energy cells), and one just past
+  each Quiz Bot barrier.
+- **Quiz Bots** (`src/robo/levels.ts` "quiz" segments, `src/robo/sim.ts`): three per stage, all in the second half
+  and before the boss door. A Quiz Bot is a gold-framed hover bot holding a purple **?** screen, plugged into a
+  fizzing static **barrier** that no jump or power gets past. It never bumps you. One beam hit opens a question
+  from the stage's robot (same source, focus and topic rules as the boss; 1–4 / A–D / tap). Right: +10 energy
+  (K–2 +12), +8 power meter and often a power-up (always for the first right answer in a stage that has not given
+  one; then 60%, K–2 75%). Wrong: the explanation, +3 energy, a 10% (K–2 15%) power-up chance, and the barrier still
+  goes away: wrong answers never cost lives or energy. Quiz Bot answers count in the Citadel report and on the
+  "rebooted" screen ("Quiz Bots 2/3 right").
+- **Power-ups** (`src/robo/boosts.ts`; separate from the eight earned powers), shown as chips with a countdown
+  bar over the bottom of the screen and icons by the meters; grabbing one you already have restarts its timer
+  (no stacking); different ones can run together; they end when Rivet respawns:
+
+  | Power-up | Effect | Time |
+  |---|---|---|
+  | Phase Cloak | see-through: mini-bots, robots and their zaps pass through you (pits and spikes still count) | 8 s |
+  | Spring Boots | jump about 97 px instead of 50 (reaches the high "sky ledges") | 10 s |
+  | Shield Bubble | blocks the next bump or zap, then pops | 20 s |
+  | Turbo Treads | run 1.6x faster | 10 s |
+  | Rapid Beam | beam every 4 frames instead of 8, up to 5 on screen | 10 s |
+  | Bolt Magnet | pulls bolts, energy and capsules within 110 px | 12 s |
+
+  They come from Quiz Bots, from a hidden **?** capsule on a high shelf in every stage, and now and then (5%)
+  from a mini-bot. None of them touches the boss: it is still only rebooted by right answers.
+- **Energy**: red-and-white capsules (+6) from mini-bots, big yellow energy cells (+10) at the REST stop and on
+  the sky ledge, and Quiz Bot rewards.
 - **Power spot**: a glowing cage holding a 1-up. It opens only to one power (the one the stage's boss is weak to).
 - **Boss fight**: beam the Robo Master to light up its **reboot panel** (3 hits, K–2: 2; it also opens by itself
   after 10 s, K–2: 6 s). A right answer is a big reboot hit; a wrong answer is only **blocked** and shows the
@@ -74,11 +102,17 @@ A–D are only ever answer keys, never movement.
 
 ```sh
 npm ci
-npm test        # tsx scripts/check-rules.ts (about 30 s: roster, questions for every robot x grade x mode,
-                # boss rules, a headless bot clearing all 9 stages in all 4 grade bands, powers, save, topics)
+npm test        # tsx scripts/check-rules.ts (about 95 s: roster, questions for every robot x grade x mode,
+                # boss rules, a headless bot clearing all 9 longer stages in all 4 grade bands and answering
+                # every Quiz Bot, powers, stage length/checkpoints/Quiz Bot placement, Quiz Bot rewards,
+                # every power-up's effect and timer, save, topics) + scripts/check-music.ts
 npm run build   # tsc --noEmit && vite build
-node scripts/playtest.cjs   # Chromium playtest; see the comment at its top for serving (port 8843)
+node scripts/playtest.cjs   # Chromium playtest; see the comment at its top for serving (port 8843, or BASE=...;
+                            # ONLY="quiz bots" runs one scenario)
 ```
 
 `src/kit/` is an identical copy of the arcade's `kit/`. `?debug` exposes `window.__rm` (warp to the boss,
-open the reboot panel) for the playtest.
+open the reboot panel, `giveBoost(id)`) for the playtest.
+
+Music (`src/music.ts`): stage themes, the boss and Citadel songs, and jingles, including **Quiz Bot Rebooted**
+(a right Quiz Bot answer) and **Power-Up!** (any power-up).

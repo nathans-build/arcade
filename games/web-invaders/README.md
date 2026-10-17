@@ -8,6 +8,9 @@ save the city from marching bug invaders.
 
 - Rows of pixel bugs march side to side and down, dropping stingers. The SpiderBen10 hero runs along
   the rooftops and shoots webs upward. Spider-web shields soak up hits and tear apart as they do.
+  As they move, the bugs make a soft high "skitter" (tiny tick-tock clicks) that speeds up as the swarm
+  gets faster and lower; it is a sound effect (the SFX switch mutes it) and it pauses while a new
+  question is being shown and while an explanation is up.
 - **Every wave carries a question.** It appears in the banner above the screen. Four big
   **answer invaders** labelled A–D carry the four choices, with the choice text shown above each one.
 - Web the invader with the **right answer** and the whole wave is cleared, with a bonus and a streak

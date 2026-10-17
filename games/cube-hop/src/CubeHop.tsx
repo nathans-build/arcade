@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChipAudio,
+  exposeMusicDebug,
   GRADES,
   QuestionDeck,
   arcadeLink,
@@ -25,6 +26,7 @@ import {
 import { HopEngine, MAX_SHIELD, ROUNDS_PER_LEVEL, spoken, type HudState, type RoundView } from "@/hop/engine";
 import type { Dir } from "@/hop/geom";
 import { RoundDeck, blurb, specId, type RoundSpec, type SubjectMode } from "@/content";
+import { JINGLES, ROUND_CLEAR, SHIELDS_FULL, SIGNAL_LOST, SONGS, roundSong } from "@/music";
 import "@/hop/hop.css";
 
 const GAME_ID = "cube-hop";
@@ -48,8 +50,6 @@ const KEYMAP: Record<string, Dir> = {
   ArrowLeft: "ul",
 };
 
-/** Cube Hop's own 16-step bassline (a springy D-minor hop, Hz; 0 = rest). */
-const BASS = [147, 0, 220, 147, 0, 175, 196, 0, 131, 0, 196, 131, 147, 0, 220, 262];
 
 const SUBJECT_LABELS: Record<string, string> = { ela: "ELA", math: "MATH", science: "SCIENCE", social: "SOCIAL STUDIES" };
 const MODES: SubjectMode[] = ["ela", "math", "science", "mixed"];
@@ -63,7 +63,7 @@ function roundWhat(spec: RoundSpec): string {
 export default function CubeHop() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<HopEngine | null>(null);
-  const audio = useMemo(() => new ChipAudio(BASS, 132), []);
+  const audio = useMemo(() => new ChipAudio(), []);
   const deckRef = useRef<QuestionDeck | null>(null);
   const roundDeckRef = useRef<RoundDeck | null>(null);
 
@@ -77,6 +77,11 @@ export default function CubeHop() {
   const [log, setLog] = useState<LogEntry[]>([]);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
+  useEffect(() => exposeMusicDebug(audio, SONGS, JINGLES), [audio]);
+  /** True during a real game (the title-screen demo never asks for music). */
+  const liveRef = useRef(false);
   const [readAloud, setReadAloud] = useState(() => readAloudPref(isEarlyReader(initialGrade("3"))));
   const [touch, setTouch] = useState(false);
   const [highScore, setHighScore] = useState(() => loadProgress(GAME_ID).highScore);
@@ -116,12 +121,21 @@ export default function CubeHop() {
     const canvas = canvasRef.current!;
     const engine = new HopEngine(canvas, audio, {
       onHud: setHud,
-      nextRound: () => roundDeckRef.current!.next(),
+      nextRound: () => {
+        const spec = roundDeckRef.current!.next();
+        // Each round kind has its own tune ("Build it" / "Color the category").
+        if (liveRef.current) {
+          audio.playSong(roundSong(spec.kind === "build" ? "build" : "color"));
+          audio.setIntensity("full");
+        }
+        return spec;
+      },
       onView: setView,
       say: (text) => {
         if (readAloudRef.current && text) speak(text);
       },
       onRoundClear: (spec, clean) => {
+        if (liveRef.current) audio.playJingle(ROUND_CLEAR);
         const s = spec.kind === "build" ? spec.item : spec.rule;
         addLog({ subject: spec.subject, standard: s.standard, skill: s.skill, correct: clean, kind: "round", what: roundWhat(spec) });
         if (!clean) roundDeckRef.current?.retry(spec);
@@ -134,9 +148,14 @@ export default function CubeHop() {
         }
         setPicked(null);
         setCheckpoint({ q, level });
+        // Thin the music to lead + bass while the transmission question is on screen.
+        audio.setIntensity("calm");
         if (readAloudRef.current) speakQuestion(q.prompt, q.choices);
       },
       onGameOver: () => {
+        liveRef.current = false;
+        audio.setIntensity("full");
+        audio.playJingle(SIGNAL_LOST, { then: "stop" });
         setHighScore(submitScore(GAME_ID, engine.score));
         setScreen("over");
       },
@@ -148,10 +167,17 @@ export default function CubeHop() {
     engine.start();
     return () => {
       engine.stop();
+      liveRef.current = false;
       audio.stopMusic();
       stopSpeaking();
     };
   }, [audio, addLog, demoSpec]);
+
+  // ?debug: let playtests see the transmission question.
+  useEffect(() => {
+    const w = window as unknown as { __ch?: unknown; __chCheckpoint?: unknown };
+    if (w.__ch) w.__chCheckpoint = checkpoint;
+  }, [checkpoint]);
 
   useEffect(() => {
     const mq = window.matchMedia("(pointer: coarse)");
@@ -175,7 +201,11 @@ export default function CubeHop() {
 
   const startGame = useCallback(() => {
     audio.unlock();
-    audio.startMusic();
+    liveRef.current = true;
+    audio.duckLevel = isEarlyReader(grade) ? 0.18 : 0.28;
+    audio.duck(false);
+    audio.setIntensity("full");
+    audio.stopSong(); // the first round picks its tune
     rememberGrade(grade);
     deckRef.current = new QuestionDeck(grade, mode, { gameId: GAME_ID });
     roundDeckRef.current = new RoundDeck(grade, mode);
@@ -192,7 +222,7 @@ export default function CubeHop() {
       if (!checkpoint || picked !== null) return;
       setPicked(i);
       const correct = i === checkpoint.q.answer;
-      if (correct) audio.correct();
+      if (correct) audio.playJingle(SHIELDS_FULL);
       else audio.wrong();
       recordAnswer(GAME_ID, checkpoint.q, correct);
       addLog({ subject: checkpoint.q.subject, standard: checkpoint.q.standard, skill: checkpoint.q.skill, correct, kind: "checkpoint" });
@@ -214,8 +244,10 @@ export default function CubeHop() {
     if (!e) return;
     const p = e.togglePause(force);
     setPaused(p);
+    // Paused: the music carries on quietly underneath.
+    audio.duck(p);
     if (p) stopSpeaking();
-  }, []);
+  }, [audio]);
 
   const toggleReadAloud = useCallback(() => {
     setReadAloud((on) => {
@@ -316,7 +348,14 @@ export default function CubeHop() {
         <a href={arcadeLink(grade)}>◀ ARCADE</a>
         <div className="ch-tools">
           {screen === "playing" && <button onClick={() => togglePause()}>{paused ? "RESUME" : "PAUSE"}</button>}
-          <button onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && (
             <button onClick={toggleReadAloud} aria-pressed={readAloud}>
               {readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}
@@ -429,6 +468,7 @@ export default function CubeHop() {
                 highScore={highScore}
                 onAgain={startGame}
                 onMenu={() => {
+                  audio.stopSong();
                   engineRef.current?.demo(grade, demoSpec(grade, mode));
                   setView(null);
                   setScreen("title");

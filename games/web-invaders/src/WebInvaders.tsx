@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChipAudio,
+  exposeMusicDebug,
   GRADES,
   QuestionDeck,
   arcadeLink,
@@ -26,6 +27,7 @@ import {
   gradeFromArcade,
 } from "@/kit";
 import { InvadersEngine, LABEL_W, W, type Action, type AnswerResult, type AnswerSlot, type HudState } from "@/invaders/engine";
+import { JINGLES, SONGS, waveSong } from "@/music";
 import "@/invaders/invaders.css";
 
 const GAME_ID = "web-invaders";
@@ -92,6 +94,9 @@ export default function WebInvaders() {
   const [log, setLog] = useState<AnswerLog[]>([]);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
+  useEffect(() => exposeMusicDebug(audio, SONGS, JINGLES), [audio]);
   const [readAloud, setReadAloud] = useState(() => readAloudPref(isEarlyReader(initialGrade("3"))));
   const [touch, setTouch] = useState(false);
   const [highScore, setHighScore] = useState(() => loadProgress(GAME_ID).highScore);
@@ -159,6 +164,8 @@ export default function WebInvaders() {
       },
     });
     engineRef.current = engine;
+    // Playtest hook: ?debug exposes the engine to automated tests.
+    if (new URLSearchParams(window.location.search).has("debug")) (window as unknown as { __wi: InvadersEngine }).__wi = engine;
     engine.demo();
     engine.start();
     return () => {
@@ -185,7 +192,8 @@ export default function WebInvaders() {
   const startGame = useCallback(
     (m: SubjectMode) => {
       audio.unlock();
-      audio.startMusic();
+      audio.setTempoScale(1);
+      audio.playSong(waveSong(1));
       rememberGrade(grade);
       setMode(m);
       deckRef.current = new QuestionDeck(grade, m, { quickOnly: true, gameId: GAME_ID });
@@ -283,6 +291,18 @@ export default function WebInvaders() {
     onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
   });
 
+  // Music follows the waves (a faster version from wave 4) and hurries when the bugs get low.
+  useEffect(() => {
+    if (screen === "playing") audio.playSong(waveSong(hud.level));
+  }, [audio, screen, hud.level]);
+  const hurry = screen === "playing" && hud.danger >= 0.7;
+  useEffect(() => {
+    audio.setTempoScale(hurry ? 1.12 : 1);
+  }, [audio, hurry]);
+  useEffect(() => {
+    audio.duck(screen === "playing" && paused);
+  }, [audio, screen, paused]);
+
   const scale = (screenWidth ?? 960) / W;
   const labelFont = (text: string) => {
     const max = (early ? 9 : 7.5) * scale;
@@ -297,7 +317,14 @@ export default function WebInvaders() {
         <a href={arcadeLink(grade)}>◀ ARCADE</a>
         <div className="wi-tools">
           {screen === "playing" && <button onClick={() => togglePause()}>{paused ? "RESUME" : "PAUSE"}</button>}
-          <button onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && (
             <button onClick={toggleReadAloud} aria-pressed={readAloud}>
               {readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}
