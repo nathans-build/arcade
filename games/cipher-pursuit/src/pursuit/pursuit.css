@@ -37,7 +37,7 @@
 
 .cp-stage { flex: 1; min-height: 120px; display: flex; align-items: flex-start; justify-content: center; }
 
-.cp-toolbar { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; margin-bottom: 4px; gap: 8px; }
+.cp-toolbar { position: relative; z-index: 10; display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; margin-bottom: 4px; gap: 8px; }
 .cp-tools { display: flex; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
 .cp-toolbar a, .cp-toolbar button {
   font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--cp-dim);
@@ -183,9 +183,15 @@
 .cp-root.early .cp-radio { font-size: clamp(20px, 2.8vw, 28px); }
 .cp-root.early .cp-radio .opt { min-height: 40px; }
 
+/* The toolbar (ARCADE link, MUSIC, SFX, READ ALOUD) has z-index 10, above every overlay, so it stays tappable
+   on the title, pause and game-over screens. Where an overlay covers the whole viewport (small screens,
+   below) it keeps this much room at the top for the toolbar; more where the toolbar wraps. */
+.cp-root { --cp-tb-room: 40px; }
+@media (max-width: 385px) { .cp-root { --cp-tb-room: 68px; } }
+
 @media (max-width: 700px), (max-height: 640px) {
   /* Small screens: the game screen is too short for text panels, so they take the viewport */
-  .cp-overlay { position: fixed; padding: 12px; align-items: flex-start; }
+  .cp-overlay { position: fixed; padding: 12px; padding-top: var(--cp-tb-room); align-items: flex-start; }
   .cp-panel { max-height: none; }
 }
 

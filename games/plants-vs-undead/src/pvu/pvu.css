@@ -33,7 +33,7 @@
 .pvu-root .r { color: #ff6a70; }
 .pvu-root .dim { color: var(--pvu-dim); }
 
-.pvu-toolbar { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 1100px; gap: 8px; flex: none; }
+.pvu-toolbar { position: relative; z-index: 10; display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 1100px; gap: 8px; flex: none; }
 .pvu-tools { display: flex; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
 .pvu-toolbar a, .pvu-toolbar button {
   font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--pvu-dim);
@@ -220,9 +220,15 @@
   .pvu-toolbar a, .pvu-toolbar button { font-size: 7px; }
 }
 
+/* The toolbar (ARCADE link, MUSIC, SFX, READ ALOUD) has z-index 10, above every overlay, so it stays tappable
+   on the title, pause and game-over screens. Where an overlay covers the whole viewport (small screens,
+   below) it keeps this much room at the top for the toolbar; more where the toolbar wraps. */
+.pvu-root { --pvu-tb-room: 40px; }
+@media (max-width: 385px) { .pvu-root { --pvu-tb-room: 68px; } }
+
 @media (max-width: 700px), (max-height: 640px) {
   /* Small screens: text panels take the viewport */
-  .pvu-overlay { position: fixed; padding: 12px; align-items: flex-start; }
+  .pvu-overlay { position: fixed; padding: 12px; padding-top: var(--pvu-tb-room); align-items: flex-start; }
   .pvu-panel { max-height: none; }
 }
 

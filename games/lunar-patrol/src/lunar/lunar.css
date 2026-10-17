@@ -225,7 +225,9 @@
 .lp-report-table th { font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--lp-dim); text-align: left; padding: 4px; }
 .lp-report-table td { padding: 3px 4px; border-top: 1px solid #1c2450; }
 
-.lp-toolbar { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; margin-bottom: 4px; }
+.lp-toolbar { position: relative; z-index: 10; display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; margin-bottom: 4px; gap: 4px; }
+.lp-tools { display: flex; gap: 4px 16px; flex-wrap: wrap; justify-content: flex-end; }
+.lp-toolbar > a { white-space: nowrap; flex: none; }
 .lp-toolbar a, .lp-toolbar button {
   font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--lp-dim);
   background: none; border: 0; cursor: pointer; text-decoration: none; padding: 6px 0;
@@ -238,10 +240,25 @@
 /* Wave banner copy shown under the screen on phones */
 .lp-wave.below { position: static; border: 2px solid var(--lp-green); margin-top: 8px; display: none; }
 
+/* The toolbar (ARCADE link, MUSIC, SFX, READ ALOUD) has z-index 10, above every overlay, so it stays tappable
+   on the title, pause and game-over screens. Where an overlay covers the whole viewport (small screens,
+   below) it keeps this much room at the top for the toolbar; more where the toolbar wraps. */
+.lp-root { --lp-tb-room: 40px; }
+@media (max-width: 488px) { .lp-root { --lp-tb-room: 64px; } }
+@media (max-width: 322px) { .lp-root { --lp-tb-room: 90px; } }
+
 @media (max-width: 700px), (max-height: 640px) {
   /* Small screens: the game screen is too short for text panels, so they take the viewport */
-  .lp-overlay { position: fixed; padding: 12px; align-items: flex-start; }
+  .lp-overlay { position: fixed; padding: 12px; padding-top: var(--lp-tb-room); align-items: flex-start; }
   .lp-panel { max-height: none; }
   .lp-screen .lp-wave { display: none; }
   .lp-wave.below { display: block; }
+}
+/* Narrow phones: the four HUD readouts take two rows and the touch buttons slim down, so neither
+   pushes the page sideways. */
+@media (max-width: 420px) {
+  .lp-hud { grid-template-columns: repeat(2, auto); }
+  .lp-controls { gap: 6px; }
+  .lp-touch { width: 62px; }
+  .lp-touch.big { width: 76px; }
 }

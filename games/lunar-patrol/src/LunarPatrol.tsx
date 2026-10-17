@@ -336,7 +336,7 @@ export default function LunarPatrol({ standalone = false }: { standalone?: boole
     <div className="lp-root">
       <div className="lp-toolbar">
         {standalone ? <a href={arcadeLink(grade)}>◀ ARCADE</a> : <a href="/">◀ STORY SQUAD</a>}
-        <div style={{ display: "flex", gap: 16 }}>
+        <div className="lp-tools">
           {screen === "playing" && <button onClick={() => togglePause()}>{paused ? "RESUME" : "PAUSE"}</button>}
           {muted ? (
             <button onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
