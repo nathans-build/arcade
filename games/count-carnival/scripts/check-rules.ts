@@ -20,6 +20,9 @@ import { Round, ROUND_BONUS, TICKETS_FIRST_TRY, TICKETS_LATER } from "../src/car
 import { makeRng } from "../src/carnival/rng";
 import { PRIZES, SAVE_KEY, buyPrize, emptySave, loadSave, writeSave } from "../src/carnival/save";
 import type { Grade } from "../src/kit/types";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { COIN_MM, Coin, coinPx } from "../src/carnival/art";
 
 let failures = 0;
 let checks = 0;
@@ -206,9 +209,31 @@ function checkItem(it: CCItem, g: Play, booth: BoothId) {
       check(it.choices.every((s) => /^\d+¢$/.test(s) && Number(s.slice(0, -1)) >= 1), () => `coin choices ${c()}`);
       check(v.coins.every((k, i) => i === 0 || MY_CENTS[v.coins[i - 1]] >= MY_CENTS[k]), () => `coins sorted big to small ${c()}`);
       check(it.hintSteps[it.hintSteps.length - 1] === String(total), () => `coin hint end ${c()}`);
+      // Coins are drawn without values, so the hint teaches each coin's name and value, and read-aloud names them.
+      for (const k of new Set(v.coins)) {
+        check(it.hint.includes(`${k} is ${MY_CENTS[k]}¢`), () => `coin hint should say "${k} is ${MY_CENTS[k]}¢" ${c()}`);
+        check(new RegExp(`\\d+ ${k === "penny" ? "penn(y|ies)" : `${k}s?`}\\b`).test(it.say), () => `read-aloud should name the ${k}s: "${it.say}"`);
+      }
       break;
     }
   }
+}
+
+/* -------------------------------------------------------------- coin art */
+
+{
+  // Real US coins by look: no printed value or words, relative sizes dime < penny < nickel < quarter,
+  // copper penny, ridged dime and quarter.
+  const svg = (k: CoinName) => renderToStaticMarkup(createElement(Coin, { name: k }));
+  for (const k of ["penny", "nickel", "dime", "quarter"] as CoinName[]) {
+    const m = svg(k);
+    check(!/<text|¢|\d+\s*c\b/i.test(m.replace(/<svg[^>]*>/, "")), () => `coin ${k} must not print a value or words: ${m.slice(0, 160)}`);
+    check(new RegExp(`width="${coinPx(k)}"`).test(m), () => `coin ${k} size ${coinPx(k)}`);
+    check((m.match(/stroke-dasharray/g) ?? []).length === (k === "dime" || k === "quarter" ? 1 : 0), () => `coin ${k} ridged edge`);
+  }
+  check(coinPx("dime") < coinPx("penny") && coinPx("penny") < coinPx("nickel") && coinPx("nickel") < coinPx("quarter"), () => "coin sizes dime < penny < nickel < quarter");
+  check(Math.abs(COIN_MM.quarter / COIN_MM.dime - 24.26 / 17.91) < 0.01, () => "coin sizes follow real diameters");
+  check(/#c8733f/i.test(svg("penny")) && !/#c8733f/i.test(svg("dime")), () => "penny is copper, dime is not");
 }
 
 /* -------------------------------------------------------------- run generators */

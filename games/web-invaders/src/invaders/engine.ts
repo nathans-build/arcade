@@ -137,6 +137,29 @@ export class InvadersEngine {
   private fireCd = 0;
   private invuln = 0;
   private dyingT = 0;
+  /** How many movement ticks have sounded (read by playtests through ?debug). */
+  moveTicks = 0;
+
+  /*
+   * The swarm's movement sound: an original two-tone "skitter" of tiny high clicks, not a bass march.
+   * Each step is one very short triangle click that slides UP (like a leg scratching), alternating a
+   * higher and a lower click (tick ... tock). It rides on the step timer, so it speeds up as the swarm
+   * thins and gets angry, and its pitch rises a little as the swarm gets lower. It sits far above the
+   * soundtrack's bass and lead, is short and quiet (vol <= 0.06 vs the old 0.22 square bass), goes
+   * through the SFX bus (the SFX switch mutes it), and drops out while a new question is being shown
+   * and read (the wave's grace time) and while a wrong answer's explanation is up.
+   */
+  private skitter() {
+    const w = this.wave;
+    if (w && (w.graceT > 0 || w.revealT > 0)) return;
+    const low = Math.min(1, Math.max(0, (this.lowestBottom() - 70) / (BUNKER_Y - 70)));
+    const lift = 1 + 0.25 * low;
+    const hi = this.tickPhase++ % 2 === 0;
+    const f = (hi ? 1900 : 1500) * lift;
+    this.audio.tone(f, 0.028, "triangle", hi ? 0.06 : 0.045, f * 1.3);
+    this.moveTicks++;
+  }
+
   private clearT = 0;
   private restartWave = false;
 
@@ -145,7 +168,7 @@ export class InvadersEngine {
   private dir = 1;
   private stepT = 0;
   private animFrame = 0;
-  private marchNote = 0;
+  private tickPhase = 0;
   private speedMul = 1;
   private invaders: Invader[] = [];
   private totalRegular = 1;
@@ -491,10 +514,7 @@ export class InvadersEngine {
       this.fx += dx * this.dir;
     }
     this.animFrame ^= 1;
-    if (!demo) {
-      const notes = [98, 92, 87, 82];
-      this.audio.tone(notes[this.marchNote++ % 4], 0.07, "square", 0.22);
-    }
+    if (!demo) this.skitter();
     // Invaders marching through a bunker tear the web away.
     for (const i of alive) {
       const p = this.pos(i);

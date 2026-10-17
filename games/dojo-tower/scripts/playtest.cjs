@@ -301,7 +301,7 @@ async function run(browser, grade, mode) {
     // Game over: play again, then lose every life
     await page.locator(".dt-cta", { hasText: "Play again" }).click();
     await page.waitForFunction(() => window.__dt.sim.mode === "run", null, { timeout: 5000 });
-    await page.evaluate(() => { const s = window.__dt.sim; s.lives = 1; s.energy = 1; s.enemies = []; const e = s.spawn("ninja", true); e.x = s.player.x + 3; e.speed = 0; });
+    await page.evaluate(() => { const s = window.__dt.sim; s.score = 4321; s.lives = 1; s.energy = 1; s.enemies = []; const e = s.spawn("ninja", true); e.x = s.player.x + 3; e.speed = 0; });
     await page.locator(".dt-panel", { hasText: "OUT OF LIVES" }).waitFor({ timeout: 5000 }).catch(() => problems.push("game-over report missing"));
     await page.locator(".dt-cta", { hasText: "Title screen" }).click();
     await page.waitForSelector(".dt-panel.title", { timeout: 3000 }).catch(() => problems.push("title screen did not come back"));
@@ -589,12 +589,12 @@ async function bossTests(browser) {
     const rows = await floorList(page);
     if (rows.map((r) => r.boss).join() !== MIXED_ORDER.join()) problems.push(`MIXED list: ${rows.map((r) => r.boss)}`);
     if (!rows[0] || !rows[0].hall.startsWith("WORD DOJO")) problems.push(`MIXED 1F hall: ${rows[0] && rows[0].hall}`);
-    // Game over on floor 7 offers "Continue from floor 6" (score starts over, same masters).
+    // Game over on floor 7 offers "Continue from floor 6" (score kept, same masters).
     await page.locator(".dt-cta.big").click();
     await page.waitForFunction(() => window.__dt.sim.mode === "intro" || window.__dt.sim.mode === "run");
     await page.evaluate(() => window.__dt.sim.startFloor(7));
     await page.waitForFunction(() => window.__dt.sim.mode === "run", null, { timeout: 6000 });
-    await page.evaluate(() => { const s = window.__dt.sim; s.lives = 1; s.energy = 1; s.enemies = []; const e = s.spawn("ninja", true); e.x = s.player.x + 3; e.speed = 0; });
+    await page.evaluate(() => { const s = window.__dt.sim; s.score = 4321; s.lives = 1; s.energy = 1; s.enemies = []; const e = s.spawn("ninja", true); e.x = s.player.x + 3; e.speed = 0; });
     await page.locator(".dt-panel", { hasText: "OUT OF LIVES" }).waitFor({ timeout: 6000 }).catch(() => problems.push("game-over report missing on floor 7"));
     const cont = page.locator(".dt-cta", { hasText: "Continue from floor 6" });
     if (!(await cont.count())) problems.push("no Continue from floor 6 button after a game over on floor 7");
@@ -602,7 +602,7 @@ async function bossTests(browser) {
       await cont.click();
       await page.waitForFunction(() => window.__dt.sim.floor === 6, null, { timeout: 4000 }).catch(() => problems.push("Continue did not start floor 6"));
       const c = await page.evaluate(() => ({ lives: window.__dt.sim.lives, boss: window.__dt.sim.info.boss.name, score: window.__dt.sim.score }));
-      if (c.lives !== 3 || c.boss !== MIXED_ORDER[5]) problems.push(`continue: ${JSON.stringify(c)}`);
+      if (c.lives !== 3 || c.boss !== MIXED_ORDER[5] || c.score < 4321) problems.push(`continue: ${JSON.stringify(c)}`);
       if (!(await page.locator(".dt-hud").innerText()).includes("6/10")) problems.push("HUD should say 6/10 after continuing");
     }
     if (errors.length) problems.push(`console errors (MIXED): ${errors.join(" | ")}`);

@@ -218,12 +218,14 @@ export class DojoSim {
   private advance = false;
   private time = 0;
 
-  constructor(band: Band, opts: { rng?: () => number; plan?: FloorPlan[]; floor?: number } = {}) {
+  /** `score` carries a kept score into a Continue from the checkpoint (default 0). */
+  constructor(band: Band, opts: { rng?: () => number; plan?: FloorPlan[]; floor?: number; score?: number } = {}) {
     this.band = band;
     this.cfg = CFG[band];
     this.len = this.cfg.len;
     this.rng = opts.rng ?? Math.random;
     this.plan = opts.plan ?? towerPlan(MIXED);
+    this.score = Math.max(0, Math.floor(opts.score ?? 0));
     this.startFloor(Math.max(1, Math.min(FLOORS, opts.floor ?? 1)));
   }
 
