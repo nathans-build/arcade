@@ -1,4 +1,5 @@
 import type { Band } from "./band";
+import type { QuizReward } from "./boosts";
 import { ROBOTS, ROBOT_IDS, type PowerId, type RobotId } from "./robots";
 
 /*
@@ -27,6 +28,8 @@ export interface AnswerResult {
   /** True when this answer used the weakness bonus. */
   weakness: boolean;
   defeated: boolean;
+  /** Quiz Bot answers: what it gave (energy, power meter, maybe a power-up). */
+  reward?: QuizReward;
 }
 
 /** Boss HP by grade band (K-2 gentler); the fortress boss has more. */

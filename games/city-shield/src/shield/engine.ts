@@ -1,4 +1,5 @@
 import type { ChipAudio, Grade } from "@/kit";
+import { CITIES_SAFE, GAME_OVER } from "@/music";
 import { forEachPixel, textWidth } from "./font";
 import { labelScale, makeRound, outcomeNote, type MissileMath, type Outcome, type Round } from "./missions";
 import { CITY_H, CITY_W, HERO_H, PALETTE, TURRET_H, TURRET_W, getSprites, type SpriteSheet } from "./sprites";
@@ -542,7 +543,7 @@ export class ShieldEngine {
         this.endingT = 2.8;
         this.banner = { lines: [{ text: "THE END", color: PALETTE.red }], t: 99 };
         this.audio.stopMusic();
-        this.audio.gameOver();
+        this.audio.playJingle(GAME_OVER, { then: "stop" });
       } else if (!this.queue.length && !this.missiles.some((m) => m.alive) && !this.interceptors.length && !this.blasts.length) {
         this.endWave();
       }
@@ -579,7 +580,7 @@ export class ShieldEngine {
     this.score += bonus;
     this.mode = "tally";
     this.tallyT = 3;
-    this.audio.checkpoint();
+    this.audio.playJingle(CITIES_SAFE);
     this.banner = {
       lines: [
         { text: `WAVE ${this.wave} CLEAR`, color: PALETTE.yellow },

@@ -1,5 +1,7 @@
 import type { ChipAudio } from "../kit/audio";
+import { POWER_UP, QUIZ_RIGHT } from "@/music";
 import type { Band } from "./band";
+import { BOOSTS, BOOST_IDS, type BoostId } from "./boosts";
 import { buildLevel, SCREEN_H, SCREEN_W } from "./levels";
 import { drawGame, drawPreview, themeFor, type Look, type Particle } from "./render";
 import { FINAL_BOSS, POWERS, ROBOTS, type PowerId, type StageId } from "./robots";
@@ -19,12 +21,17 @@ export interface Hud {
   weakReady: boolean;
   progress: number;
   checkpoint: number;
+  /** Active power-ups with frames left. */
+  boosts: { id: BoostId; left: number; max: number }[];
+  qbDone: number;
+  qbTotal: number;
 }
 
 export interface EngineCallbacks {
   onHud: (h: Hud) => void;
   onBossIntro: () => void;
-  onQuestion: () => void;
+  /** A question opened: the boss's reboot panel, or Quiz Bot n. */
+  onQuestion: (kind: "boss" | "bot", n: number) => void;
   onCleared: () => void;
   onGameOver: () => void;
   onNote?: (text: string) => void;
@@ -142,6 +149,13 @@ export class RoboEngine {
     if (this.sim) this.handle(this.sim.drain());
   }
 
+  /** Debug hook: grant a power-up now. */
+  giveBoost(id: BoostId) {
+    this.sim?.giveBoost(id, "pickup");
+    if (this.sim) this.handle(this.sim.drain());
+    this.pushHud();
+  }
+
   /** Debug hook: open the boss's reboot panel now. */
   forceQuestion() {
     this.sim?.forceQuestion();
@@ -237,7 +251,38 @@ export class RoboEngine {
           if (b) this.sparks(b.x + 13, b.y + 15, ["#5fff8a", "#ffffff"], 5, 1);
           break;
         }
-        case "question": a.tone(660, 0.12, "square", 0.3, 990); this.cb.onQuestion(); break;
+        case "question": a.tone(660, 0.12, "square", 0.3, 990); this.cb.onQuestion("boss", 0); break;
+        case "quizBot":
+          a.tone(880, 0.1, "square", 0.3, 1320);
+          this.sparks(e.x, e.y, ["#ffd23f", "#ffffff", "#c9b8ff"], 10, 1.2);
+          this.cb.onQuestion("bot", e.n);
+          break;
+        case "quizBotDone": {
+          this.sparks(e.x, e.y, e.correct ? ["#ffd23f", "#5fff8a", "#ffffff", "#5ef0ff"] : ["#9aa4c8", "#ffffff"], e.correct ? 30 : 14, e.correct ? 2.2 : 1.4);
+          if (e.correct) {
+            // A power-up reward plays the power-up jingle instead (see "boost").
+            if (!e.reward.boost) a.playJingle(QUIZ_RIGHT);
+          } else a.wrong();
+          const sub = `+${e.reward.energy} ENERGY${e.reward.boost ? ` · ${BOOSTS[e.reward.boost].name.toUpperCase()}!` : ""}`;
+          this.note(e.correct ? "QUIZ BOT REBOOTED!" : "QUIZ BOT POOF!", sub);
+          break;
+        }
+        case "boost": {
+          a.playJingle(POWER_UP);
+          const B = BOOSTS[e.boost];
+          const p = sim?.s.p;
+          if (p) this.sparks(p.x + 6, p.y + 10, [B.color, B.color2, "#ffffff"], 18, 1.6);
+          if (e.from === "pickup") this.note(B.name.toUpperCase() + "!", B.tip);
+          break;
+        }
+        case "boostEnd": a.tone(500, 0.12, "triangle", 0.25, 250); break;
+        case "bubblePop": {
+          a.tone(1200, 0.15, "triangle", 0.3, 400);
+          const p = sim?.s.p;
+          if (p) this.sparks(p.x + 6, p.y + 10, ["#9ad1ff", "#ffffff"], 14, 1.8);
+          this.note("BUBBLE POP!", "IT BLOCKED THE BUMP");
+          break;
+        }
         case "weak": a.tone(880, 0.3, "triangle", 0.4, 1760); this.note("WEAK SPOT!", "NEXT RIGHT ANSWER = DOUBLE REBOOT"); break;
         case "bossHit": {
           a.correct();
@@ -266,6 +311,8 @@ export class RoboEngine {
     this.cb.onHud({
       energy: Math.max(0, s.energy), lives: s.lives, power: s.power, sel: sim.selectedPower, powers: s.powers, score: s.score, mode: s.mode,
       bossHp: s.fight?.hp ?? 0, bossMax: s.fight?.maxHp ?? 0, weakReady: !!s.fight?.weakReady, progress: sim.progress(), checkpoint: s.checkpoint,
+      boosts: BOOST_IDS.filter((id) => s.boosts[id] > 0).map((id) => ({ id, left: s.boosts[id], max: BOOSTS[id].frames })),
+      qbDone: s.qbDone.filter(Boolean).length, qbTotal: s.qbDone.length,
     });
   }
 

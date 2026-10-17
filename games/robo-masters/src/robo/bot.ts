@@ -1,10 +1,11 @@
+import type { QuizReward } from "./boosts";
 import { PH, Sim, type Input } from "./sim";
 
 
 /*
  * A headless test bot: it plays a stage by looking ahead with cloned sims (a small beam search over
- * short input segments) and answers boss questions with a given policy. It proves every stage and
- * the fortress can be cleared in every grade band.
+ * short input segments) and answers boss and Quiz Bot questions with given policies. It proves every
+ * stage and the fortress can be cleared in every grade band (Quiz Bot barriers included).
  */
 
 interface Action {
@@ -81,7 +82,8 @@ function rawScore(sim: Sim): number {
     if (s.mode === "quiz") v += 2000;
     if (s.mode === "bossDown" || s.mode === "clear") v += 50000;
   } else {
-    v += s.p.x * 2 + s.checkpoint * 50;
+    v += s.p.x * 2 + s.checkpoint * 50 + s.qbAnswered * 600;
+    if (s.mode === "quiz") v += 800;
     // Standing higher is progress too (lifts, ledges).
     if (s.p.onGround) v += (200 - (s.p.y + PH)) * 1.5;
     if (s.mode === "bossIntro") v += 100000;
@@ -130,6 +132,10 @@ export interface BotResult {
   wrong: number;
   /** Boss HP right before each answer and right after (to prove wrong answers change nothing). */
   answers: { correct: boolean; hpBefore: number; hpAfter: number; livesBefore: number; livesAfter: number; energyBefore: number; energyAfter: number }[];
+  /** Quiz Bot answers, with what each one gave. */
+  quizBots: { n: number; correct: boolean; reward: QuizReward; livesBefore: number; livesAfter: number; energyBefore: number; energyAfter: number; powerBefore: number; powerAfter: number; x: number }[];
+  /** Quiz Bots answered before the boss door closed. */
+  quizBotsBeforeBoss: number;
   reason: string;
 }
 
@@ -137,10 +143,22 @@ export interface BotResult {
  * Plays the stage to the end. `answerRight(n)` decides whether question n (0-based) is answered right.
  * `onQuestion` lets the caller draw a real question for each panel (tests check them).
  */
-export function playStage(sim: Sim, opts: { answerRight?: (n: number) => boolean; maxFrames?: number; onQuestion?: (n: number) => void; skipToBoss?: boolean } = {}): BotResult {
+export function playStage(
+  sim: Sim,
+  opts: {
+    answerRight?: (n: number) => boolean;
+    /** Quiz Bot policy (n = 0-based Quiz Bot question). Default: right, wrong, right. */
+    answerBot?: (n: number) => boolean;
+    maxFrames?: number;
+    onQuestion?: (n: number) => void;
+    onQuizBot?: (n: number) => void;
+    skipToBoss?: boolean;
+  } = {},
+): BotResult {
   const answerRight = opts.answerRight ?? (() => true);
-  const maxFrames = opts.maxFrames ?? 60 * 60 * 6;
-  const res: BotResult = { cleared: false, frames: 0, livesLost: 0, questions: 0, wrong: 0, answers: [], reason: "" };
+  const answerBot = opts.answerBot ?? ((n: number) => n !== 1);
+  const maxFrames = opts.maxFrames ?? 60 * 60 * 10;
+  const res: BotResult = { cleared: false, frames: 0, livesLost: 0, questions: 0, wrong: 0, answers: [], quizBots: [], quizBotsBeforeBoss: 0, reason: "" };
   if (opts.skipToBoss) sim.warpToBoss();
   let plan: { a: Action; f: number } | null = null;
   const start = sim.s.t;
@@ -153,6 +171,18 @@ export function playStage(sim: Sim, opts: { answerRight?: (n: number) => boolean
     if (s.mode === "over") {
       res.reason = `game over at x=${Math.round(s.p.x)} (arena ${sim.level.arenaX})`;
       break;
+    }
+    if (s.mode === "quiz" && s.ask !== "boss") {
+      const n = res.quizBots.length;
+      opts.onQuizBot?.(n);
+      const right = answerBot(n);
+      const before = { lives: s.lives, energy: s.energy, power: s.power };
+      const r = sim.answer(right);
+      res.quizBots.push({ n, correct: right, reward: r.reward!, livesBefore: before.lives, livesAfter: s.lives, energyBefore: before.energy, energyAfter: s.energy, powerBefore: before.power, powerAfter: s.power, x: s.p.x });
+      if (!s.locked) res.quizBotsBeforeBoss++;
+      sim.resume();
+      plan = null;
+      continue;
     }
     if (s.mode === "quiz") {
       opts.onQuestion?.(res.questions);

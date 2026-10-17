@@ -21,11 +21,13 @@ import {
 } from "@/kit";
 import { ITEMS, ITEM_LABEL, SUPPLIES, UPGRADES, gnum, type ItemId } from "@/stand/config";
 import { WEATHER_WORD } from "@/stand/demand";
-import { GAME_ID, StandGame, type LogEntry } from "@/stand/game";
+import { GAME_ID, StandGame, type LogEntry, type Sfx } from "@/stand/game";
 import { PIECE_VALUE, type PieceId } from "@/stand/money";
 import type { SSQuestion } from "@/stand/questions";
 import { StandScreen, laneAt } from "@/stand/render";
 import "@/stand/stand.css";
+import { exposeMusicDebug } from "@/kit/audio";
+import { DAY_DONE, EVENING_SONG, JINGLES, MORNING_SONG, RAIN_SONG, RUSH_SONG, SONGS, STAND_OPEN, UPGRADE, WEEK_DONE } from "@/music";
 
 /** Sidewalk Stand's own 16-step bassline: a bouncy park-day shuffle (Hz; 0 = rest). */
 const BASS = [131, 0, 196, 0, 165, 0, 196, 175, 147, 0, 220, 0, 175, 0, 196, 220];
@@ -44,8 +46,20 @@ export default function SidewalkStand() {
   const readAloudRef = useRef(readAloud);
   readAloudRef.current = readAloud;
   const game = useMemo(() => {
-    const g = new StandGame(
-      audio,
+    // The game's sound calls, with the big moments turned into jingles: the stand opening, the
+    // evening ledger, a cart upgrade and the end-of-week report.
+    const sfx: Sfx = {
+      blip: () => audio.blip(),
+      correct: () => audio.correct(),
+      wrong: () => audio.wrong(),
+      shoot: () => audio.shoot(),
+      jump: () => audio.jump(),
+      checkpoint: () => (g.phase === "plan" ? audio.playJingle(STAND_OPEN) : audio.checkpoint()),
+      levelUp: () => audio.playJingle(g.phase === "upgrade" ? UPGRADE : DAY_DONE),
+      gameOver: () => audio.playJingle(WEEK_DONE),
+    };
+    const g: StandGame = new StandGame(
+      sfx,
       {
         say: (t) => {
           if (readAloudRef.current && t) speak(t);
@@ -62,6 +76,8 @@ export default function SidewalkStand() {
   }, [audio]);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
   const [touch, setTouch] = useState(false);
   const [highScore, setHighScore] = useState(() => loadProgress(GAME_ID).highScore);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -108,6 +124,43 @@ export default function SidewalkStand() {
     return () => mq.removeEventListener?.("change", onChange);
   }, []);
 
+  // Music: morning while planning, the lunch rush at the cart (a rainy-day tune when it rains), and the
+  // evening for the ledger and report. It starts on the first tap or key, thins to lead + bass while a
+  // customer is paying, and hurries a little when three or more customers are waiting.
+  const musicStarted = useRef(false);
+  const startMusic = useCallback(() => {
+    audio.unlock();
+    if (!musicStarted.current) {
+      musicStarted.current = true;
+      bump();
+    }
+  }, [audio]);
+  useEffect(() => {
+    window.addEventListener("pointerdown", startMusic);
+    window.addEventListener("keydown", startMusic);
+    return () => {
+      window.removeEventListener("pointerdown", startMusic);
+      window.removeEventListener("keydown", startMusic);
+    };
+  }, [startMusic]);
+  useEffect(() => {
+    audio.duckLevel = early ? 0.15 : 0.22;
+  }, [audio, early]);
+  useEffect(() => exposeMusicDebug(audio, SONGS, JINGLES), [audio]);
+  const atCart = phase === "rush" || phase === "pay";
+  const evening = phase === "ledger" || phase === "upgrade" || phase === "transmission" || phase === "over";
+  const waiting = atCart ? game.customers.filter((c) => c.state === "wait").length : 0;
+  useEffect(() => {
+    if (!musicStarted.current) return;
+    if (paused) {
+      audio.stopSong();
+      return;
+    }
+    audio.playSong(atCart ? (game.today.forecast.weather === "rain" ? RAIN_SONG : RUSH_SONG) : evening ? EVENING_SONG : MORNING_SONG);
+    audio.setIntensity(phase === "pay" ? "calm" : "full");
+    audio.setTempoScale(phase === "rush" && waiting >= 3 && !early ? 1.06 : 1);
+  });
+
   useEffect(() => {
     if (phase === "over") setHighScore(loadProgress(GAME_ID).highScore);
   }, [phase]);
@@ -122,13 +175,12 @@ export default function SidewalkStand() {
   );
 
   const startGame = useCallback(() => {
-    audio.unlock();
-    audio.startMusic();
+    startMusic();
     rememberGrade(game.grade);
     setPaused(false);
     game.setPaused(false);
     game.start();
-  }, [audio, game]);
+  }, [startMusic, game]);
 
   const togglePause = useCallback(
     (force?: boolean) => {
@@ -271,7 +323,14 @@ export default function SidewalkStand() {
         <a href={arcadeLink(grade)}>◀ ARCADE</a>
         <div className="st-tools">
           {(phase === "rush" || phase === "pay") && <button onClick={() => togglePause()}>{paused ? "RESUME" : "PAUSE"}</button>}
-          <button onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off (M mutes everything)">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && (
             <button onClick={toggleReadAloud} aria-pressed={readAloud}>
               {readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}

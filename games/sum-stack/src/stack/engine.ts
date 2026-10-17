@@ -283,7 +283,7 @@ export class StackEngine {
     this.mode = "banner";
     this.bannerT = 2.2;
     this.releaseAllKeys();
-    this.audio.levelUp();
+    // The "Level Stacked" jingle (src/music.ts) plays from onRule.
     this.cb.onRule(this.rule);
     this.emitHud();
   }
@@ -431,8 +431,7 @@ export class StackEngine {
     }
     this.mode = "over";
     this.overT = 0;
-    this.audio.stopMusic();
-    this.audio.gameOver();
+    this.audio.stopMusic(); // the "Topped Out" jingle plays from onGameOver
     this.emitHud();
     this.cb.onGameOver();
   }

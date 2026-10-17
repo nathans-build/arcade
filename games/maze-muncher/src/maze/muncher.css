@@ -262,7 +262,7 @@
 .mm-report-table th { font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--mm-dim); text-align: left; padding: 4px; }
 .mm-report-table td { padding: 3px 4px; border-top: 1px solid #1c2450; }
 
-.mm-toolbar { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; margin-bottom: 4px; gap: 8px; }
+.mm-toolbar { position: relative; z-index: 10; display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; margin-bottom: 4px; gap: 8px; }
 .mm-tools { display: flex; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
 .mm-toolbar a, .mm-toolbar button {
   font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--mm-dim);
@@ -280,9 +280,15 @@
 .mm-root.early .mm-banner .opt { min-height: 44px; font-size: 0.75em; }
 .mm-root.early .mm-feedback { font-size: clamp(22px, 3vw, 28px); }
 
+/* The toolbar (ARCADE link, MUSIC, SFX, READ ALOUD) has z-index 10, above every overlay, so it stays tappable
+   on the title, pause and game-over screens. Where an overlay covers the whole viewport (small screens,
+   below) it keeps this much room at the top for the toolbar; more where the toolbar wraps. */
+.mm-root { --mm-tb-room: 40px; }
+@media (max-width: 385px) { .mm-root { --mm-tb-room: 68px; } }
+
 @media (max-width: 700px), (max-height: 640px) {
   /* Small screens: the game screen is too short for text panels, so they take the viewport */
-  .mm-overlay { position: fixed; padding: 12px; align-items: flex-start; }
+  .mm-overlay { position: fixed; padding: 12px; padding-top: var(--mm-tb-room); align-items: flex-start; }
   .mm-panel { max-height: none; }
 }
 

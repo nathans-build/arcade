@@ -228,12 +228,13 @@ export default function DojoTower() {
     if (screen === "title") engineRef.current?.showDemo(bandOf(grade), titlePlan);
   }, [screen, grade, titlePlan]);
 
-  /** Starts a climb; `fromFloor` > 1 continues from the checkpoint (same subject, score starts over). */
+  /** Starts a climb; `fromFloor` > 1 continues from the checkpoint (same subject, the score is kept). */
   const startGame = useCallback((fromFloor = 1) => {
     audio.unlock();
     audio.playSong(floorSong(fromFloor));
     rememberGrade(grade);
     const cont = fromFloor > 1;
+    const keptScore = cont ? engineRef.current?.sim.score ?? 0 : 0;
     const f = cont ? runFocus : validateFocus(focus, grade, focusCatalog);
     const plan = cont ? runPlan : towerPlan(f);
     setRunFocus(f);
@@ -244,9 +245,9 @@ export default function DojoTower() {
     if (!cont) setLog([]);
     setQuiz(null);
     setPaused(false);
-    setHud({ ...EMPTY_HUD, floor: fromFloor });
+    setHud({ ...EMPTY_HUD, floor: fromFloor, score: keptScore });
     setScreen("playing");
-    engineRef.current?.newGame(bandOf(grade), plan, fromFloor);
+    engineRef.current?.newGame(bandOf(grade), plan, fromFloor, keptScore);
   }, [audio, grade, focus, runFocus, runPlan]);
 
   const chooseFocus = useCallback((f: FocusChoice) => {
@@ -782,7 +783,7 @@ function Report({
         )}
         {onContinue && (
           <div className="dt-help dt-continue">
-            You reached floor {floor}! Continue from floor {CHECKPOINT} with 3 new lives (your score starts over).
+            You reached floor {floor}! Continue from floor {CHECKPOINT} with 3 new lives and keep your score.
           </div>
         )}
         {byStd.size > 0 ? (

@@ -150,4 +150,4 @@ The NC DPI site is blocked in this sandbox, so codes follow the kit's own notes
   PS.Chm.2.2 for metals vs. nonmetals.
 
 Credit: created by SpiderBen10 (NZDO) for SpiderBen10's Arcade. All sentences, rules, sprites and the
-bassline are original.
+chiptune soundtrack (`src/music.ts`) are original.

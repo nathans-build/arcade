@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChipAudio,
+  exposeMusicDebug,
   GRADES,
   QuestionDeck,
   arcadeLink,
@@ -28,6 +29,7 @@ import { ERA_BOUNDS, TYPE_NAMES, type SpecimenKind } from "@/drill/geology";
 import type { GoalId } from "@/drill/levels";
 import { gemSprite } from "@/drill/sprites";
 import { gradeTopics } from "@/drill/topics";
+import { JINGLES, SONGS, SPECIMEN_FOUND, levelSong } from "@/music";
 import "@/drill/drill.css";
 
 const GAME_ID = "rock-driller";
@@ -141,6 +143,9 @@ export default function RockDriller() {
   const [found, setFound] = useState<string[]>([]);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
+  useEffect(() => exposeMusicDebug(audio, SONGS, JINGLES), [audio]);
   const [readAloud, setReadAloud] = useState(() => readAloudPref(isEarlyReader(initialGrade("4"))));
   const readAloudRef = useRef(readAloud);
   readAloudRef.current = readAloud;
@@ -244,7 +249,8 @@ export default function RockDriller() {
 
   const startGame = useCallback(() => {
     audio.unlock();
-    audio.startMusic();
+    audio.setIntensity("full");
+    audio.playSong(levelSong(1));
     rememberGrade(grade);
     deckRef.current = new QuestionDeck(grade, "science", { gameId: GAME_ID });
     setLog([]);
@@ -265,7 +271,7 @@ export default function RockDriller() {
       recordAnswer(GAME_ID, gem.q, correct);
       setLog((l) => [...l, { q: gem.q, correct, source: "gem" }]);
       setGem({ ...gem, picked: i });
-      if (correct) audio.correct();
+      if (correct) audio.playJingle(SPECIMEN_FOUND);
       else audio.wrong();
       if (readAloudRef.current) {
         speak(correct ? `Correct! ${gem.q.explanation} ${gem.info.specimen.fact}` : `Not quite. The answer is ${gem.q.choices[gem.q.answer]}. ${gem.q.explanation}`);
@@ -403,13 +409,33 @@ export default function RockDriller() {
     onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
   });
 
+  // Music follows the levels (deeper sites get a lower, slower version), thins out while a gem question
+  // or transmission is open, and drops back while paused.
+  useEffect(() => {
+    if (screen === "playing") audio.playSong(levelSong(hud.level));
+  }, [audio, screen, hud.level]);
+  const asking = !!gem || !!checkpoint;
+  useEffect(() => {
+    audio.setIntensity(asking ? "calm" : "full");
+  }, [audio, asking]);
+  useEffect(() => {
+    audio.duck(screen === "playing" && paused);
+  }, [audio, screen, paused]);
+
   return (
     <div className={`rd-root ${early ? "rd-early" : ""}`}>
       <div className="rd-toolbar">
         <a href={arcadeLink(grade)}>◀ ARCADE</a>
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "flex-end" }}>
           {screen === "playing" && <button onClick={() => togglePause()}>{paused ? "RESUME" : "PAUSE"}</button>}
-          <button onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && (
             <button onClick={toggleReadAloud} aria-pressed={readAloud}>
               {readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}

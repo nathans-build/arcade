@@ -240,13 +240,14 @@
 .ss-report-table th { font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--ss-dim); text-align: left; padding: 4px; }
 .ss-report-table td { padding: 3px 4px; border-top: 1px solid #1c2450; }
 
-.ss-toolbar { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; margin-bottom: 4px; gap: 8px; }
+.ss-toolbar { position: relative; z-index: 10; display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; margin-bottom: 4px; gap: 8px; }
 .ss-tools { display: flex; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
 .ss-toolbar a, .ss-toolbar button {
   font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--ss-dim);
   background: none; border: 0; cursor: pointer; text-decoration: none; padding: 6px 0;
 }
 .ss-toolbar a:hover, .ss-toolbar button:hover { color: var(--ss-cyan); }
+.ss-toolbar > a { white-space: nowrap; flex: none; }
 
 @keyframes ss-blink { 50% { opacity: 0.2; } }
 .ss-blink { animation: ss-blink 1s steps(2) infinite; }
@@ -258,9 +259,17 @@
 .ss-root.early .ss-banner .opt { min-height: 44px; font-size: 0.75em; }
 .ss-root.early .ss-feedback { font-size: clamp(22px, 3vw, 28px); }
 
+/* The toolbar (ARCADE link, MUSIC, SFX, READ ALOUD) has z-index 10, above every overlay, so it stays tappable
+   on the title, pause and game-over screens. Where an overlay covers the whole viewport (small screens,
+   below) it keeps this much room at the top for the toolbar; more where the toolbar wraps. */
+.ss-root { --ss-tb-room: 40px; }
+@media (max-width: 600px) { .ss-root { --ss-tb-room: 74px; } }
+@media (max-width: 520px) { .ss-root { --ss-tb-room: 40px; } }
+@media (max-width: 475px) { .ss-root { --ss-tb-room: 68px; } }
+
 @media (max-width: 700px), (max-height: 640px) {
   /* Small screens: the game screen is too short for text panels, so they take the viewport */
-  .ss-overlay { position: fixed; padding: 12px; align-items: flex-start; }
+  .ss-overlay { position: fixed; padding: 12px; padding-top: var(--ss-tb-room); align-items: flex-start; }
   .ss-panel { max-height: none; }
 }
 

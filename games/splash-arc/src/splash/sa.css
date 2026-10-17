@@ -35,7 +35,7 @@
 .sa-cabinet { width: 100%; max-width: 960px; flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .sa-toolbar, .sa-hud, .sa-banner, .sa-controls { flex: none; }
 
-.sa-toolbar { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; margin-bottom: 4px; gap: 8px; }
+.sa-toolbar { position: relative; z-index: 10; display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; margin-bottom: 4px; gap: 8px; }
 .sa-tools { display: flex; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
 .sa-toolbar a, .sa-toolbar button {
   font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--sa-dim);
@@ -204,8 +204,14 @@
 .sa-root.early .sa-banner { font-size: clamp(19px, 2.8vw, 28px); }
 .sa-root.early .sa-feedback { font-size: clamp(21px, 2.8vw, 27px); }
 
+/* The toolbar (ARCADE link, MUSIC, SFX, READ ALOUD) has z-index 10, above every overlay, so it stays tappable
+   on the title, pause and game-over screens. Where an overlay covers the whole viewport (small screens,
+   below) it keeps this much room at the top for the toolbar; more where the toolbar wraps. */
+.sa-root { --sa-tb-room: 40px; }
+@media (max-width: 385px) { .sa-root { --sa-tb-room: 68px; } }
+
 @media (max-width: 700px), (max-height: 640px) {
-  .sa-overlay { position: fixed; padding: 12px; align-items: flex-start; }
+  .sa-overlay { position: fixed; padding: 12px; padding-top: var(--sa-tb-room); align-items: flex-start; }
   .sa-panel { max-height: none; }
   .sa-dock:not(.below) { position: fixed; left: 0; right: 0; bottom: 0; max-height: 70vh; }
 }

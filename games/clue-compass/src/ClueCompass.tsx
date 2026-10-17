@@ -22,6 +22,8 @@ import { GAME_ID, Game, loadSolved, type LogEntry } from "@/game";
 import { Gfx } from "@/gfx/gfx";
 import { Screen, paintIcon } from "@/gfx/render";
 import "@/ui/cc.css";
+import { exposeMusicDebug } from "@/kit/audio";
+import { CASE_SONG, JINGLES, SONGS, TITLE_SONG } from "@/music";
 
 /** Clue Compass's own 16-step bassline: a tiptoeing detective walk in E minor (Hz; 0 = rest). */
 const BASS = [82, 0, 98, 0, 110, 0, 98, 0, 82, 0, 123, 110, 98, 0, 73, 0];
@@ -50,6 +52,8 @@ export default function ClueCompass() {
   );
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
   const [touch, setTouch] = useState(false);
   const [layout, setLayout] = useState<{ mode: "stack" | "side"; cw: number }>({ mode: "stack", cw: 640 });
   const [highScore, setHighScore] = useState(() => loadProgress(GAME_ID).highScore);
@@ -96,6 +100,39 @@ export default function ClueCompass() {
     return () => mq.removeEventListener?.("change", on);
   }, []);
 
+  // Music: Pip's tune on the title and report, the case tune on a chase. It starts on the first tap or key,
+  // thins to lead + bass while you read a dead-end lesson or a transmission, and (grades 3+) hurries a
+  // little when the compass charges are nearly gone or it's time to pick the hideout.
+  const musicStarted = useRef(false);
+  const startMusic = useCallback(() => {
+    audio.unlock();
+    if (!musicStarted.current) {
+      musicStarted.current = true;
+      bump();
+    }
+  }, [audio]);
+  useEffect(() => {
+    window.addEventListener("pointerdown", startMusic);
+    window.addEventListener("keydown", startMusic);
+    return () => {
+      window.removeEventListener("pointerdown", startMusic);
+      window.removeEventListener("keydown", startMusic);
+    };
+  }, [startMusic]);
+  useEffect(() => {
+    audio.duckLevel = early ? 0.15 : 0.22;
+  }, [audio, early]);
+  useEffect(() => exposeMusicDebug(audio, SONGS, JINGLES), [audio]);
+  const onCase = u.phase !== "title" && u.phase !== "report";
+  const reading = u.phase === "deadend" || u.phase === "transmission";
+  const hurry = !early && u.phase === "stop" && !!u.run && (u.run.finalPick || (u.run.charges !== null && u.run.charges <= 1));
+  useEffect(() => {
+    if (!musicStarted.current || paused) return;
+    audio.playSong(onCase ? CASE_SONG : TITLE_SONG);
+    audio.setIntensity(reading ? "calm" : "full");
+    audio.setTempoScale(hurry ? 1.06 : 1);
+  });
+
   useEffect(() => {
     if (u.phase === "report") setHighScore(loadProgress(GAME_ID).highScore);
   }, [u.phase]);
@@ -111,13 +148,12 @@ export default function ClueCompass() {
 
   const begin = useCallback(
     (caseId?: string) => {
-      audio.unlock();
-      audio.startMusic();
+      startMusic();
       rememberGrade(game.ui.grade);
       setPaused(false);
       game.start(caseId);
     },
-    [audio, game],
+    [startMusic, game],
   );
 
   const togglePause = useCallback(() => {
@@ -128,8 +164,8 @@ export default function ClueCompass() {
       if (game.screen) game.screen.paused = np;
       if (np) {
         stopSpeaking();
-        audio.stopMusic();
-      } else audio.startMusic();
+        audio.stopSong();
+      }
       return np;
     });
   }, [game, audio]);
@@ -276,7 +312,14 @@ export default function ClueCompass() {
         <a href={arcadeLink(grade)} className="cc-pixel">◀ ARCADE</a>
         <div className="cc-tools">
           {playing && <button className="cc-pixel" onClick={togglePause}>{paused ? "RESUME" : "PAUSE"}</button>}
-          <button className="cc-pixel" onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button className="cc-pixel" onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button className="cc-pixel" onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button className="cc-pixel" onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off (M mutes everything)">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && (
             <button className="cc-pixel" onClick={toggleReadAloud} aria-pressed={readAloud}>
               {readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}

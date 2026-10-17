@@ -8,6 +8,8 @@ import { drawText, measure } from "./font";
 import { CELL_H, CELL_W, COLS, H, LAWN_X, LAWN_Y, LEVELS, PLANTS, ROWS, TRAY, UNDEAD, W, cellX, cellY } from "./defs";
 import { Sim, STORE_MAX, type Fx, type MoteKind, type Plant, type SimEvent, type Undead } from "./sim";
 import { sprite, type Variant } from "./sprites";
+import { BOSS_SONG, GARDEN_SAVED, HUGE_WAVE, LICH_RISES, NEW_LEVEL, OVERRUN, WAVE_CLEAR, songForLevel } from "@/music";
+import type { Song } from "@/kit/audio";
 
 export type Tool = PlantKind | "shovel" | null;
 
@@ -76,6 +78,8 @@ export class Engine {
   /** A question panel is open: the world waits. */
   modal = false;
   demoMode = true;
+  /** The Weed Lich is on the lawn (its song plays instead of the level's). */
+  private bossSong = false;
   timeScale = 1;
   band: Band = 0;
   tool: Tool = null;
@@ -156,6 +160,11 @@ export class Engine {
     this.publish(true);
   }
 
+  /** The song for the current moment of play: the level's, or the boss song once the Lich appears. */
+  currentSong(): Song {
+    return this.bossSong ? BOSS_SONG : songForLevel(this.sim.level);
+  }
+
   togglePause(force?: boolean) {
     if (!this.playing) return this.paused;
     this.paused = force ?? !this.paused;
@@ -174,7 +183,8 @@ export class Engine {
     s.resolveHold(correct);
     if (wasFinal && s.phase === "over") {
       this.playing = false;
-      this.audio.levelUp();
+      this.audio.setTempoScale(1);
+      this.audio.playJingle(GARDEN_SAVED, { then: "stop" });
       this.cb.onGameOver(true);
       return;
     }
@@ -377,29 +387,38 @@ export class Engine {
         case "levelStart": {
           const d = LEVELS[e.level - 1];
           this.say(`LEVEL ${e.level}: ${d.name}`, d.light < 0.7 ? "DIM LIGHT: LEAVES MAKE LESS FOOD" : "GATHER SUNLIGHT AND PLANT!", "#ffd23f", 3.2);
-          if (e.level > 1) this.audio.levelUp();
+          this.audio.setTempoScale(1);
+          this.bossSong = false;
+          if (e.level > 1) this.audio.playJingle(NEW_LEVEL, { then: songForLevel(e.level) });
+          else this.audio.playSong(songForLevel(e.level));
           this.cb.onLevelStart(e.level);
           break;
         }
         case "waveStart":
-          this.audio.checkpoint();
+          // A huge wave: a warning stinger and the music hurries a little until the wave is cleared.
+          if (e.big) this.audio.playJingle(HUGE_WAVE);
+          else this.audio.checkpoint();
+          this.audio.setTempoScale(e.big ? 1.08 : 1);
           this.say(e.big ? "A HUGE WAVE!" : `WAVE ${e.wave}!`, "HERE COME THE UNDEAD", e.big ? "#e3262f" : "#ffd23f");
           break;
         case "boss":
           this.say("THE WEED LICH!", "IT SUMMONS BLIGHT BUGS", "#9b5de5", 3);
-          this.audio.tone(98, 0.6, "sawtooth", 0.3, 49);
+          this.bossSong = true;
+          this.audio.playJingle(LICH_RISES, { then: BOSS_SONG });
           break;
         case "heartLost":
           this.audio.crash();
           this.say("THE GREENHOUSE!", "AN UNDEAD GOT IN", "#e3262f", 1.6);
           break;
         case "waveClear":
-          this.audio.correct();
+          this.audio.setTempoScale(1);
+          this.audio.playJingle(WAVE_CLEAR);
           this.cb.onWaveClear(e);
           break;
         case "gameOver":
           this.playing = false;
-          this.audio.gameOver();
+          this.audio.setTempoScale(1);
+          this.audio.playJingle(OVERRUN, { then: "stop" });
           this.cb.onGameOver(false);
           break;
       }

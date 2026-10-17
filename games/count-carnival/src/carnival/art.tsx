@@ -525,30 +525,100 @@ export function Clock({ h, m, lit = 0 }: { h: number; m: number; lit?: number })
   );
 }
 
-/* ------------------------------------------------------------------ coins (original simplified designs) */
+/* ------------------------------------------------------------------ coins (original pixel designs) */
 
-const COIN_STYLE: Record<CoinName, { r: number; face: string; rim: string; label: string; ridged: boolean }> = {
-  penny: { r: 19, face: "#d8874a", rim: "#9c5426", label: "1", ridged: false },
-  nickel: { r: 21.5, face: "#d6dbe2", rim: "#8a929e", label: "5", ridged: false },
-  dime: { r: 17, face: "#e6eaf0", rim: "#8a929e", label: "10", ridged: true },
-  quarter: { r: 24.5, face: "#dde2ea", rim: "#7c8592", label: "25", ridged: true },
+/*
+ * Coins are drawn so children learn them by LOOK, like real US coins: colour (copper penny, silver
+ * others), relative size (from real diameters: dime 17.9 mm < penny 19.05 < nickel 21.2 < quarter 24.3)
+ * and edge (ridged dime and quarter, smooth penny and nickel). No value, letters or words are printed;
+ * the faces are original simple pixel art (a generic head silhouette and little stars), not copies of
+ * any real coin design.
+ */
+export const COIN_MM: Record<CoinName, number> = { dime: 17.91, penny: 19.05, nickel: 21.21, quarter: 24.26 };
+/** Rendered px per real mm (the default coin size). */
+const COIN_PX_PER_MM = 3.4;
+/** Default rendered width of a coin in px, proportional to its real diameter. */
+export const coinPx = (name: CoinName) => Math.round(COIN_MM[name] * COIN_PX_PER_MM);
+
+interface CoinLook {
+  face: string; rim: string; shade: string; light: string; ridged: boolean; faceRight: boolean; stars: number;
+}
+const COIN_LOOK: Record<CoinName, CoinLook> = {
+  penny: { face: "#c8733f", rim: "#8e4a22", shade: "#9e5328", light: "#e9a173", ridged: false, faceRight: true, stars: 0 },
+  nickel: { face: "#c3c8cf", rim: "#7f8792", shade: "#959ca6", light: "#e6e9ee", ridged: false, faceRight: false, stars: 2 },
+  dime: { face: "#dfe3e9", rim: "#8a929e", shade: "#a6adb7", light: "#f7f9fb", ridged: true, faceRight: false, stars: 1 },
+  quarter: { face: "#d5dae1", rim: "#7c8592", shade: "#9aa2ad", light: "#f1f3f6", ridged: true, faceRight: false, stars: 6 },
 };
 
+/** A generic head-and-shoulders silhouette (facing right), one character per pixel. */
+const PROFILE = [
+  "...####...",
+  "..######..",
+  ".########.",
+  ".#########",
+  ".#########",
+  ".##########",
+  ".#########",
+  ".########.",
+  "..#######.",
+  "...####...",
+  "...#####..",
+  "..#######.",
+  ".#########",
+];
+
+function ProfilePix({ fill, flip, dx = 0, dy = 0 }: { fill: string; flip: boolean; dx?: number; dy?: number }) {
+  const px = 2.2;
+  const W = 11;
+  const ox = (-W * px) / 2 + dx;
+  const oy = (-PROFILE.length * px) / 2 - 1 + dy;
+  const rects: ReactNode[] = [];
+  PROFILE.forEach((row, y) => {
+    for (let x = 0; x < row.length; x++) {
+      if (row[x] !== "#") continue;
+      const cx = flip ? W - 1 - x : x;
+      rects.push(<rect key={`${x}-${y}`} x={ox + cx * px} y={oy + y * px} width={px + 0.05} height={px + 0.05} fill={fill} />);
+    }
+  });
+  return <g>{rects}</g>;
+}
+
+/** A tiny pixel star (plus shape) centred at x, y. */
+function PixStar({ x, y, fill }: { x: number; y: number; fill: string }) {
+  const p = 1.3;
+  return (
+    <g fill={fill}>
+      <rect x={x - p / 2} y={y - (p * 3) / 2} width={p} height={p * 3} />
+      <rect x={x - (p * 3) / 2} y={y - p / 2} width={p * 3} height={p} />
+    </g>
+  );
+}
+
+function starSpots(n: number): [number, number][] {
+  if (n === 0) return [];
+  if (n === 1) return [[-12, -11]];
+  if (n === 2) return [[-13, 10], [13, 10]];
+  return Array.from({ length: n }, (_, i) => {
+    const a = Math.PI * (0.62 + (i / (n - 1)) * 0.76);
+    return [Math.cos(a) * 17.5, Math.sin(a) * 17.5] as [number, number];
+  });
+}
+
+/** A coin drawn by look only (no printed value). `w` overrides its real-proportion size. */
 export function Coin({ name, w }: { name: CoinName; w?: number }) {
-  const c = COIN_STYLE[name];
-  const size = w ?? c.r * 3.3;
+  const c = COIN_LOOK[name];
+  const size = w ?? coinPx(name);
+  const R = 24;
   return (
     <svg viewBox="-26 -26 52 52" width={size} height={size} className={`cc-coin cc-coin-${name}`} role="img" aria-label={name}>
-      <circle r={c.r} fill={c.rim} stroke={K} strokeWidth="1.5" />
-      {c.ridged && <circle r={c.r - 0.8} fill="none" stroke={K} strokeWidth="1.4" strokeDasharray="1 1.4" />}
-      <circle r={c.r - 3} fill={c.face} />
-      <circle r={c.r - 6} fill="none" stroke={c.rim} strokeWidth="1" />
-      <text y={c.label.length > 1 ? 4.5 : 5} fontSize={c.label.length > 1 ? 12 : 14} textAnchor="middle" fontFamily="'Press Start 2P', monospace" fill={K}>
-        {c.label}
-      </text>
-      <text y={c.r - 7.5} fontSize="6" textAnchor="middle" fontFamily="'Press Start 2P', monospace" fill={K}>
-        ¢
-      </text>
+      <circle r={R + 1} fill={c.rim} stroke={K} strokeWidth="1.6" />
+      {c.ridged && <circle r={R - 0.2} fill="none" stroke={K} strokeOpacity="0.75" strokeWidth="2.2" strokeDasharray="0.9 1.1" />}
+      <circle r={R - 3} fill={c.face} />
+      <path d={`M ${-(R - 5)} -2 A ${R - 5} ${R - 5} 0 0 1 -2 ${-(R - 5)}`} fill="none" stroke={c.light} strokeWidth="2" strokeLinecap="round" opacity="0.9" />
+      <circle r={R - 5.5} fill="none" stroke={c.shade} strokeWidth="0.9" />
+      <ProfilePix fill={c.light} flip={!c.faceRight} dx={-0.7} dy={-0.7} />
+      <ProfilePix fill={c.shade} flip={!c.faceRight} />
+      {starSpots(c.stars).map(([x, y], i) => <PixStar key={i} x={x} y={y} fill={c.shade} />)}
     </svg>
   );
 }

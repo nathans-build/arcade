@@ -14,6 +14,7 @@ import {
   type Grade,
   type Question,
 } from "@/kit";
+import { END_LOSE, END_SECRET, END_WIN, TRANSMISSION } from "@/music";
 import type { Book } from "@/books";
 import { GAME_ID, isTyping } from "@/game";
 import type { SceneView } from "@/engine/view";
@@ -137,6 +138,7 @@ export function Reader({
       setTq(q);
       setTPicked(null);
       setOverlay("transmission");
+      audio.playJingle(TRANSMISSION);
       setRun((r) => ({ ...r, transmissions: [...r.transmissions, p.id] }));
       if (readAloud) speakQuestion(`Incoming transmission from Quill. ${q.prompt}`, q.choices);
     } else if (readAloud) speak(pageSpeech(p, run));
@@ -233,7 +235,7 @@ export function Reader({
         setFeedback({ text: `Quill: Let's look together. ${gate.kind === "mc" ? `The answer is "${ans}".` : "Here is the right order."} ${gate.hint}`, ok: false });
         if (readAloud) speak(`Let's look together. The answer is: ${ans}. ${gate.hint}`);
       } else if (result === "lose") {
-        audio.gameOver();
+        audio.playJingle(END_LOSE);
         stopSpeaking();
         setOverlay("lose");
       }
@@ -254,6 +256,13 @@ export function Reader({
   );
 
   const gateDone = !!run.gate && (run.gate.status === "solved" || run.gate.status === "reveal");
+
+  // While Quill's question (a gate or a transmission) is up, the music thins to lead + bass.
+  const quiz = (!!page.gate && !gateDone) || overlay === "transmission";
+  useEffect(() => {
+    audio.setIntensity(quiz ? "calm" : "full");
+  }, [audio, quiz]);
+  useEffect(() => () => audio.setIntensity("full"), [audio]);
   const continueGate = useCallback(() => {
     if (!gateDone) return;
     stopSpeaking();
@@ -302,8 +311,7 @@ export function Reader({
     setEnding({ type, name: page.end.name, points, isNew, bonus, high });
     setOverlay("ending");
     if (!playtest) clearRun(book.id);
-    if (type === "lose") audio.gameOver();
-    else audio.levelUp();
+    audio.playJingle(type === "lose" ? END_LOSE : type === "secret" ? END_SECRET : END_WIN);
     if (readAloud) speak(`${type === "lose" ? "The end?" : type === "secret" ? "Secret ending!" : "The end."} ${page.end.name}.`);
   }, [page, revealed, hearts, book.id, playtest, run.score, audio, readAloud]);
 

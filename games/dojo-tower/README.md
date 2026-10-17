@@ -28,7 +28,7 @@ original pixel art drawn in code.
 Floors 1–5 play exactly as before. Floors 6–10 get a little longer, quicker and busier each floor and send a few more
 star-throwers; K–2 gets a much gentler rise (no extra ninjas on screen, smaller speed-up, longer gaps). Boss HP: floors 1–4
 4 (K–2: 3), floors 5–9 one more, floor 10 two more. A game over on floor 6 or higher offers **Continue from floor 6**
-(same subject and masters, 3 new lives, the score starts over); the report lists the masters beaten so far.
+(same subject and masters, 3 new lives, the score is kept); the report lists the masters beaten so far.
 
 ### Floor masters (`src/dojo/bosses.ts`)
 

@@ -180,7 +180,7 @@
 .ss-report-table th { font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--ss-dim); text-align: left; padding: 4px; }
 .ss-report-table td { padding: 3px 4px; border-top: 1px solid #1c2a70; }
 
-.ss-toolbar { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; margin-bottom: 2px; gap: 8px; }
+.ss-toolbar { position: relative; z-index: 10; display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; margin-bottom: 2px; gap: 8px; }
 .ss-toolbar a, .ss-toolbar button {
   font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--ss-dim);
   background: none; border: 0; cursor: pointer; text-decoration: none; padding: 6px 0;
@@ -191,9 +191,16 @@
 @keyframes ss-blink { 50% { opacity: 0.2; } }
 .ss-blink { animation: ss-blink 1s steps(2) infinite; }
 
+/* The toolbar (ARCADE link, MUSIC, SFX, READ ALOUD) has z-index 10, above every overlay, so it stays tappable
+   on the title, pause and game-over screens. Where an overlay covers the whole viewport (small screens,
+   below) it keeps this much room at the top for the toolbar; more where the toolbar wraps. */
+.ss-root { --ss-tb-room: 40px; }
+@media (max-width: 492px) { .ss-root { --ss-tb-room: 70px; } }
+@media (max-width: 415px) { .ss-root { --ss-tb-room: 107px; } }
+
 @media (max-width: 700px), (max-height: 640px) {
   /* Small screens: the game screen is too short for text panels, so they take the viewport */
-  .ss-overlay { position: fixed; padding: 12px; align-items: flex-start; }
+  .ss-overlay { position: fixed; padding: 12px; padding-top: var(--ss-tb-room); align-items: flex-start; }
   .ss-panel { max-height: none; }
 }
 @media (max-width: 520px) {

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChipAudio,
   GRADES,
+  exposeMusicDebug,
   QuestionDeck,
   arcadeLink,
   gradeLabel,
@@ -24,6 +25,7 @@ import {
 import { StackEngine, type Action, type HudState, type PowerUp, type RowStat } from "@/stack/engine";
 import { plainLabel } from "@/stack/font";
 import { exampleText, ruleFor, type Rule } from "@/stack/rules";
+import { JINGLES, LEVEL_STACKED, POWER_UP, SONGS, TOPPED_OUT, levelSong } from "@/music";
 import "@/stack/stack.css";
 
 const GAME_ID = "sum-stack";
@@ -34,9 +36,6 @@ interface AnswerLog {
   q: DealtQuestion;
   correct: boolean;
 }
-
-/** Sum Stack's own 16-step bassline (Hz, 0 = rest): a bouncy climb in A minor. */
-const BASS = [110, 0, 165, 110, 131, 0, 165, 196, 147, 0, 220, 147, 165, 196, 0, 247];
 
 const KEYMAP: Record<string, Action> = {
   ArrowLeft: "left",
@@ -59,7 +58,7 @@ const EMPTY_HUD: HudState = { score: 0, level: 1, lines: 0, goal: 6, combo: 0, p
 export default function SumStack() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<StackEngine | null>(null);
-  const audio = useMemo(() => new ChipAudio(BASS, 150), []);
+  const audio = useMemo(() => new ChipAudio(), []);
   const deckRef = useRef<QuestionDeck | null>(null);
 
   const [grade, setGrade] = useState<Grade>(() => initialGrade());
@@ -73,6 +72,11 @@ export default function SumStack() {
   const [rowStats, setRowStats] = useState<Record<string, RowStat>>({});
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
+  useEffect(() => exposeMusicDebug(audio, SONGS, JINGLES), [audio]);
+  /** True once a real game has started (the title-screen demo never asks for music). */
+  const liveRef = useRef(false);
   const [readAloud, setReadAloud] = useState(() => readAloudPref(isEarlyReader(grade)));
   const readAloudRef = useRef(readAloud);
   readAloudRef.current = readAloud;
@@ -96,9 +100,22 @@ export default function SumStack() {
   // Create the engine once; it runs the attract-mode demo behind the title screen.
   useEffect(() => {
     const engine = new StackEngine(canvasRef.current!, audio, {
-      onHud: setHud,
+      onHud: (h) => {
+        setHud(h);
+        // Hurry-up: the music speeds up while the stack is close to the top.
+        if (liveRef.current) {
+          const tall = engine.height;
+          if (tall >= 9) audio.setTempoScale(1.12);
+          else if (tall <= 7) audio.setTempoScale(1);
+        }
+      },
       onRule: (r) => {
         setRule(r);
+        if (liveRef.current) {
+          if (r.level > 1) audio.playJingle(LEVEL_STACKED, { then: levelSong(r.level) });
+          else audio.playSong(levelSong(r.level));
+          audio.setIntensity("full");
+        }
         if (readAloudRef.current) speak(`Level ${r.level}. ${r.speakText}`);
       },
       onCheckpoint: (level) => {
@@ -110,12 +127,18 @@ export default function SumStack() {
         setPicked(null);
         setPower(null);
         setCheckpoint({ q, level });
+        // Thin the music to lead + bass while the question is on screen.
+        audio.setIntensity("calm");
         if (readAloudRef.current) speakQuestion(q.prompt, q.choices);
       },
       onPerfect: (_eq, speech) => {
         if (readAloudRef.current && isEarlyReader(engine.grade)) speak(speech);
       },
       onGameOver: () => {
+        liveRef.current = false;
+        audio.setTempoScale(1);
+        audio.setIntensity("full");
+        audio.playJingle(TOPPED_OUT, { then: "stop" });
         setRowStats({ ...engine.rowStats });
         setHighScore(submitScore(GAME_ID, engine.score));
         setScreen("over");
@@ -129,10 +152,17 @@ export default function SumStack() {
     }
     return () => {
       engine.stop();
+      liveRef.current = false;
       audio.stopMusic();
       stopSpeaking();
     };
   }, [audio]);
+
+  // ?debug: let playtests see the transmission question.
+  useEffect(() => {
+    const w = (window as unknown as { __sumStack?: { checkpoint?: unknown } }).__sumStack;
+    if (w) w.checkpoint = checkpoint;
+  }, [checkpoint]);
 
   useEffect(() => {
     const mq = window.matchMedia("(pointer: coarse)");
@@ -153,7 +183,11 @@ export default function SumStack() {
 
   const startGame = useCallback(() => {
     audio.unlock();
-    audio.startMusic();
+    liveRef.current = true;
+    audio.setTempoScale(1);
+    audio.setIntensity("full");
+    audio.duck(false);
+    audio.playSong(levelSong(1), { restart: true });
     rememberGrade(grade);
     deckRef.current = new QuestionDeck(grade, "math", { gameId: GAME_ID });
     setLog([]);
@@ -170,7 +204,7 @@ export default function SumStack() {
       setPicked(i);
       const correct = i === checkpoint.q.answer;
       if (correct) {
-        audio.correct();
+        audio.playJingle(POWER_UP);
         const tall = (engineRef.current?.height ?? 0) >= 8;
         const options: PowerUp[] = ["blast", "slow", "wild", "wild"];
         const p = tall ? "blast" : options[Math.floor(Math.random() * options.length)];
@@ -197,8 +231,11 @@ export default function SumStack() {
   const togglePause = useCallback((force?: boolean) => {
     const e = engineRef.current;
     if (!e) return;
-    setPaused(e.togglePause(force));
-  }, []);
+    const p = e.togglePause(force);
+    // Paused: the music carries on quietly underneath.
+    audio.duck(p);
+    setPaused(p);
+  }, [audio]);
 
   const toggleReadAloud = useCallback(() => {
     setReadAloud((on) => {
@@ -275,7 +312,14 @@ export default function SumStack() {
         <a href={arcadeLink(grade)}>◀ ARCADE</a>
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "flex-end" }}>
           {screen === "playing" && <button onClick={() => togglePause()}>{paused ? "RESUME" : "PAUSE"}</button>}
-          <button onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && <button onClick={toggleReadAloud}>{readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}</button>}
         </div>
       </div>
@@ -365,6 +409,7 @@ export default function SumStack() {
                 highScore={highScore}
                 onAgain={startGame}
                 onMenu={() => {
+                  audio.stopSong();
                   const r = ruleFor(grade, 1);
                   engineRef.current?.demo(grade, r);
                   setRule(r);

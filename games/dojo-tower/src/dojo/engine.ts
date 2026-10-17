@@ -60,13 +60,13 @@ export class DojoEngine {
     this.sim = this.makeDemo(band);
   }
 
-  /** A new climb with this run's ten floors; `floor` > 1 continues from a checkpoint (score starts over). */
-  newGame(band: Band, plan: FloorPlan[], floor = 1) {
+  /** A new climb with this run's ten floors; `floor` > 1 continues from a checkpoint, keeping `score`. */
+  newGame(band: Band, plan: FloorPlan[], floor = 1, score = 0) {
     this.plan = plan;
     this.demo = false;
     this.renderer.card = null;
     this.paused = false;
-    this.sim = new DojoSim(band, { plan, floor });
+    this.sim = new DojoSim(band, { plan, floor, score });
     this.cb.onHud(this.sim.hud());
   }
 

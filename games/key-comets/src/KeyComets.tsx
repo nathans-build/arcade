@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChipAudio } from "@/kit/audio";
+import { ChipAudio, exposeMusicDebug } from "@/kit/audio";
 import { GRADES, arcadeLink, gradeFromArcade, gradeLabel, gradeNumber, initialGrade, isEarlyReader, rememberGrade } from "@/kit/grades";
 import { loadProgress, submitScore } from "@/kit/progress";
 import { readAloudPref, setReadAloudPref, speak, speechSupported, stopSpeaking } from "@/kit/speak";
@@ -14,6 +14,7 @@ import {
 } from "@/comets/stats";
 import { BAND_LABEL, bandOf } from "@/comets/words";
 import "@/comets/comets.css";
+import { JINGLES, PRACTICE_SONG, ROUND_CLEAR, ROUND_DONE, ROUND_SONG, SHIELD_DOWN, SONGS, TITLE_SONG, comboTempo } from "@/music";
 
 const GAME_ID = "key-comets";
 
@@ -77,6 +78,8 @@ export default function KeyComets() {
   const [unlocked, setUnlocked] = useState<string | null>(null);
   const [newBest, setNewBest] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
   const [readAloud, setReadAloud] = useState(() => readAloudPref(isEarlyReader(initialGrade("3"))));
   const [touch] = useState(touchFirst);
   const [hasKeys, setHasKeys] = useState(() => !touchFirst());
@@ -104,6 +107,13 @@ export default function KeyComets() {
   const primaryRef = useRef<(() => void) | null>(null);
 
   const early = isEarlyReader(grade);
+  /** The song for the round in progress (timed or practice), so Resume picks the right one. */
+  const roundSongRef = useRef(ROUND_SONG);
+
+  useEffect(() => {
+    exposeMusicDebug(audio, SONGS, JINGLES);
+    return () => audio.stopMusic();
+  }, [audio]);
   const showKeyboard = save.keyboard || tap;
 
   // Debug hook for the automated playtest (?debug).
@@ -173,10 +183,8 @@ export default function KeyComets() {
       setResult(r);
       setUnlocked(applied.unlocked);
       setNewBest(applied.newBest);
-      audio.stopMusic();
-      if (r.passed) audio.levelUp();
-      else if (!r.completed) audio.gameOver();
-      else audio.checkpoint();
+      audio.setTempoScale(1);
+      audio.playJingle(r.passed ? ROUND_CLEAR : !r.completed ? SHIELD_DOWN : ROUND_DONE, { then: "stop" });
       if (applied.unlocked) setLessonId(applied.unlocked);
       setScreen("over");
       setPaused(false);
@@ -205,7 +213,9 @@ export default function KeyComets() {
       setPaused(false);
       setScreen("playing");
       updateSave({ ...saveRef.current, lastLesson: lid });
-      audio.startMusic();
+      roundSongRef.current = practice || tap ? PRACTICE_SONG : ROUND_SONG;
+      audio.setTempoScale(1);
+      audio.playSong(roundSongRef.current, { restart: true });
     },
     [audio, grade, lessonId, practice, tap, updateSave],
   );
@@ -216,15 +226,16 @@ export default function KeyComets() {
       const p = force ?? !pausedRef.current;
       setPaused(p);
       if (p) {
-        audio.stopMusic();
+        audio.stopSong();
         stopSpeaking();
-      } else audio.startMusic();
+      } else audio.playSong(roundSongRef.current);
     },
     [audio],
   );
 
   const quitToTitle = () => {
-    audio.stopMusic();
+    audio.setTempoScale(1);
+    audio.playSong(TITLE_SONG);
     simRef.current = null;
     setPaused(false);
     setScreen("title");
@@ -294,6 +305,7 @@ export default function KeyComets() {
           r.zap(ev.comet, ev.points);
           audio.shoot();
           audio.noise(0.18, 0.25);
+          if (!sim.practice) audio.setTempoScale(comboTempo(ev.combo));
           if (ev.comet.by) setTip(`"${ev.comet.text}" (${ev.comet.by})`);
           else if (ev.combo > 0 && ev.combo % 5 === 0) {
             audio.checkpoint();
@@ -304,12 +316,14 @@ export default function KeyComets() {
           const t = sim.target();
           if (t) r.oops(t.x, t.y - 20);
           audio.tone(150, 0.12, "square", 0.18, 110);
+          audio.setTempoScale(comboTempo(sim.combo));
           if (ev.expected) setTip(`Oops! Look for ${keyName(ev.expected)}. ${fingerHint(ev.expected)}`);
           break;
         }
         case "hit":
           r.dent(ev.comet);
           audio.crash();
+          audio.setTempoScale(comboTempo(sim.combo));
           setTip(ev.shield > 0 ? `A comet dented the shield! ${ev.shield} left.` : "The shield is down!");
           break;
         default:
@@ -391,7 +405,15 @@ export default function KeyComets() {
   const playing = screen === "playing";
 
   return (
-    <div className={`kc-root ${early ? "early" : ""}`}>
+    <div
+      className={`kc-root ${early ? "early" : ""}`}
+      onPointerDown={(e) => {
+        // The lesson picker gets its own loop after the first tap (not on the Start button, which starts a round).
+        if (screenRef.current !== "title" || (e.target as Element).closest?.(".kc-cta.big, .kc-tools")) return;
+        audio.unlock();
+        audio.playSong(TITLE_SONG);
+      }}
+    >
       <div className="kc-toolbar">
         <a href={arcadeLink(grade)}>◀ ARCADE</a>
         <div className="kc-tools">
@@ -400,7 +422,14 @@ export default function KeyComets() {
               {paused ? "RESUME" : "PAUSE (ESC)"}
             </button>
           )}
-          <button onClick={() => setMuted(audio.toggleMute())} aria-pressed={!muted}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button onClick={(e) => { e.currentTarget.blur(); setMuted(audio.toggleMute()); }} aria-pressed={false} title="Sound is off on this device">SOUND OFF</button>
+          ) : (
+            <>
+              <button onClick={(e) => { e.currentTarget.blur(); setMusicOn(audio.toggleMusic()); }} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button onClick={(e) => { e.currentTarget.blur(); setSfxOn(audio.toggleSfx()); }} aria-pressed={sfxOn} title="Sound effects on/off">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && (
             <button onClick={toggleReadAloud} aria-pressed={readAloud}>{readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}</button>
           )}
@@ -499,7 +528,10 @@ export default function KeyComets() {
             onAgain={() => startRound(result.lessonId)}
             onNext={unlocked ? () => startRound(unlocked) : null}
             primaryRef={primaryRef}
-            onMenu={() => setScreen("title")}
+            onMenu={() => {
+              audio.playSong(TITLE_SONG);
+              setScreen("title");
+            }}
           />
         )}
       </div>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChipAudio,
+  exposeMusicDebug,
   GRADES,
   QuestionDeck,
   arcadeLink,
@@ -24,6 +25,7 @@ import {
 } from "@/kit";
 import { ChefEngine, H, W, type Action, type HudState, type StripItem } from "@/chef/engine";
 import { GRADE_BLURB, SequenceDeck, spokenLabel, type SeqMode, type Sequence } from "@/seq";
+import { JINGLES, KITCHEN_CLOSED, ORDER_UP, SONGS, SPICE_BONUS, levelSong } from "@/music";
 import "@/chef/chef.css";
 
 const GAME_ID = "stack-chef";
@@ -57,8 +59,6 @@ const KEYMAP: Record<string, Action> = {
   z: "fire", Z: "fire", x: "fire", X: "fire",
 };
 
-/** Stack Chef's own 16-step bassline (a bouncy kitchen shuffle in F, Hz; 0 = rest). */
-const BASS = [87, 0, 131, 87, 110, 0, 131, 147, 117, 0, 175, 117, 131, 147, 131, 98];
 
 const EMPTY_HUD: HudState = { score: 0, lives: 3, spice: 0, maxSpice: 5, level: 1, placed: 0, total: 0 };
 
@@ -101,7 +101,7 @@ function sayFor(v: StackView, early: boolean): string {
 export default function StackChef() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<ChefEngine | null>(null);
-  const audio = useMemo(() => new ChipAudio(BASS, 132), []);
+  const audio = useMemo(() => new ChipAudio(), []);
   const deckRef = useRef<QuestionDeck | null>(null);
   const seqDeckRef = useRef<SequenceDeck | null>(null);
 
@@ -115,6 +115,11 @@ export default function StackChef() {
   const [log, setLog] = useState<LogEntry[]>([]);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
+  useEffect(() => exposeMusicDebug(audio, SONGS, JINGLES), [audio]);
+  /** True during a real game (the title-screen demo never asks for music). */
+  const liveRef = useRef(false);
   const [readAloud, setReadAloud] = useState(() => readAloudPref(isEarlyReader(initialGrade("3"))));
   const [touch, setTouch] = useState(false);
   const [highScore, setHighScore] = useState(() => loadProgress(GAME_ID).highScore);
@@ -148,6 +153,10 @@ export default function StackChef() {
       onHud: setHud,
       nextSequence: () => seqDeckRef.current!.next(),
       onSequence: (seq) => {
+        if (liveRef.current) {
+          audio.playSong(levelSong(engine.level));
+          audio.setIntensity("full");
+        }
         const v: StackView = { seq, strip: engine.strip, open: engine.canPick(), placed: [], msg: null, done: false };
         setView(v);
         if (readAloudRef.current) speak(sayFor(v, isEarlyReader(gradeRef.current)));
@@ -165,6 +174,7 @@ export default function StackChef() {
         else speak(why);
       },
       onStackDone: (seq, clean) => {
+        if (liveRef.current) audio.playJingle(ORDER_UP);
         addLog({ standard: seq.standard, skill: seq.skill, correct: clean, kind: "stack", title: seq.title });
         if (!clean) seqDeckRef.current?.retry(seq);
         setView((v) => (v && v.seq.id === seq.id ? { ...v, done: true, placed: [...seq.steps], msg: { text: seq.explain, ok: true } } : v));
@@ -178,9 +188,14 @@ export default function StackChef() {
         }
         setPicked(null);
         setCheckpoint({ q, level });
+        // Thin the music to lead + bass while the transmission question is on screen.
+        audio.setIntensity("calm");
         if (readAloudRef.current) speakQuestion(q.prompt, q.choices);
       },
       onGameOver: () => {
+        liveRef.current = false;
+        audio.setIntensity("full");
+        audio.playJingle(KITCHEN_CLOSED, { then: "stop" });
         setHighScore(submitScore(GAME_ID, engine.score));
         setScreen("over");
       },
@@ -192,10 +207,17 @@ export default function StackChef() {
     engine.start();
     return () => {
       engine.stop();
+      liveRef.current = false;
       audio.stopMusic();
       stopSpeaking();
     };
   }, [audio, addLog]);
+
+  // ?debug: let playtests see the transmission question.
+  useEffect(() => {
+    const w = window as unknown as { __sc?: unknown; __scCheckpoint?: unknown };
+    if (w.__sc) w.__scCheckpoint = checkpoint;
+  }, [checkpoint]);
 
   useEffect(() => {
     const mq = window.matchMedia("(pointer: coarse)");
@@ -219,7 +241,11 @@ export default function StackChef() {
 
   const startGame = useCallback(() => {
     audio.unlock();
-    audio.startMusic();
+    liveRef.current = true;
+    audio.duckLevel = isEarlyReader(grade) ? 0.18 : 0.28;
+    audio.duck(false);
+    audio.setIntensity("full");
+    audio.playSong(levelSong(1), { restart: true });
     rememberGrade(grade);
     deckRef.current = new QuestionDeck(grade, subject, { gameId: GAME_ID });
     seqDeckRef.current = new SequenceDeck(grade, subject);
@@ -235,7 +261,7 @@ export default function StackChef() {
       if (!checkpoint || picked !== null) return;
       setPicked(i);
       const correct = i === checkpoint.q.answer;
-      if (correct) audio.correct();
+      if (correct) audio.playJingle(SPICE_BONUS);
       else audio.wrong();
       recordAnswer(GAME_ID, checkpoint.q, correct);
       addLog({ standard: checkpoint.q.standard, skill: checkpoint.q.skill, correct, kind: "checkpoint" });
@@ -257,8 +283,10 @@ export default function StackChef() {
     if (!e) return;
     const p = e.togglePause(force);
     setPaused(p);
+    // Paused: the music carries on quietly underneath.
+    audio.duck(p);
     if (p) stopSpeaking();
-  }, []);
+  }, [audio]);
 
   const toggleReadAloud = useCallback(() => {
     setReadAloud((on) => {
@@ -370,7 +398,14 @@ export default function StackChef() {
         <a href={arcadeLink(grade)}>◀ ARCADE</a>
         <div className="sc-tools">
           {screen === "playing" && <button onClick={() => togglePause()}>{paused ? "RESUME" : "PAUSE"}</button>}
-          <button onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && (
             <button onClick={toggleReadAloud} aria-pressed={readAloud}>
               {readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}
@@ -470,6 +505,7 @@ export default function StackChef() {
                 highScore={highScore}
                 onAgain={startGame}
                 onMenu={() => {
+                  audio.stopSong();
                   engineRef.current?.demo(grade);
                   setView(null);
                   setScreen("title");

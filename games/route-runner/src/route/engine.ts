@@ -762,8 +762,8 @@ export class RouteEngine {
     this.score += this.tally.bonus;
     if (this.tally.perfect) {
       this.lives = Math.min(5, this.lives + 1);
-      this.audio.levelUp();
-    } else this.audio.checkpoint();
+    }
+    // The street-end jingle ("Perfect Street" / "Into the Yard", src/music.ts) plays from onYard.
     const q = this.cb.requestQuestion();
     this.yard = { q, picked: null, result: null, hit: 0 };
     this.cb.onYard(q, { ...this.tally });
@@ -781,7 +781,7 @@ export class RouteEngine {
       this.streak++;
       this.score += bonus;
       this.packets = Math.min(20, this.packets + 6);
-      this.audio.correct();
+      // The "Bullseye" jingle plays from onYardResult.
       for (let k = 0; k < 18; k++) this.particles.push({ x: TARGET_XS[i], d: this.yardD + YARD_TARGET_AHEAD, vx: rand(-70, 70), vd: rand(-50, 70), life: rand(0.4, 1), color: [PALETTE.yellow, PALETTE.green, PALETTE.red][k % 3] });
     } else {
       this.streak = 0;

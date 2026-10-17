@@ -9,7 +9,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "world": "node scripts/make-world.cjs",
-    "test": "tsx scripts/check-cases.ts"
+    "test": "tsx scripts/check-cases.ts && tsx scripts/check-music.ts"
   },
   "dependencies": {
     "react": "^18.3.1",

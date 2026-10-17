@@ -4,8 +4,8 @@ import { arcadeLink, gradeFromArcade, gradeLabel, initialGrade, rememberGrade } 
 import { recordAnswer, submitScore } from "@/kit/progress";
 import { readAloudPref, setReadAloudPref, speak, speechSupported, stopSpeaking } from "@/kit/speak";
 import type { Grade } from "@/kit/types";
-import { Confetti, MASCOT_NAME, PrizeArt, Tally, Tent, Ticket, Balloon, Duck, ShapeArt, Star } from "@/carnival/art";
-import { BOOTHS, BOOTH_INFO, CHOICE_COLORS, ROUND_LEN, makeRound, playGrade, type BoothId } from "@/carnival/items";
+import { Coin, Confetti, MASCOT_NAME, PrizeArt, Tally, Tent, Ticket, Balloon, Duck, ShapeArt, Star } from "@/carnival/art";
+import { BOOTHS, BOOTH_INFO, CHOICE_COLORS, COINS_BY_VALUE, COIN_CENTS, ROUND_LEN, makeRound, playGrade, type BoothId } from "@/carnival/items";
 import { Round } from "@/carnival/round";
 import { makeRng } from "@/carnival/rng";
 import { PRIZES, buyPrize, loadSave, writeSave, type SaveData } from "@/carnival/save";
@@ -68,6 +68,8 @@ export default function CountCarnival() {
   const [, setTick] = useState(0);
   const rerender = () => setTick((t) => t + 1);
   const [lit, setLit] = useState(0);
+  /** Id of the coin item whose "Coin guide" peek is open (closes by itself on the next item). */
+  const [guideFor, setGuideFor] = useState<string | null>(null);
   const [burst, setBurst] = useState(0);
   const [shake, setShake] = useState(-1);
   const [msg, setMsg] = useState("");
@@ -452,6 +454,32 @@ export default function CountCarnival() {
         <div className="cc-play-area">
           <section className="cc-stage">
             <p className="cc-prompt">{item.prompt}</p>
+            {item.visual.kind === "coins" && (
+              <>
+                <button
+                  type="button"
+                  className="cc-coinguide-btn"
+                  aria-expanded={guideFor === item.id}
+                  onClick={() => {
+                    const open = guideFor !== item.id;
+                    setGuideFor(open ? item.id : null);
+                    if (open) say(COINS_BY_VALUE.map((k) => `${k}, ${COIN_CENTS[k]} cents.`).join(" "));
+                  }}
+                >
+                  Coin guide
+                </button>
+                {guideFor === item.id && (
+                  <div className="cc-coinguide" role="note" aria-label="Coin guide">
+                    {[...COINS_BY_VALUE].reverse().map((k) => (
+                      <figure key={k}>
+                        <Coin name={k} />
+                        <figcaption>{k}<br />{COIN_CENTS[k]}¢</figcaption>
+                      </figure>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
             <div className="cc-scene">
               <Scene
                 v={item.visual}

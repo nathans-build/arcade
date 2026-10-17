@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
   ChipAudio,
+  exposeMusicDebug,
   GRADES,
   arcadeLink,
   gradeFromArcade,
@@ -22,10 +23,9 @@ import { GAME_ID, SplashGame, type LogEntry, type PlayMode, type Seat } from "@/
 import { bandOf, hitBox } from "@/splash/levels";
 import { MAX_ANGLE, MAX_POWER, MIN_ANGLE, MIN_POWER, speedText } from "@/splash/physics";
 import { SplashScreen } from "@/splash/render";
+import { JINGLES, SONGS, themeSong } from "@/music";
 import "@/splash/sa.css";
 
-/** Splash Arc's own 16-step bassline: a bouncy, splashy loop (Hz; 0 = rest). */
-const BASS = [131, 0, 196, 0, 165, 0, 196, 220, 147, 0, 220, 0, 175, 0, 220, 247];
 
 const BAND_LINE: Record<string, string> = {
   K2: "Shapes and positions: name the 2-D or 3-D shape to aim, then splash it!",
@@ -40,7 +40,7 @@ const BAND_LINE: Record<string, string> = {
 
 export default function SplashArc() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const audio = useMemo(() => new ChipAudio(BASS, 118), []);
+  const audio = useMemo(() => new ChipAudio(), []);
   const [, bump] = useReducer((x: number) => x + 1, 0);
   const [readAloud, setReadAloud] = useState(() => readAloudPref(isEarlyReader(initialGrade("4"))));
   const readAloudRef = useRef(readAloud);
@@ -64,6 +64,11 @@ export default function SplashArc() {
   );
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
+  useEffect(() => exposeMusicDebug(audio, SONGS, JINGLES), [audio]);
+  /** True once a game has been started from a tap (no music before that). */
+  const liveRef = useRef(false);
   const [touch, setTouch] = useState(false);
   const [highScore, setHighScore] = useState(() => loadProgress(GAME_ID).highScore);
   const [reportSeat, setReportSeat] = useState(0);
@@ -117,6 +122,21 @@ export default function SplashArc() {
     return () => mq.removeEventListener?.("change", onChange);
   }, []);
 
+  // Music follows the level theme (day roofs, dusk, Mars / Moon), thinned to lead + bass while a
+  // question or transmission is on screen. The splash / level / finale jingles come from the game.
+  const phase = u.phase;
+  const theme = game.lv?.theme ?? null;
+  useEffect(() => {
+    if (!liveRef.current) return;
+    if (phase === "title") {
+      audio.stopSong();
+      return;
+    }
+    if (phase === "over" || !theme) return;
+    audio.playSong(themeSong(theme));
+    audio.setIntensity(phase === "question" || phase === "transmission" ? "calm" : "full");
+  }, [audio, phase, theme]);
+
   useEffect(() => {
     if (u.phase === "over") setHighScore(loadProgress(GAME_ID).highScore);
   }, [u.phase]);
@@ -132,7 +152,10 @@ export default function SplashArc() {
 
   const startGame = useCallback(() => {
     audio.unlock();
-    audio.startMusic();
+    liveRef.current = true;
+    audio.duckLevel = isEarlyReader(game.ui.grade) ? 0.18 : 0.28;
+    audio.duck(false);
+    audio.setIntensity("full");
     rememberGrade(game.ui.grade);
     setPaused(false);
     game.setPaused(false);
@@ -148,11 +171,13 @@ export default function SplashArc() {
       setPaused((p) => {
         const np = force ?? !p;
         game.setPaused(np);
+        // Paused: the music carries on quietly underneath.
+        audio.duck(np);
         if (np) stopSpeaking();
         return np;
       });
     },
-    [game, playing],
+    [game, playing, audio],
   );
 
   const toggleReadAloud = useCallback(() => {
@@ -313,7 +338,14 @@ export default function SplashArc() {
         <a href={arcadeLink(grade)}>◀ ARCADE</a>
         <div className="sa-tools">
           {playing && <button onClick={() => togglePause()}>{paused ? "RESUME" : "PAUSE"}</button>}
-          <button onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && (
             <button onClick={toggleReadAloud} aria-pressed={readAloud}>
               {readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}

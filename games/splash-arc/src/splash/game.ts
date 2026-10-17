@@ -7,6 +7,7 @@ import { GROUND_Y, bandOf, bestAim, buildLevel, levelCount, shotBase, worldOf, t
 import { DT, MAX_ANGLE, MAX_POWER, MIN_ANGLE, MIN_POWER, PLANETS, simulate, type SimResult } from "./physics";
 import { nextQuestion, targetName, type ShotQ } from "./questions";
 import { makeRng, type Rng } from "./rng";
+import { ALL_WATERED, SPLASH_FINALE, SPLASH_HIT } from "@/music";
 import type { Particle, Scene } from "./render";
 
 export const GAME_ID = "splash-arc";
@@ -378,7 +379,8 @@ export class SplashGame {
       const pts = 100 + (this.ui.guide ? 0 : 25);
       seat.score += pts;
       this.splash(end.x, end.y, true);
-      this.audio.checkpoint();
+      // The last target on the level gets the longer "All Watered" jingle.
+      this.audio.playJingle(this.live().length ? SPLASH_HIT : ALL_WATERED);
       const what =
         t.kind === "fire" ? "Fizz! The campfire is out." : t.kind === "bell" ? "Ding! The bell rings." : t.kind === "egg" ? "Ahh! The dino egg cools down." : t.kind === "flower" || t.kind === "planter" ? "The garden blooms!" : t.kind === "tank" || t.kind === "container" ? "The tank fills up!" : "Splash! Painted!";
       this.ui.last = `SPLASH! ${what} +${pts}`;
@@ -426,7 +428,7 @@ export class SplashGame {
     this.ui.trans = { q: this.deck.draw(), picked: null };
     this.ui.phase = "transmission";
     this.ui.msg = { text: cleared ? "Every target watered! Incoming transmission…" : "Out of balloons. Incoming transmission…", tone: cleared ? "ok" : "info" };
-    this.audio.checkpoint();
+    if (!cleared) this.audio.checkpoint(); // a cleared level already played "All Watered"
     const tq = this.ui.trans.q;
     this.hooks.sayQuestion(tq.passage ? `${tq.passage} ${tq.prompt}` : tq.prompt, tq.choices);
     this.changed();
@@ -466,7 +468,7 @@ export class SplashGame {
     this.ui.trans = null;
     const best = Math.max(...this.ui.seats.map((s) => s.score));
     submitScore(GAME_ID, best);
-    this.audio.gameOver();
+    this.audio.playJingle(SPLASH_FINALE, { then: "stop" });
     this.changed();
   }
 

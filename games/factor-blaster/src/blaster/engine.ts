@@ -1,4 +1,5 @@
 import type { ChipAudio, Grade } from "@/kit";
+import { GAME_OVER, SECTOR_CLEAR } from "@/music";
 import { textWidth } from "./font";
 import { PALETTE, SHIP_FRAMES, SHIP_SIZE, makeRock, shipFrames, textSprite } from "./sprites";
 import {
@@ -543,7 +544,7 @@ export class BlasterEngine {
     const bonus = 250 * this.level;
     this.score += bonus;
     this.banner = { lines: ["SECTOR CLEAR!", `BONUS +${bonus}`], t: 2, color: PALETTE.green };
-    this.audio.levelUp();
+    this.audio.playJingle(SECTOR_CLEAR);
     this.mode = "clear";
     this.clearT = 1.8;
     this.emitHud();
@@ -566,7 +567,7 @@ export class BlasterEngine {
     if (this.lives <= 0) {
       this.mode = "over";
       this.audio.stopMusic();
-      this.audio.gameOver();
+      this.audio.playJingle(GAME_OVER, { then: "stop" });
       this.emitHud();
       this.cb.onGameOver();
       return;

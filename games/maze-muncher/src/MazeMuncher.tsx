@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChipAudio,
+  exposeMusicDebug,
   GRADES,
   QuestionDeck,
   arcadeLink,
@@ -28,6 +29,7 @@ import { H, W, MazeEngine, type HudState } from "@/maze/engine";
 import { CRITTERS } from "@/maze/sim";
 import { bandOf, tuningFor } from "@/maze/tuning";
 import type { Dir } from "@/maze/maze";
+import { DIZZY_SONG, JINGLES, SONGS, mazeSong } from "@/music";
 import "@/maze/muncher.css";
 
 const GAME_ID = "maze-muncher";
@@ -103,6 +105,9 @@ export default function MazeMuncher() {
   const [log, setLog] = useState<LogEntry[]>([]);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
+  useEffect(() => exposeMusicDebug(audio, SONGS, JINGLES), [audio]);
   const [readAloud, setReadAloud] = useState(() => readAloudPref(isEarlyReader(initialGrade("3"))));
   const [touch, setTouch] = useState(false);
   const [highScore, setHighScore] = useState(() => loadProgress(GAME_ID).highScore);
@@ -201,7 +206,9 @@ export default function MazeMuncher() {
 
   const startGame = useCallback(() => {
     audio.unlock();
-    audio.startMusic();
+    audio.setTempoScale(1);
+    audio.setIntensity("full");
+    audio.playSong(mazeSong(1));
     rememberGrade(grade);
     quickDeckRef.current = new QuestionDeck(grade, subject, { gameId: GAME_ID, quickOnly: true });
     cpDeckRef.current = new QuestionDeck(grade, subject, { gameId: GAME_ID });
@@ -362,13 +369,38 @@ export default function MazeMuncher() {
     onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
   });
 
+  // Music: the chase song for the maze (faster from maze 4), a woozy song while the critters are dizzy,
+  // a faster beat while they are fired up, lead + bass while the end-of-maze question is open, and
+  // turned down while paused.
+  const dizzy = screen === "playing" && hud.power > 0;
+  useEffect(() => {
+    if (screen === "playing") audio.playSong(dizzy ? DIZZY_SONG : mazeSong(hud.level));
+  }, [audio, screen, dizzy, hud.level]);
+  const firedUp = screen === "playing" && hud.rage > 0;
+  useEffect(() => {
+    audio.setTempoScale(firedUp ? 1.12 : 1);
+  }, [audio, firedUp]);
+  useEffect(() => {
+    audio.setIntensity(checkpoint ? "calm" : "full");
+  }, [audio, checkpoint]);
+  useEffect(() => {
+    audio.duck(screen === "playing" && paused);
+  }, [audio, screen, paused]);
+
   return (
     <div className={`mm-root ${early ? "early" : ""}`}>
       <div className="mm-toolbar">
         <a href={arcadeLink(grade)}>◀ ARCADE</a>
         <div className="mm-tools">
           {screen === "playing" && <button onClick={() => togglePause()}>{paused ? "RESUME" : "PAUSE"}</button>}
-          <button onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && (
             <button onClick={toggleReadAloud} aria-pressed={readAloud}>
               {readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}

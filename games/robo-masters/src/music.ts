@@ -301,8 +301,42 @@ export const RECHARGE: Jingle = {
   order: ["J"],
 };
 
+/** A Quiz Bot answered right: a quick bright "ding-ding-ding!" */
+export const QUIZ_RIGHT: Jingle = {
+  title: "Quiz Bot Rebooted",
+  bpm: 160,
+  stepsPerBeat: 4,
+  voices: { lead: { duty: 0.25, volume: 0.2 }, harmony: { duty: 0.125, volume: 0.08 } },
+  sections: {
+    J: {
+      lead: "E5 . G5 . C6 . E6 - | D6 . E6 - - - . .",
+      harmony: "C4+47 -*7 G3+47 -*7",
+      bass: "C3 . . . G2 . . . | C3 - - - . . . .",
+      drums: "k . h . s . h . | k . . . s . . .",
+    },
+  },
+  order: ["J"],
+};
+
+/** A power-up grabbed: a rising arpeggio with a sparkly top. */
+export const POWER_UP: Jingle = {
+  title: "Power-Up!",
+  bpm: 150,
+  stepsPerBeat: 4,
+  voices: { lead: { duty: 0.125, volume: 0.2, vibrato: { depth: 12, rate: 7, delay: 0.1 } }, harmony: { duty: 0.25, volume: 0.08 } },
+  sections: {
+    J: {
+      lead: "G4 B4 D5 G5 A4 C#5 E5 A5 | B4 D#5 F#5 B5 - - D6 - | E6 - - - - - . .",
+      harmony: "G3+47 -*3 A3+47 -*3 B3+47 -*7 E4+47 -*5 . .",
+      bass: "G2 . G2 . A2 . A2 . | B2 . B2 . B2 . B2 . | E3 - - - - - . .",
+      drums: "k . h . k . h . | k . s . k s s s | k . . . . . . .",
+    },
+  },
+  order: ["J"],
+};
+
 export const SONGS: Record<string, Song> = { select: SELECT_SONG, ...STAGE_SONGS, boss: BOSS_SONG, citadel: CITADEL_SONG };
-export const JINGLES: Record<string, Jingle> = { warning: BOSS_WARNING, powerEarned: POWER_EARNED, citadelCleared: CITADEL_CLEARED, recharge: RECHARGE };
+export const JINGLES: Record<string, Jingle> = { warning: BOSS_WARNING, powerEarned: POWER_EARNED, citadelCleared: CITADEL_CLEARED, recharge: RECHARGE, quizRight: QUIZ_RIGHT, powerUp: POWER_UP };
 
 /** Lord Static's own fight: the showdown a fourth higher, faster and thinner-edged. */
 export const LORD_STATIC_SONG: Song = {

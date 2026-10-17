@@ -24,6 +24,8 @@ import { GUIDE_LINES } from "@/render/guide";
 import { Screen } from "@/render/screen";
 import { LedgerBook, Panel } from "@/ui/Panel";
 import "@/ui/tl.css";
+import { exposeMusicDebug } from "@/kit/audio";
+import { ARRIVED, JINGLES, MOTIFS, MUSEUM_SONG, OUT_OF_TIME, SONGS, TRAVEL_SONGS } from "@/music";
 
 export const GAME_ID = "trail-ledger";
 
@@ -44,6 +46,8 @@ export default function TrailLedger() {
   const readRef = useRef(readAloud);
   readRef.current = readAloud;
   const [muted, setMuted] = useState(audio.muted);
+  const [musicOn, setMusicOn] = useState(audio.musicOn);
+  const [sfxOn, setSfxOn] = useState(audio.sfxOn);
   const [touch, setTouch] = useState(false);
   const [layout, setLayout] = useState<{ mode: "side" | "stack"; cw: number }>({ mode: "side", cw: 640 });
   const [highScore, setHighScore] = useState(() => loadProgress(GAME_ID).highScore);
@@ -61,9 +65,11 @@ export default function TrailLedger() {
           if (s === "correct") audio.correct();
           else if (s === "wrong") audio.wrong();
           else if (s === "blip") audio.blip();
-          else if (s === "checkpoint") playMotif(audio, game.exp?.motif ?? []);
-          else if (s === "arrive") audio.levelUp();
-          else if (s === "late") audio.gameOver();
+          else if (s === "checkpoint") {
+            const motif = game.exp ? MOTIFS[game.exp.id] : undefined;
+            if (motif) audio.playJingle(motif);
+          } else if (s === "arrive") audio.playJingle(ARRIVED);
+          else if (s === "late") audio.playJingle(OUT_OF_TIME);
         },
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -87,6 +93,47 @@ export default function TrailLedger() {
       stopSpeaking();
     };
   }, [game, audio]);
+
+  // Music: the museum tune for choosing, packing and the report; the expedition's travel song on the
+  // trail. It starts on the first tap or key, thins to lead + bass while you read or answer, and
+  // hurries a little when the calendar is nearly out.
+  const musicStarted = useRef(false);
+  const startMusic = useCallback(() => {
+    audio.unlock();
+    if (!musicStarted.current) {
+      musicStarted.current = true;
+      bump();
+    }
+  }, [audio]);
+  useEffect(() => {
+    window.addEventListener("pointerdown", startMusic);
+    window.addEventListener("keydown", startMusic);
+    return () => {
+      window.removeEventListener("pointerdown", startMusic);
+      window.removeEventListener("keydown", startMusic);
+    };
+  }, [startMusic]);
+  useEffect(() => {
+    audio.duckLevel = 0.22;
+    exposeMusicDebug(audio, SONGS, JINGLES);
+  }, [audio]);
+  const ph = game.phase;
+  const museum = !game.exp || ph === "select" || ph === "intro" || ph === "outfit" || ph === "arrived" || ph === "report" || (ph === "question" && game.asking?.purpose === "outfit");
+  let hurry = false;
+  if (ph === "travel" && game.exp && game.sim) {
+    const left = game.exp.deadline[game.band] - game.sim.day;
+    hurry = left - game.minDaysFrom(game.sim) <= 3;
+  }
+  useEffect(() => {
+    if (!musicStarted.current) return;
+    if (game.paused) {
+      audio.stopSong();
+      return;
+    }
+    audio.playSong(museum || !game.exp ? MUSEUM_SONG : TRAVEL_SONGS[game.exp.id] ?? MUSEUM_SONG);
+    audio.setIntensity(museum || ph === "travel" ? "full" : "calm");
+    audio.setTempoScale(hurry ? 1.06 : 1);
+  });
 
   // A new step starts at the top of the panel.
   const stepKey = `${game.phase}|${game.at}|${game.asking?.q.id ?? ""}|${game.shown?.card.id ?? ""}`;
@@ -141,21 +188,17 @@ export default function TrailLedger() {
 
   const start = useCallback(
     (id: (typeof EXPEDITIONS)[number]["id"]) => {
-      audio.unlock();
-      audio.startMusic();
+      startMusic();
       rememberGrade(grade);
       game.choose(id);
     },
-    [audio, game, grade],
+    [startMusic, game, grade],
   );
 
   const togglePause = useCallback(() => {
     if (game.phase !== "travel" && !game.paused) return;
     game.paused = !game.paused;
-    if (game.paused) {
-      stopSpeaking();
-      audio.stopMusic();
-    } else audio.startMusic();
+    if (game.paused) stopSpeaking();
     bump();
   }, [game, audio]);
 
@@ -264,7 +307,14 @@ export default function TrailLedger() {
           {game.phase === "travel" || game.paused ? (
             <button className="tl-pixel" onClick={togglePause}>{game.paused ? "RESUME" : "PAUSE"}</button>
           ) : null}
-          <button className="tl-pixel" onClick={() => setMuted(audio.toggleMute())}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
+          {muted ? (
+            <button className="tl-pixel" onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
+          ) : (
+            <>
+              <button className="tl-pixel" onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button className="tl-pixel" onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off (M mutes everything)">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+            </>
+          )}
           {speechSupported() && (
             <button className="tl-pixel" onClick={toggleReadAloud} aria-pressed={readAloud}>
               {readAloud ? "READ ALOUD ON" : "READ ALOUD OFF"}
@@ -304,12 +354,3 @@ export default function TrailLedger() {
     </div>
   );
 }
-
-function playMotif(audio: ChipAudio, motif: [number, number][]) {
-  let at = 0;
-  for (const [f, beats] of motif) {
-    window.setTimeout(() => audio.tone(f, 0.16 * beats, "square", 0.22), at);
-    at += 170 * beats;
-  }
-}
-
