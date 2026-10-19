@@ -545,6 +545,21 @@ window.GAMES = [
     year: 2026,
     added: "2026-10-19",
   },
+  {
+    id: "power-up-town",
+    focus: true,
+    title: "Power Up Town",
+    tagline: "A storm blacked out the town! Build circuits, master heat and race Sparky the electron to light every building.",
+    subjects: ["Science", "Math"],
+    topics: ["physical", "numbers", "algebra"],
+    styles: ["puzzle", "action"],
+    length: "adventure",
+    inspiredBy: "Pipe Dream-style pipe puzzles",
+    url: "/power-up-town/",
+    image: "img/power-up-town.png",
+    year: 2026,
+    added: "2026-10-19",
+  },
 ];
 
 // Production shows only the fully tested games; the dev site shows them all.
