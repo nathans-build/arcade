@@ -53,6 +53,14 @@ function eyes(ctx: Ctx, cx: number, cy: number, gap: number, blink: boolean, loo
 }
 
 export const HERO_COLORS = { main: "#a98bff", dark: "#4a2ab8" };
+/** Cyto's eyes are black, each with a small white shine so the face stays cute and readable. */
+export const CYTO_EYE = "#000000";
+export const CYTO_EYE_SHINE = "#ffffff";
+
+/** Cyto's cytotoxic granules (perforin and granzyme packets): a soft glow, a membrane rim, a body and specks. */
+export const GRANULE_COLORS = { glow: "#ff7ad1", rim: "#c0287a", body: "#ff9ad8", speck: "#ffe066", shine: "#ffffff" };
+/** Acid Spray's granules are acid-green. */
+export const ACID_GRANULE_COLORS = { glow: "#c8ff5a", rim: "#4a8a1a", body: "#c8ff5a", speck: "#ffffff", shine: "#ffffff" };
 
 export function powerColors(p: PowerId | null): { main: string; dark: string } {
   if (!p) return HERO_COLORS;
@@ -112,18 +120,23 @@ export function drawHero(ctx: Ctx, x: number, y: number, pose: HeroPose) {
   disc(ctx, 0, 9, 8, dark);
   disc(ctx, 0, 9, 7, main);
   disc(ctx, -2, 6, 3, "#ffffff44");
-  // face
-  r(ctx, 0, 5, 3, 4, "#ffffff");
-  r(ctx, 4, 5, 3, 4, "#ffffff");
-  r(ctx, 1, 6, 2, 2, "#1a1a2a");
-  r(ctx, 5, 6, 2, 2, "#1a1a2a");
+  // face: black eyes with a small white shine
+  r(ctx, 0, 5, 3, 4, CYTO_EYE);
+  r(ctx, 4, 5, 3, 4, CYTO_EYE);
+  r(ctx, 1, 6, 1, 1, CYTO_EYE_SHINE);
+  r(ctx, 5, 6, 1, 1, CYTO_EYE_SHINE);
   r(ctx, 2, 11, 4, 1, "#1a1a2a");
   r(ctx, -5, 9, 2, 1, "#ff9ac8");
-  // receptor zapper: a wand with a glowing Y tip
-  r(ctx, 6, 10, 6, 2, "#9aa4c8");
-  r(ctx, 12, 8, 1, 3, "#5ef0ff");
-  r(ctx, 14, 8, 1, 3, "#5ef0ff");
-  r(ctx, 13, 10, 1, 3, "#5ef0ff");
+  // a little arm holding a glowing granule, ready to launch
+  r(ctx, 6, 11, 4, 2, dark);
+  const alpha = ctx.globalAlpha;
+  ctx.globalAlpha = alpha * 0.35;
+  disc(ctx, 12, 11, 4, GRANULE_COLORS.glow);
+  ctx.globalAlpha = alpha;
+  disc(ctx, 12, 11, 3, GRANULE_COLORS.rim);
+  disc(ctx, 12, 11, 2, GRANULE_COLORS.body);
+  r(ctx, 11, 9, 1, 1, GRANULE_COLORS.shine);
+  r(ctx, 13, 12, 1, 1, GRANULE_COLORS.speck);
   ctx.restore();
   const cx = Math.round(x + PW / 2);
   const cy = Math.round(y + PH / 2);
@@ -227,7 +240,7 @@ export function drawBoss(ctx: Ctx, id: BossKey, x: number, y: number, pose: Boss
   };
   switch (id) {
     case "nose": {
-      // Adeno-Bounce: a 20-sided virus ball with long knobbed fibers.
+      // Adenovirus: a 20-sided virus ball with long knobbed fibers.
       spikes(13, 15, 10, 8, 4, L.trim, L.accent, 0.2);
       D(13, 15, 10, L.trim);
       D(13, 15, 9, L.body);
@@ -237,7 +250,7 @@ export function drawBoss(ctx: Ctx, id: BossKey, x: number, y: number, pose: Boss
       break;
     }
     case "throat": {
-      // Strep-tacular: a chain of round bacteria, face on the top bead.
+      // Streptococcus (Strep A): a chain of round bacteria, face on the top bead.
       const sw = Math.round(Math.sin(t / 14) * 2);
       for (let i = 3; i >= 0; i--) {
         D(13 + (i % 2 ? sw : -sw), 25 - i * 7, 5, L.trim);
@@ -250,7 +263,7 @@ export function drawBoss(ctx: Ctx, id: BossKey, x: number, y: number, pose: Boss
       break;
     }
     case "lungs": {
-      // Pneumo-Pair: two oval bacteria side by side inside a soft capsule.
+      // S. pneumoniae: two oval bacteria side by side inside a soft capsule.
       O(13, 15, 13, 10, "#ffffff22");
       O(7, 15, 6, 8, L.trim); O(7, 15, 5, 7, L.body);
       O(19, 15, 6, 8, L.trim); O(19, 15, 5, 7, L.body);
@@ -259,7 +272,7 @@ export function drawBoss(ctx: Ctx, id: BossKey, x: number, y: number, pose: Boss
       break;
     }
     case "blood": {
-      // Spiro-Swirl: a corkscrew-shaped bacterium.
+      // Borrelia: a corkscrew-shaped spirochete.
       for (let i = 0; i < 26; i++) {
         const yy = 15 + Math.sin(i / 3 + t / 6) * 6;
         W(i, yy - 2, 2, 5, L.trim);
@@ -270,7 +283,7 @@ export function drawBoss(ctx: Ctx, id: BossKey, x: number, y: number, pose: Boss
       break;
     }
     case "stomach": {
-      // Heli-Copter: a curvy rod bacterium with whip-like tails spinning on top.
+      // H. pylori: a curvy bacterium with whip-like tails spinning on top.
       const sp = Math.floor(t / 3) % 2;
       W(sp ? 0 : 5, 1, sp ? 26 : 16, 1, L.trim);
       W(12, 2, 2, 5, L.trim);
@@ -283,7 +296,7 @@ export function drawBoss(ctx: Ctx, id: BossKey, x: number, y: number, pose: Boss
       break;
     }
     case "gut": {
-      // Sally Monella: a rod-shaped bacterium with flagella all around (and a little bow).
+      // Salmonella: a rod-shaped bacterium with flagella all around (and a little bow).
       for (let i = 0; i < 8; i++) {
         const a = (i / 8) * Math.PI * 2 + Math.sin(t / 10) * 0.2;
         W(13 + Math.cos(a) * 12, 15 + Math.sin(a) * 15, 2, 2, L.trim);
@@ -296,7 +309,7 @@ export function drawBoss(ctx: Ctx, id: BossKey, x: number, y: number, pose: Boss
       break;
     }
     case "skin": {
-      // Staph-a-Lot: a grape-like bunch of round bacteria with faces.
+      // S. aureus: a golden, grape-like bunch of round bacteria with faces.
       const pts: [number, number][] = [[7, 20], [19, 20], [13, 25], [4, 12], [13, 13], [22, 12], [9, 5], [17, 5]];
       for (const [px, py] of pts) { D(px, py, 5, L.trim); D(px, py, 4, L.body); }
       E(13, 12, 3);
@@ -305,7 +318,7 @@ export function drawBoss(ctx: Ctx, id: BossKey, x: number, y: number, pose: Boss
       break;
     }
     case "mouth": {
-      // Mutans Munch: a round bacterium with a big grin, hugging a sugar cube.
+      // S. mutans: a round bacterium with a big grin, hugging a sugar cube.
       D(13, 15, 11, L.trim);
       D(13, 15, 10, L.body);
       E(13, 11);
@@ -447,9 +460,44 @@ function drawEnemy(ctx: Ctx, e: Sim["s"]["enemies"][number]) {
 }
 
 const SHOT_COLORS: Record<string, string> = {
-  beam: "#5ef0ff", toxin: "#b8f04a", droplet: "#bdf4ff", bead: "#ff8a5e", gust: "#e8f4ff", acid: "#c8ff5a", crumb: "#d8a86a",
+  granule: GRANULE_COLORS.body, acidGranule: ACID_GRANULE_COLORS.body, toxin: "#b8f04a", droplet: "#bdf4ff", bead: "#ff8a5e", gust: "#e8f4ff", acid: "#c8ff5a", crumb: "#d8a86a",
   grape: "#ffd23f", sugar: "#ffffff", sniffle: "#9aff9a", spot: "#ff5e7a", mist: "#ffb0b0", spike: "#d8a8ff",
 };
+
+/**
+ * A cytotoxic granule: a round, wobbly vesicle with a soft glow, a membrane rim, perforin/granzyme specks inside
+ * and a faint membrane wisp trailing behind. Drawn centred on its (unchanged) 6x4 hitbox.
+ */
+export function drawGranule(ctx: Ctx, x: number, y: number, vx: number, vy: number, t: number, C = GRANULE_COLORS) {
+  const cx = x + 3;
+  const seed = Math.round(x * 0.5);
+  const cy = y + 2 + Math.round(Math.sin((t + seed) / 4) * 0.7);
+  // a gentle jelly wobble: round, a little wide, round, a little tall
+  const sq = [0, 1, 0, 2][Math.floor((t + seed) / 4) % 4];
+  const rx = 4 + (sq === 1 ? 1 : 0);
+  const ry = 4 + (sq === 2 ? 1 : 0);
+  const len = Math.hypot(vx, vy) || 1;
+  const bx = -vx / len;
+  const by = -vy / len;
+  const a0 = ctx.globalAlpha;
+  // the trailing membrane wisp: two fading little bubbles behind
+  ctx.globalAlpha = a0 * 0.45;
+  disc(ctx, cx + bx * 8, cy + by * 8 + (sq === 1 ? 1 : 0), 2, C.body);
+  ctx.globalAlpha = a0 * 0.25;
+  disc(ctx, cx + bx * 12, cy + by * 12 - (sq === 2 ? 1 : 0), 1, C.body);
+  // soft glow
+  ctx.globalAlpha = a0 * 0.3;
+  disc(ctx, cx, cy, 6, C.glow);
+  ctx.globalAlpha = a0;
+  // the vesicle: a membrane rim, a soft body, perforin/granzyme specks and a shine
+  oval(ctx, cx, cy, rx, ry, C.rim);
+  oval(ctx, cx, cy, rx - 1, ry - 1, C.body);
+  r(ctx, cx - 1, cy + 1, 1, 1, C.speck);
+  r(ctx, cx + 1, cy - 1 + (sq === 2 ? 1 : 0), 1, 1, C.speck);
+  r(ctx, cx + 2, cy + 2, 1, 1, C.speck);
+  r(ctx, cx - 2, cy - 2, 2, 1, C.shine);
+  r(ctx, cx - 2, cy - 1, 1, 1, C.shine);
+}
 
 function drawShot(ctx: Ctx, sh: Sim["s"]["shots"][number], t: number, antibody: boolean) {
   const c = SHOT_COLORS[sh.kind] ?? "#ff5ec8";
@@ -464,16 +512,18 @@ function drawShot(ctx: Ctx, sh: Sim["s"]["shots"][number], t: number, antibody: 
     return;
   }
   switch (sh.kind) {
-    case "beam":
+    case "granule":
       if (antibody) {
-        // B cell help: a Y-shaped antibody.
-        r(ctx, x, y + 1, 4, 2, "#ffe066");
-        r(ctx, x + 4, y, 2, 1, "#ffe066");
-        r(ctx, x + 4, y + 3, 2, 1, "#ffe066");
-      } else {
-        r(ctx, x, y, sh.w, sh.h, c);
-        r(ctx, x + 1, y + 1, sh.w - 2, sh.h - 2, "#ffffff");
-      }
+        // B cell help: a Y-shaped antibody, pointing the way it flies.
+        const f = sh.vx < 0;
+        const X = (a: number) => (f ? x + sh.w - a - 2 : x + a);
+        r(ctx, f ? x + 2 : x, y + 1, 4, 2, "#ffe066");
+        r(ctx, X(4), y, 2, 1, "#ffe066");
+        r(ctx, X(4), y + 3, 2, 1, "#ffe066");
+      } else drawGranule(ctx, x, y, sh.vx, sh.vy, t);
+      break;
+    case "acidGranule":
+      drawGranule(ctx, x, y, sh.vx, sh.vy, t, ACID_GRANULE_COLORS);
       break;
     case "gust":
       // A swirly column of air.

@@ -3,7 +3,7 @@ import { CLUE_RIGHT, POWER_UP } from "@/music";
 import type { Band } from "./band";
 import { BOOSTS, BOOST_IDS, type BoostId } from "./boosts";
 import { buildLevel, SCREEN_H, SCREEN_W } from "./levels";
-import { bossNameOf, drawGame, drawPreview, themeFor, type BossKey, type Gobbler, type Look, type Particle } from "./render";
+import { ACID_GRANULE_COLORS, GRANULE_COLORS, bossNameOf, drawGame, drawPreview, themeFor, type BossKey, type Gobbler, type Look, type Particle } from "./render";
 import { POWERS, RUSH, ZONES, type PowerId, type StageId, type VirusId } from "./roster";
 import type { AnswerResult } from "./rules";
 import { NO_INPUT, Sim, type Mode, type SimEvent } from "./sim";
@@ -194,7 +194,7 @@ export class GermEngine {
       left: h.left,
       right: h.right,
       jump: h.jump || this.jumpTap,
-      // Holding Z keeps zapping (kinder on tablets).
+      // Holding Z keeps launching granules (kinder on tablets).
       shoot: this.pressed.shoot || (h.shoot && this.frame % 10 === 0),
       power: this.pressed.power,
       cycle: this.pressed.cycle,
@@ -214,6 +214,14 @@ export class GermEngine {
     }
   }
 
+  /** An even ring of small bubbles (a granule popping). */
+  private ring(x: number, y: number, colors: string[], n: number) {
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      this.particles.push({ x: x - 1, y: y - 1, vx: Math.cos(a) * 1.3, vy: Math.sin(a) * 1.3, life: 14, max: 14, color: colors[i % colors.length], size: 2 });
+    }
+  }
+
   private note(text: string, sub?: string) {
     this.banner = { text, sub, t: 40 };
   }
@@ -225,7 +233,13 @@ export class GermEngine {
       switch (e.type) {
         case "shoot": a.shoot(); break;
         case "jump": a.jump(); break;
-        case "enemyHit": a.blip(); this.sparks(e.x, e.y, ["#ffffff", "#5ef0ff"], 4, 1); break;
+        case "enemyHit": a.blip(); break;
+        case "pop": {
+          // The granule pops: a little ring of bubbles bursts outward.
+          const C = e.acid ? ACID_GRANULE_COLORS : GRANULE_COLORS;
+          this.ring(e.x, e.y, [C.body, C.shine, C.glow, C.speck], 8);
+          break;
+        }
         case "short":
           // A germ poofs into harmless sparkles and bubbles; a macrophage pal gobbles them up.
           a.tone(880, 0.12, "triangle", 0.3, 1760);

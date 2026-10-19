@@ -535,7 +535,7 @@ window.GAMES = [
     prod: true,
     focus: true,
     title: "Germ Fighters",
-    tagline: "Play as Cyto the killer T cell: zap cartoon germs through eight body zones, identify each stage germ with right answers, then spot six real Major Viruses in a fact-packed boss rush.",
+    tagline: "Play as Cyto the killer T cell: pop cartoon germs with Granule Blasts through eight body zones, identify real germs like Salmonella and Strep with right answers, then spot six real Major Viruses in a fact-packed boss rush.",
     subjects: ["Science", "Math", "ELA", "Social Studies"],
     topics: ["life", "earth", "physical", "numbers", "factors", "ratios", "fractions", "algebra", "geometry", "reading", "phonics", "grammar", "civics", "history", "geography", "economics"],
     styles: ["action", "adventure"],

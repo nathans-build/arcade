@@ -13,7 +13,7 @@ import {
 /*
  * The game simulation: pure and headless (no DOM), stepped once per 1/60 s frame, and cheap to
  * clone (the test bot searches ahead with clones). render.ts draws it; engine.ts feeds it input.
- * Germs that are zapped poof into harmless sparkles. Rod bacteria left alone split in two (binary fission),
+ * Germs hit by Cyto's cytotoxic granules poof into harmless sparkles. Rod bacteria left alone split in two (binary fission),
  * like real bacteria. In the Lymph Node the six Major Viruses come one after another in the same arena.
  */
 
@@ -22,7 +22,7 @@ export interface Input {
   right: boolean;
   /** Held. A jump starts on the frame it is first held. */
   jump: boolean;
-  /** Pressed this frame (Z): the receptor zapper. */
+  /** Pressed this frame (Z): a Granule Blast (Cyto launches a cytotoxic granule). */
   shoot: boolean;
   /** Pressed this frame (X): use the selected immune skill. */
   power: boolean;
@@ -42,7 +42,8 @@ export const SUPER_JUMP_V = -8;
 export const AIR_JUMP_V = -5.4;
 export const RUN = 1.5;
 export const DASH_SPEED = 4;
-export const BEAM_SPEED = 4.5;
+/** How fast Cyto's granules fly (px per frame). */
+export const GRANULE_SPEED = 4.5;
 export const BOSS_W = 26;
 export const BOSS_H = 30;
 
@@ -168,6 +169,7 @@ export type SimEvent =
   | { type: "clue"; n: number; x: number; y: number } | { type: "clueDone"; correct: boolean; reward: ClueReward; x: number; y: number }
   | { type: "boost"; boost: BoostId; from: "clue" | "pickup" } | { type: "boostEnd"; boost: BoostId } | { type: "vaccinePop" }
   | { type: "split"; x: number; y: number } | { type: "stuck"; x: number; y: number }
+  | { type: "pop"; x: number; y: number; acid: boolean }
   | { type: "virusDown"; virus: VirusId; next: VirusId | null } | { type: "nextVirus"; virus: VirusId };
 
 export interface StageInfo {
@@ -615,17 +617,18 @@ export class Sim {
     this.emit({ type: "respawn" });
   }
 
-  // ------------------------------------------------------------------ receptor zapper and immune skills
+  // ------------------------------------------------------------------ Granule Blast and immune skills
 
   private heroShots(): number {
     return this.s.shots.filter((x) => x.from === "hero").length;
   }
 
-  private beam(vy = 0) {
+  /** Launches one cytotoxic granule (same 6x4 hitbox and timing as ever; Acid Spray's are acid-green). */
+  private granule(vy = 0, kind: "granule" | "acidGranule" = "granule") {
     const p = this.s.p;
     this.s.shots.push({
-      x: p.facing > 0 ? p.x + PW : p.x - 6, y: p.y + 8, w: 6, h: 4, vx: BEAM_SPEED * p.facing, vy, grav: 0,
-      life: 55, from: "hero", kind: "beam", delay: 0, floor: "none",
+      x: p.facing > 0 ? p.x + PW : p.x - 6, y: p.y + 8, w: 6, h: 4, vx: GRANULE_SPEED * p.facing, vy, grav: 0,
+      life: 55, from: "hero", kind, delay: 0, floor: "none",
     });
   }
 
@@ -634,7 +637,7 @@ export class Sim {
     const rapid = this.s.boosts.antibody > 0;
     if (p.shootCd > 0 || this.heroShots() >= (rapid ? RAPID_SHOTS : 3)) return;
     p.shootCd = rapid ? RAPID_COOLDOWN : 8;
-    this.beam();
+    this.granule();
     this.emit({ type: "shoot" });
   }
 
@@ -654,9 +657,9 @@ export class Sim {
     }
     switch (pw) {
       case "acid":
-        this.beam(-1.2);
-        this.beam(0);
-        this.beam(1.2);
+        this.granule(-1.2, "acidGranule");
+        this.granule(0, "acidGranule");
+        this.granule(1.2, "acidGranule");
         break;
       case "villi":
         if (!p.onGround && p.coyote <= 0) {
@@ -807,6 +810,11 @@ export class Sim {
 
   // ------------------------------------------------------------------ shots
 
+  /** A granule popped on something: a small burst (drawn by the engine). */
+  private pop(sh: Shot) {
+    this.emit({ type: "pop", x: sh.x + sh.w / 2, y: sh.y + sh.h / 2, acid: sh.kind === "acidGranule" });
+  }
+
   private updateShots() {
     const s = this.s;
     const k = this.k;
@@ -835,6 +843,7 @@ export class Sim {
         if (!hit && s.mode === "play") {
           const qi = this.clueHit(sh);
           if (qi >= 0) {
+            this.pop(sh);
             this.openClue(qi);
             return;
           }
@@ -844,7 +853,10 @@ export class Sim {
           this.hitBossPanel();
         }
         if (!hit && this.solidsNear(sh.x, sh.w).some((sd) => sd.kind !== "ground" && overlap(sh, sd))) hit = true;
-        if (hit) continue;
+        if (hit) {
+          this.pop(sh);
+          continue;
+        }
         if (sh.x < s.camX - 20 || sh.x > s.camX + SCREEN_W + 20) continue;
       } else if (sh.floor !== "none" && s.locked) {
         const fy = this.level.arenaY;
@@ -1022,14 +1034,14 @@ export class Sim {
       if (s.clueDone[i]) continue;
       const q = this.level.clues[i];
       if (q.x > s.camX + SCREEN_W || q.x + CLUE_W < s.camX) continue;
-      // The clue glows in front of its barrier: a zap that reaches either one asks its question.
+      // The clue glows in front of its barrier: a granule that reaches either one asks its question.
       const r = this.clueRect(i);
       if (overlap(sh, { x: r.x, y: r.y, w: q.barrierX + 12 - r.x, h: r.h })) return i;
     }
     return -1;
   }
 
-  /** A zap reached Antigen Clue i: it shows its question. */
+  /** A granule reached Antigen Clue i: it shows its question. */
   private openClue(i: number) {
     const s = this.s;
     s.mode = "quiz";
@@ -1179,7 +1191,7 @@ export class Sim {
     const kind = this.shotKind;
     switch (this.pattern) {
       case "hop": {
-        // Sally Monella / Rhinovirus: leaps toward you; landing sends two blobs rolling both ways.
+        // Salmonella / Rhinovirus: leaps toward you; landing sends two blobs rolling both ways.
         const wasAir = !b.onGround;
         if (b.onGround && every(100)) {
           attack();
@@ -1195,7 +1207,7 @@ export class Sim {
         break;
       }
       case "bounce": {
-        // Adeno-Bounce: bounces across the room and tosses droplets.
+        // Adenovirus: bounces across the room and tosses droplets.
         if (b.onGround) {
           b.vy = -4.2;
           b.vx = b.dir * 1.2 * spd;
@@ -1210,7 +1222,7 @@ export class Sim {
         break;
       }
       case "hover": {
-        // Heli-Copter: hovers side to side and drops acid drips.
+        // H. pylori: hovers side to side and drops acid drips.
         b.y = L.arenaY - 72 + Math.sin(b.t / 40) * 6;
         b.x = ax + 30 + (ARENA_W - BOSS_W - 60) * (0.5 + 0.5 * Math.sin(b.t / 110));
         if (every(95)) {
@@ -1220,7 +1232,7 @@ export class Sim {
         break;
       }
       case "dash": {
-        // Spiro-Swirl / Norovirus: waits, flashes, then dashes along the floor; jump over it.
+        // Borrelia / Norovirus: waits, flashes, then dashes along the floor; jump over it.
         gravity(0.3);
         if (b.step % 2 === 0) {
           // waiting at a side
@@ -1247,7 +1259,7 @@ export class Sim {
         break;
       }
       case "zigzag": {
-        // Pneumo-Pair / Influenza: zigzags in the air and sends a gust column down where you stand.
+        // S. pneumoniae / Influenza: zigzags in the air and sends a gust column down where you stand.
         b.y = L.arenaY - 80 + Math.abs(((b.t / 25) % 2) - 1) * 24;
         b.x = ax + 20 + (ARENA_W - BOSS_W - 40) * (0.5 + 0.5 * Math.sin(b.t / 95));
         if (every(110)) {
@@ -1261,7 +1273,7 @@ export class Sim {
         break;
       }
       case "arc": {
-        // Mutans Munch / Measles: strolls and lobs sugar cubes (or mist puffs) in arcs.
+        // S. mutans / Measles: strolls and lobs sugar cubes (or mist puffs) in arcs.
         gravity(0.3);
         if (Math.abs(px - bx) > 70) b.x += toward * 0.4 * spd * k;
         clampX();
@@ -1273,7 +1285,7 @@ export class Sim {
         break;
       }
       case "sprout": {
-        // Staph-a-Lot / Varicella: makes bumps pop up under you (watch the warning glow), and hops now and then.
+        // S. aureus / Varicella: makes bumps pop up under you (watch the warning glow), and hops now and then.
         gravity(0.25);
         if (!b.onGround) b.x += b.vx * k;
         clampX();
@@ -1293,7 +1305,7 @@ export class Sim {
         break;
       }
       case "pendulum": {
-        // Strep-tacular: swings like a pendulum and drops chain beads that roll along the floor.
+        // Streptococcus: swings like a pendulum and drops chain beads that roll along the floor.
         const cx = ax + ARENA_W / 2 - BOSS_W / 2;
         const a = Math.sin(b.t / 70);
         b.x = cx + a * 120;

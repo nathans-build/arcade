@@ -7,12 +7,12 @@
  * Grades 2 and 7 on a 1280x800 desktop with the keyboard: the title (grade badge, font, default SCIENCE · Life &
  * health, toolbar on top, no sideways scroll), music only after a gesture, Music/SFX toggles that persist across a
  * reload, the body map (8 zones + the locked Lymph Node, arrow keys), a zone played with the keys (walk, jump,
- * zap), an Antigen Clue answered right (energy up, a power-up chip) and one answered wrong (nothing lost, the
+ * Granule Blast), an Antigen Clue answered right (energy up, a power-up chip) and one answered wrong (nothing lost, the
  * wall still goes), power-ups used (Mucus Shield catches shots, Lymph Leap jumps higher), the stage germ beaten
  * (a wrong answer is blocked, right answers lower HP) with the new-skill screen and the save; then the debug skip
  * to the Major Virus rush: the Rhinovirus card and facts, its own fact questions, beating it, and Influenza
  * dropping in next with its card. Touch on a 390x844 phone (grades 2 and 7) and 360px: the toolbar taps above
- * the title overlay, the pad shows, ◀ ▶ JUMP ZAP work, a clue is zapped and answered by tapping, a boss answer is
+ * the title overlay, the pad shows, ◀ ▶ JUMP BLAST work, a clue is hit with a granule and answered by tapping, a boss answer is
  * tapped, and nothing scrolls sideways. No console errors and no requests leave the site.
  */
 const path = require("path");
@@ -89,7 +89,7 @@ function watch(page) {
   return { errors, external };
 }
 
-/** Zaps the boss until its antigen panel opens (falls back to the debug hook after a while). */
+/** Hits the boss with granules until its antigen panel opens (falls back to the debug hook after a while). */
 async function openPanel(page, problems, label) {
   const end = Date.now() + 9000;
   while (Date.now() < end) {
@@ -102,7 +102,7 @@ async function openPanel(page, problems, label) {
       await page.keyboard.down(key);
       await sleep(Math.abs(b - s.x) > 80 ? 350 : 60);
       await page.keyboard.up(key);
-      // Jump and zap (some germs float above a standing zap).
+      // Jump and blast (some germs float above a standing granule).
       await page.keyboard.down("ArrowUp");
       await sleep(180);
       await page.keyboard.down("z");
@@ -112,7 +112,7 @@ async function openPanel(page, problems, label) {
       await sleep(250);
     } else await sleep(150);
   }
-  problems.push(`${label}: zapping did not open the antigen panel; used the debug hook`);
+  problems.push(`${label}: granules did not open the antigen panel; used the debug hook`);
   await page.evaluate(() => window.__gf.forceQuestion());
   await waitFor(() => quiz(page), 3000);
   return false;
@@ -208,7 +208,7 @@ async function desktop(browser, grade) {
   if (!jumped) problems.push("jump did not leave the ground");
   await sleep(700);
   await page.keyboard.press("z");
-  if (!(await waitFor(async () => (await sim(page)).shots > 0, 300, 15))) problems.push("Z did not fire the receptor zapper");
+  if (!(await waitFor(async () => (await sim(page)).shots > 0, 300, 15))) problems.push("Z did not launch a granule");
   await page.keyboard.down("ArrowRight");
   for (let i = 0; i < 4; i++) {
     await page.keyboard.press("z");
@@ -235,7 +235,7 @@ async function desktop(browser, grade) {
     await page.keyboard.up("z");
   }
   let q = await quiz(page);
-  if (!q || q.kind !== "clue") problems.push(`zapping the Antigen Clue did not ask (${JSON.stringify(q)})`);
+  if (!q || q.kind !== "clue") problems.push(`a granule on the Antigen Clue did not ask (${JSON.stringify(q)})`);
   else {
     const head = await page.locator(".gf-quiz .head").innerText();
     if (!head.includes("ANTIGEN CLUE 1/3")) problems.push(`clue header "${head}"`);
@@ -311,9 +311,10 @@ async function desktop(browser, grade) {
   const leapH = await jumpPeak();
   if (!(leapH > plainH + 30)) problems.push(`Lymph Leap jump ${leapH.toFixed(0)} px vs normal ${plainH.toFixed(0)} px`);
 
-  // The stage germ (debug hook to skip the rest of the run). Lymph Leap would jump right over this germ's zaps.
+  // The stage germ (debug hook to skip the rest of the run). Lymph Leap would jump right over this germ's shots.
   await page.evaluate(() => { window.__gf.sim.s.boosts.leap = 0; window.__gf.warpToBoss(); });
   if (!(await waitFor(() => page.locator(".gf-say").isVisible().catch(() => false), 3000))) problems.push("no boss intro line");
+  else if ((await page.locator(".gf-say b").innerText()) !== "STREPTOCOCCUS") problems.push(`boss intro should name STREPTOCOCCUS (${await page.locator(".gf-say b").innerText()})`);
   await waitFor(async () => (await sim(page))?.mode === "boss", 4000);
   const before = await sim(page);
   await openPanel(page, problems, `grade ${grade} first panel`);
@@ -329,11 +330,13 @@ async function desktop(browser, grade) {
     if (after.hp !== before.hp || after.lives !== before.lives) problems.push("a wrong boss answer changed hp/lives");
     await page.keyboard.press("Enter");
     await sleep(200);
-    await beatBoss(page, problems, `grade ${grade} STREP-TACULAR`, false);
+    await beatBoss(page, problems, `grade ${grade} STREPTOCOCCUS`, false);
   }
   const cleared = await waitFor(() => page.locator("[data-power]").isVisible().catch(() => false), 6000);
   if (!cleared) problems.push("no new-skill screen after the stage germ");
   else if (!(await page.locator("[data-power]").innerText()).includes("COUGH DASH")) problems.push("earned the wrong skill");
+  if (cleared && !(await page.locator(".gf-panel.won .gf-h").first().innerText()).includes("STREPTOCOCCUS IDENTIFIED")) problems.push("the new-skill screen should name STREPTOCOCCUS");
+  if (cleared && (await page.locator("[data-full-name]").getAttribute("data-full-name")) !== "Streptococcus pyogenes (Strep A)") problems.push("the new-skill screen should show the full name");
   if ((await page.locator("[data-clues]").getAttribute("data-clues").catch(() => null)) === null) problems.push("cleared screen should count the clues");
   const saved = await page.evaluate(() => localStorage.getItem("arcade.germ-fighters.save.v1"));
   if (!saved || !saved.includes("throat")) problems.push(`save: ${saved}`);
@@ -370,14 +373,10 @@ async function desktop(browser, grade) {
   return { problems, errors: w.errors, external: w.external };
 }
 
-/** 640x400 picture of a Major Virus fight (the canvas itself is 640x400). */
+/** 640x400 picture of a Major Virus fight with Cyto launching granules (the canvas itself is 640x400). */
 async function screenshot(page) {
   await page.evaluate(() => window.__gf.skipToRush(1));
   await waitFor(async () => (await sim(page))?.mode === "boss", 5000);
-  await page.evaluate(() => {
-    const s = window.__gf.sim.s;
-    window.__gf.giveBoost("antibody");
-  });
   await sleep(2400);
   await page.keyboard.down("ArrowRight");
   await sleep(250);
@@ -416,7 +415,7 @@ async function phone(browser, grade, width) {
   await waitFor(async () => (await sim(page))?.mode === "play", 4000);
   await sleep(200);
   if ((await page.locator(".gf-controls.show").count()) !== 1) problems.push(`${width}px: touch pad not shown`);
-  for (const sel of ['[aria-label="Move left"]', '[aria-label="Move right"]', '[aria-label="Jump"]', '[aria-label="Receptor zapper"]', '[aria-label="Use skill"]']) {
+  for (const sel of ['[aria-label="Move left"]', '[aria-label="Move right"]', '[aria-label="Jump"]', '[aria-label="Granule Blast"]', '[aria-label="Use skill"]']) {
     const box = await page.locator(sel).boundingBox();
     if (!box || box.x < 0 || box.x + box.width > width + 0.5 || box.y + box.height > 844 + 0.5) problems.push(`${width}px: ${sel} off screen`);
   }
@@ -434,21 +433,21 @@ async function phone(browser, grade, width) {
   const up = await waitFor(async () => (await sim(page)).y < s1.y - 5, 600, 30);
   await jumpP;
   if (!up) problems.push(`${width}px: JUMP did not jump`);
-  await hold("Receptor zapper", 120);
+  await hold("Granule Blast", 120);
   await sleep(30);
-  if (!((await sim(page)).shots > 0) && !(await waitFor(async () => (await sim(page)).shots > 0, 300, 20))) problems.push(`${width}px: ZAP did not fire`);
+  if (!((await sim(page)).shots > 0) && !(await waitFor(async () => (await sim(page)).shots > 0, 300, 20))) problems.push(`${width}px: BLAST did not launch a granule`);
   if (!(await noSideways(page))) problems.push(`${width}px: sideways scroll while playing`);
-  // An Antigen Clue, zapped with the touch ZAP button and answered with a tap.
+  // An Antigen Clue, hit with the touch BLAST button and answered with a tap.
   await toClue(page, 0, 60);
   await sleep(100);
   {
-    const el = page.locator('[aria-label="Receptor zapper"]');
+    const el = page.locator('[aria-label="Granule Blast"]');
     await el.dispatchEvent("pointerdown", { pointerId: 8, pointerType: "touch", isPrimary: true });
     await waitFor(() => quiz(page), 3000, 50);
     await el.dispatchEvent("pointerup", { pointerId: 8, pointerType: "touch", isPrimary: true });
   }
   const bq = await quiz(page);
-  if (!bq || bq.kind !== "clue") problems.push(`${width}px: ZAP did not open an Antigen Clue`);
+  if (!bq || bq.kind !== "clue") problems.push(`${width}px: BLAST did not open an Antigen Clue`);
   else {
     await page.locator(".gf-quiz .opt").nth(bq.answer).tap();
     await sleep(150);
