@@ -224,7 +224,7 @@ export default function PowerUpTown() {
   const flip = useCallback(() => {
     const s = st.current;
     const l = levelRef.current;
-    if (l.kind !== "circuit" || s.won || overlayRef.current) return;
+    if (l.kind !== "circuit" || s.won || s.winAt !== null || overlayRef.current) return;
     audio.unlock();
     if (s.closed) {
       resetEdits();
@@ -268,7 +268,7 @@ export default function PowerUpTown() {
   const tapCell = useCallback((r: number, c: number) => {
     const s = st.current;
     const l = levelRef.current;
-    if (l.kind !== "circuit" || s.won || overlayRef.current || st.current.paused) return;
+    if (l.kind !== "circuit" || s.won || s.winAt !== null || overlayRef.current || st.current.paused) return;
     audio.unlock();
     const tile = s.grid[r]?.[c];
     if (s.closed && tile?.kind === "bulb") {
@@ -1020,8 +1020,8 @@ function RunHud({ sim }: { sim: RunSim }) {
   const left = sim.limit === null ? null : Math.max(0, Math.ceil(sim.limit - sim.time));
   return (
     <div className="pt-runhud pt-pixel" aria-live="off">
-      <span className="y">✦ {sim.sparks}/{sim.sparkTotal}</span>
-      {left !== null ? <span>⏱ {left}</span> : <span className="g">NO RUSH</span>}
+      <span className="y">SPARKS {sim.sparks}/{sim.sparkTotal}</span>
+      {left !== null ? <span>TIME {left}</span> : <span className="g">NO RUSH</span>}
       {sim.dash > 0 && <span className="c">SUPERCONDUCTOR!</span>}
       {sim.shield > 0 && <span className="g">FUSE SHIELD</span>}
     </div>
@@ -1064,7 +1064,8 @@ function CircuitPanel({
 }) {
   return (
     <div className="pt-controls">
-      <div className="pt-goal"><b className="pt-pixel y">{level.title.toUpperCase()}</b> {level.goal}</div>
+      <div className="pt-goal"><b className="pt-pixel y">{level.title}</b> {level.goal}</div>
+      {!message && <div className="pt-help pt-intro">{level.intro}</div>}
       {message && <div className={`pt-msg ${message.kind}`} role="status">{message.text}</div>}
       {closed && reading && !message?.text.includes(reading) && <div className="pt-reading pt-pixel">{reading}</div>}
       <div className="pt-toolbox" role="radiogroup" aria-label="Toolbox">
@@ -1111,7 +1112,8 @@ function HeatPanel({
   const cost = level.multi ? totalCost(level, chosen) : 0;
   return (
     <div className="pt-controls">
-      <div className="pt-goal"><b className="pt-pixel y">{level.title.toUpperCase()}</b> {level.question ?? level.goal}</div>
+      <div className="pt-goal"><b className="pt-pixel y">{level.title}</b> {level.question ?? level.goal}</div>
+      {!message && <div className="pt-help pt-intro">{level.intro}</div>}
       {level.question && <div className="pt-help dim">{level.goal}</div>}
       {message && <div className={`pt-msg ${message.kind}`} role="status">{message.text}</div>}
       {level.multi && <div className="pt-help pt-pixel pt-budget">COINS: <span className={cost > (level.budget ?? 0) ? "r" : "y"}>{cost}</span> / {level.budget}</div>}
@@ -1138,7 +1140,7 @@ function HeatPanel({
         <button className="pt-cta big pt-runheat" onClick={onRun} disabled={running}>{level.question ? "▶ TEST IT" : "▶ RUN"}</button>
         <button className="pt-cta ghost" onClick={onTown}>Town</button>
       </div>
-      <div className="pt-help dim">Room: {fmtTemp(level.room, band)}. Heat always flows from warmer to cooler. Keys: 1–{level.options.length} pick, Enter runs.</div>
+      <div className="pt-help dim">{level.type === "convection" || level.type === "insulate" ? "Outside" : "Room"}: {fmtTemp(level.room, band)}. Heat always flows from warmer to cooler. Keys: 1–{level.options.length} pick, Enter runs.</div>
     </div>
   );
 }

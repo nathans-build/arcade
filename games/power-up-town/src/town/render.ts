@@ -20,6 +20,22 @@ function text(c: Ctx, s: string, x: number, y: number, color: string, size = 6, 
   c.fillText(s, x, y);
 }
 
+/** "8Ω": the number in the pixel font and the Ω sign in a plain font (the pixel font has no Ω). */
+function ohmText(c: Ctx, ohms: number, x: number, y: number, color: string) {
+  const num = String(ohms);
+  c.font = `5px ${FONT}`;
+  const wNum = c.measureText(num).width;
+  c.font = "bold 7px sans-serif";
+  const wO = c.measureText("Ω").width;
+  const x0 = x - (wNum + wO + 1) / 2;
+  text(c, num, x0, y, color, 5);
+  c.font = "bold 7px sans-serif";
+  c.textAlign = "left";
+  c.textBaseline = "top";
+  c.fillStyle = color;
+  c.fillText("Ω", x0 + wNum + 1, y - 1.5);
+}
+
 /* ---------------------------------------------------------------- Sparky */
 
 /** Sparky: a round little electron with a "−" on its tummy and a zig-zag spark tuft. */
@@ -323,12 +339,11 @@ export function drawBoard(c: Ctx, v: BoardView, t: number) {
   }
   // breaks
   if (v.showBreaks && v.res && !v.res.short) {
-    const blink = Math.sin(t * 8) > -0.3;
+    const pulse = Math.sin(t * 8) > 0 ? 1 : 0;
     for (const b of v.res.breaks) {
-      if (!blink) break;
       const cx = g.x0 + b.c * g.cs + g.cs / 2 + (b.dir !== null ? DC[b.dir] * g.cs * 0.42 : 0);
       const cy = g.y0 + b.r * g.cs + g.cs / 2 + (b.dir !== null ? DR[b.dir] * g.cs * 0.42 : 0);
-      drawX(c, cx, cy, b.dir === null ? 7 : 4);
+      drawX(c, cx, cy, (b.dir === null ? 7 : 4) + pulse);
     }
   }
   // short circuit heat shimmer
@@ -362,7 +377,7 @@ export function drawBoard(c: Ctx, v: BoardView, t: number) {
       c.fillStyle = `rgba(127,231,255,${0.5 - k * 0.1})`;
       c.fillRect(tp[0] - 1.5, tp[1] - 1.5, 3, 3);
     }
-    drawSparky(c, pt[0], pt[1], t, Math.max(0.8, g.cs / 40));
+    drawSparky(c, pt[0], pt[1], t, Math.max(1, (g.cs / 40) * 1.35));
   }
 }
 
@@ -509,7 +524,7 @@ export function drawTile(c: Ctx, tile: Tile, x: number, y: number, cs: number, t
       c.lineTo(cx + 1 * s, cy + 1 * s);
       c.lineTo(cx + 3 * s, cy - 4 * s);
       c.stroke();
-      if (tile.ohms && tile.ohms !== 3) text(c, `${tile.ohms}Ω`, cx, cy + 9 * s + 1, "#cfd6ff", 5, "center");
+      if (tile.ohms && tile.ohms !== 3) ohmText(c, tile.ohms, cx, cy + 9 * s + 1, "#cfd6ff");
       break;
     }
     case "motor": {
@@ -529,7 +544,7 @@ export function drawTile(c: Ctx, tile: Tile, x: number, y: number, cs: number, t
       }
       c.fillStyle = "#1a1a2e";
       c.fillRect(cx - 1.5, cy - 1.5, 3, 3);
-      if (tile.ohms && tile.ohms !== 3) text(c, `${tile.ohms}Ω`, cx, cy + 10 * s, "#cfd6ff", 5, "center");
+      if (tile.ohms && tile.ohms !== 3) ohmText(c, tile.ohms, cx, cy + 10 * s, "#cfd6ff");
       break;
     }
     case "buzzer": {
@@ -568,7 +583,7 @@ export function drawTile(c: Ctx, tile: Tile, x: number, y: number, cs: number, t
         else c.lineTo(px, py);
       }
       c.stroke();
-      text(c, `${tile.ohms ?? 3}Ω`, cx + (horiz ? 0 : 9 * s), cy + (horiz ? 7 * s : -3), "#ffffff", 5, "center");
+      ohmText(c, tile.ohms ?? 3, cx + (horiz ? 0 : 11 * s), cy + (horiz ? 7 * s : -3), "#ffffff");
       break;
     }
     case "material": {
@@ -1007,10 +1022,10 @@ function drawGraph(c: Ctx, v: HeatViewState, x: number, y: number, w: number, h:
   const gy = (T: number) => y + h - 12 - ((T - lo) / (hi - lo)) * (h - 22);
   const gx = (i: number) => x + 22 + (i / SAMPLES) * (w - 28);
   // axes labels
-  text(c, fmtTemp(hi, v.band), x + 2, gy(hi) - 3, "#8a94c8", 4);
-  text(c, fmtTemp(lo, v.band), x + 2, gy(lo) - 3, "#8a94c8", 4);
-  text(c, `${L.duration} ${L.unit}`, x + w - 4, y + h - 9, "#8a94c8", 4, "right");
-  text(c, "0", x + 22, y + h - 9, "#8a94c8", 4);
+  text(c, fmtTemp(hi, v.band), x + 2, gy(hi) - 3, "#8a94c8", 5);
+  text(c, fmtTemp(lo, v.band), x + 2, gy(lo) - 3, "#8a94c8", 5);
+  text(c, `${L.duration} ${L.unit}`, x + w - 4, y + h - 9, "#8a94c8", 5, "right");
+  text(c, "0", x + 22, y + h - 9, "#8a94c8", 5);
   // room temperature / target lines
   const dashed = (T: number, col: string, label: string) => {
     c.strokeStyle = col;
@@ -1020,7 +1035,7 @@ function drawGraph(c: Ctx, v: HeatViewState, x: number, y: number, w: number, h:
     c.lineTo(x + w - 4, gy(T));
     c.stroke();
     c.setLineDash([]);
-    text(c, label, x + w - 5, gy(T) - 7, col, 4, "right");
+    text(c, label, x + w - 5, gy(T) - 7, col, 5, "right");
   };
   if (L.type === "keep-hot" || L.type === "keep-cold" || L.type === "radiation" || L.type === "conduction") dashed(L.room, "#5a6aa8", "ROOM");
   if (L.target !== undefined) dashed(L.target, "#5fff8a", "GOAL");
@@ -1079,7 +1094,7 @@ export function drawRun(c: Ctx, sim: RunSim, t: number) {
     c.arc(sx, sy, 9, 0, Math.PI * 2);
     c.stroke();
   }
-  drawSparky(c, sx, sy, t, 1, sim.hotMsg <= 0);
+  drawSparky(c, sx, sy, t, 1.25, sim.hotMsg <= 0);
   if (sim.hotMsg > 0) text(c, "TOO HOT! FIND THE FAN", W / 2, 6, "#ff8a8f", 6, "center");
 }
 

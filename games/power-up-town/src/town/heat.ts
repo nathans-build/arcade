@@ -384,7 +384,7 @@ export const HEATS: Record<string, HeatLevel> = {
     goal: "Predict: which spoon handle gets hottest?",
     question: "Three spoons stand in 194°F soup. Which handle gets hottest after 10 minutes?",
     intro: "Three spoons stand in hot soup at the ice rink café. Predict which handle gets hottest, then test it.",
-    lesson: "Conduction: heat moves through a solid from the hot end to the cool end. Metal conducts heat well, so its handle gets hot. Wood and plastic are insulators.",
+    lesson: "Conduction: heat moves through a solid from the hot end to the cool end. Metal conducts heat well, so its handle gets hot. Wood and plastic are insulators. It's also why a metal spoon feels colder than a wooden one at the same room temperature: metal carries heat away from your warm hand faster.",
     options: SPOONS, pick: "max", duration: 10, unit: "min", room: 20, start: 90,
   },
   "g35-house": {
@@ -415,7 +415,7 @@ export const HEATS: Record<string, HeatLevel> = {
     goal: "Predict which handle heats fastest, then explain it with particles.",
     question: "Metal, wood or plastic: which spoon handle heats up fastest in 90°C soup?",
     intro: "Predict which spoon handle heats up fastest in 90°C soup.",
-    lesson: "Particles in the hot soup vibrate fast and bump the spoon's particles, which bump their neighbours up the handle. Metals also have free electrons that carry energy quickly, so metal conducts heat best.",
+    lesson: "Particles in the hot soup vibrate fast and bump the spoon's particles, which bump their neighbours up the handle. Metals also have free electrons that carry energy quickly, so metal conducts heat best. The same reason makes a room-temperature metal spoon feel colder than a wooden one: both are the same temperature, but metal conducts heat out of your hand faster.",
     options: SPOONS, pick: "max", duration: 10, unit: "min", room: 20, start: 90,
   },
   "g68-heater": {

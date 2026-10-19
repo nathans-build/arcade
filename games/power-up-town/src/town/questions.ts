@@ -92,6 +92,8 @@ export interface MathGen {
 }
 
 const ri = (r: Rng, a: number, b: number) => a + Math.floor(r() * (b - a + 1));
+/** Distractors that differ from the answer and each other (first three). */
+const uniq = (answer: string, ws: string[]) => [...new Set(ws.filter((w) => w !== answer))].slice(0, 3);
 
 /** Power Up Town's own formula questions (V = I × R, P = V × I) for algebra, grades 6-12. */
 export function circuitGens(g: Grade, r: Rng = Math.random): MathGen[] {
@@ -105,7 +107,7 @@ export function circuitGens(g: Grade, r: Rng = Math.random): MathGen[] {
         const R = ri(r, 2, 9);
         return {
           prompt: `Sparky's formula: V = I × R. What is V when I = ${i} and R = ${R}?`,
-          answer: String(i * R), wrong: [String(i + R), String(i * R + i), String(Math.abs(R - i) + i * R + 2)],
+          answer: String(i * R), wrong: uniq(String(i * R), [String(i + R), String(i * R + i), String(i * R + R + 2), String(i * R - 1), String(i * R * 2)]),
           explanation: `Put the numbers in: V = ${i} × ${R} = ${i * R}.`,
         };
       },
@@ -118,7 +120,7 @@ export function circuitGens(g: Grade, r: Rng = Math.random): MathGen[] {
         const R = ri(r, 2, 9);
         return {
           prompt: `V = I × R. A ${i * R} V battery pushes ${i} A. Solve ${i * R} = ${i} × R. What is R (in ohms)?`,
-          answer: String(R), wrong: [String(i * R * i), String(i * R - i), String(R + 1)],
+          answer: String(R), wrong: uniq(String(R), [String(i * R * i), String(i * R - i), String(R + 1), String(i * R + i), String(R + 2)]),
           explanation: `Divide both sides by ${i}: R = ${i * R} ÷ ${i} = ${R} Ω.`,
         };
       },
@@ -132,7 +134,7 @@ export function circuitGens(g: Grade, r: Rng = Math.random): MathGen[] {
         const tot = 2 * R + b;
         return {
           prompt: `Two equal resistors R and a ${b} Ω resistor in series total ${tot} Ω. Solve 2R + ${b} = ${tot}. R = ?`,
-          answer: String(R), wrong: [String(tot - b), String((tot + b) / 2), String(R + 2)],
+          answer: String(R), wrong: uniq(String(R), [String(tot - b), String((tot + b) / 2), String(R + 2), String(tot / 2), String(R + 1), String(R + 3), String(tot)]),
           explanation: `Subtract ${b}: 2R = ${tot - b}. Divide by 2: R = ${R} Ω.`,
         };
       },
