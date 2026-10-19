@@ -532,6 +532,7 @@ window.GAMES = [
   },
   {
     id: "germ-fighters",
+    prod: true,
     focus: true,
     title: "Germ Fighters",
     tagline: "Play as Cyto the killer T cell: zap cartoon germs through eight body zones, identify each stage germ with right answers, then spot six real Major Viruses in a fact-packed boss rush.",
@@ -547,6 +548,7 @@ window.GAMES = [
   },
   {
     id: "power-up-town",
+    prod: true,
     focus: true,
     title: "Power Up Town",
     tagline: "A storm blacked out the town! Build circuits, master heat and race Sparky the electron to light every building.",
