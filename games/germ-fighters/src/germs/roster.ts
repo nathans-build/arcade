@@ -5,8 +5,9 @@ import type { FocusTopicId } from "./focus";
  * Germ Fighters's cast: the hero (a killer T cell), the eight body zones and their stage germs, the six
  * Major Viruses of the final boss rush, and the immune skills earned along the way. Every name, look and
  * line is original. Germs are cartoon characters: beaten germs poof into harmless sparkles, never anything
- * gross or scary. Real germ names are used only where the type is accurate (a Streptococcus really grows
- * in chains, Staphylococcus in grape-like clusters, and so on).
+ * gross or scary. Every stage germ goes by its real organism name (short standard abbreviations such as
+ * "S. AUREUS" where space on screen is tight), and its look matches the real germ (a Streptococcus really
+ * grows in chains, Staphylococcus in grape-like clusters, and so on).
  */
 
 export type ZoneId = "nose" | "throat" | "lungs" | "blood" | "stomach" | "gut" | "skin" | "mouth";
@@ -15,7 +16,14 @@ export type VirusId = "rhino" | "flu" | "noro" | "varicella" | "measles" | "coro
 
 export const HERO = {
   name: "CYTO",
-  blurb: "a killer T cell with a receptor zapper that spots germs and poofs them into sparkles",
+  blurb: "a killer T cell who launches Granule Blasts: glowing little bubbles of perforin and granzymes that pop on germs and poof them into sparkles",
+  /** Cyto's attack (Z / BLAST): round cytotoxic granules. */
+  attack: {
+    name: "Granule Blast",
+    /** The touch button's label. */
+    button: "BLAST",
+    science: "Real killer T cells release tiny granules filled with perforin and granzymes to take down infected cells.",
+  },
   /** The helper T cell who gives tips and opens Antigen Clues. */
   helper: "HANA",
   helperBlurb: "a helper T cell who calls in help and shares tips",
@@ -40,7 +48,7 @@ export const POWERS: Record<PowerId, Power> = {
   cough: { id: "cough", name: "Cough Dash", short: "dash", desc: "a fast dash straight ahead (nothing can bump you while dashing)", cost: 3, color: "#ffe066", color2: "#b8862b" },
   breath: { id: "breath", name: "Breath Bounce", short: "air jump", desc: "one extra jump in mid-air on a puff of air", cost: 2, color: "#bdf4ff", color2: "#2a9ab8" },
   plasma: { id: "plasma", name: "Plasma Float", short: "float", desc: "float down slowly like a cell drifting in plasma (press in the air)", cost: 2, color: "#ffe9a8", color2: "#c08a1a" },
-  acid: { id: "acid", name: "Acid Spray", short: "3-way zap", desc: "a zap that splits three ways, like a splash of stomach acid", cost: 2, color: "#c8ff5a", color2: "#4a8a1a" },
+  acid: { id: "acid", name: "Acid Spray", short: "3-way granules", desc: "three acid-green granules that fly out three ways, like a splash of stomach acid", cost: 2, color: "#c8ff5a", color2: "#4a8a1a" },
   villi: { id: "villi", name: "Villi Vault", short: "super jump", desc: "a super-high jump from the ground, springy like the gut's villi", cost: 3, color: "#ff9ac8", color2: "#a01a5a" },
   platelet: { id: "platelet", name: "Platelet Patch", short: "shield", desc: "platelet friends patch a shield around you that blocks bumps and shots for a few seconds", cost: 4, color: "#ffb0b0", color2: "#c0392b" },
   saliva: { id: "saliva", name: "Saliva Slow-Mo", short: "slow germs", desc: "slows germs, their shots, hazards and moving platforms for a few seconds", cost: 5, color: "#9ad1ff", color2: "#2456e8" },
@@ -83,9 +91,11 @@ export interface Zone {
   place: string;
   /** One kid-friendly line about how this part of the body fights germs. */
   defense: string;
-  /** The stage germ (boss). */
+  /** The stage germ (boss): its real name in caps, abbreviated the standard way when long ("S. AUREUS"). */
   boss: string;
-  /** e.g. "a grape-cluster Staphylococcus bacterium" */
+  /** The full real name in normal case, e.g. "Staphylococcus aureus". */
+  bossFull: string;
+  /** e.g. "a cartoon Staphylococcus aureus (round bacteria that grow in grape-like bunches)" */
   bossType: string;
   germ: GermKind;
   /** MIXED: every other question is this subject (the rest are life science & health). */
@@ -109,7 +119,8 @@ export const ZONES: Zone[] = [
     id: "nose",
     place: "Nose & Airways",
     defense: "Sticky mucus and tiny hairs catch germs before they get deep inside, and a sneeze blows them out.",
-    boss: "ADENO-BOUNCE",
+    boss: "ADENOVIRUS",
+    bossFull: "Adenovirus",
     bossType: "a cartoon adenovirus (a virus shaped like a 20-sided ball with long fibers)",
     germ: "virus",
     partner: "ela",
@@ -125,7 +136,7 @@ export const ZONES: Zone[] = [
       hazardName: "sneeze gusts", spikeName: "sticky mucus", deco: "nose",
     },
     lines: {
-      intro: "Boing! I'm ADENO-BOUNCE! I bounced in on a sneeze and I'm here to make everybody sniffle!",
+      intro: "Boing! I'm ADENOVIRUS, a 20-sided virus with long fibers! I bounce in on sneezes and can give you a cold or pink eye!",
       block: ["Boing! That answer bounced right off!", "Nope! Try a different antigen!"],
       hit: ["Ah... ah... that one got me!", "Whoa, you're quick on the sniff!"],
       defeat: "Poof! You spotted my antigens. Okay, okay, I'll bounce out of here! Take my Sneeze Blast!",
@@ -135,8 +146,9 @@ export const ZONES: Zone[] = [
     id: "throat",
     place: "Throat & Tonsils",
     defense: "Your tonsils are full of immune cells that check the germs you breathe and swallow.",
-    boss: "STREP-TACULAR",
-    bossType: "a cartoon Streptococcus (round bacteria that grow in a chain, like beads)",
+    boss: "STREPTOCOCCUS",
+    bossFull: "Streptococcus pyogenes (Strep A)",
+    bossType: "a cartoon Streptococcus, Strep A for short (round bacteria that grow in a chain, like beads, and can cause strep throat)",
     germ: "bacterium",
     partner: "social",
     partnerTopics: ["civics", "history"],
@@ -151,18 +163,19 @@ export const ZONES: Zone[] = [
       hazardName: "cough blasts", spikeName: "scratchy spots", deco: "throat",
     },
     lines: {
-      intro: "I'm STREP-TACULAR, a whole chain of trouble! Link by link, I'll make this throat scratchy!",
+      intro: "I'm STREPTOCOCCUS, Strep A for short! My round cells link up in a chain, and I'm the germ behind strep throat!",
       block: ["Ha! My chain is still strong!", "Wrong link! Try again!"],
       hit: ["Hey! You broke a link!", "Ouch, that answer was right on the chain!"],
-      defeat: "My chain's all unlinked... You spotted me! Take my Cough Dash!",
+      defeat: "My chain's all unlinked! You spotted me, just like a doctor's strep test. Take my Cough Dash!",
     },
   },
   {
     id: "lungs",
     place: "Lung Bubbles",
     defense: "Millions of tiny air sacs called alveoli swap oxygen in, and immune cells patrol every one.",
-    boss: "PNEUMO-PAIR",
-    bossType: "a cartoon Streptococcus pneumoniae (round bacteria that often come in pairs)",
+    boss: "S. PNEUMONIAE",
+    bossFull: "Streptococcus pneumoniae (pneumococcus)",
+    bossType: "a cartoon Streptococcus pneumoniae, also called pneumococcus (round bacteria that often come in pairs and can cause ear infections and pneumonia)",
     germ: "bacterium",
     partner: "math",
     partnerTopics: ["numbers", "ratios", "algebra"],
@@ -177,18 +190,19 @@ export const ZONES: Zone[] = [
       hazardName: "breathing puffs", spikeName: "itchy patches", deco: "lungs",
     },
     lines: {
-      intro: "We're PNEUMO-PAIR! Two germs are better than one! Let's puff up some trouble in these lungs!",
+      intro: "We're S. PNEUMONIAE, round bacteria that travel in pairs! We can cause ear infections and a lung infection called pneumonia!",
       block: ["Ha-ha! We both said nope!", "Wrong! That answer ran out of breath!"],
       hit: ["Gasp! You split us up!", "That one took our breath away!"],
-      defeat: "Phew... we're spotted. Breathe easy! Take our Breath Bounce!",
+      defeat: "Phew... we're spotted! A pneumococcal vaccine helps keep kids safe from us too. Take our Breath Bounce!",
     },
   },
   {
     id: "blood",
     place: "Bloodstream",
     defense: "White blood cells ride the blood to wherever germs show up, and red blood cells carry oxygen.",
-    boss: "SPIRO-SWIRL",
-    bossType: "a cartoon spirochete (a spiral-shaped bacterium that corkscrews through fluids)",
+    boss: "BORRELIA",
+    bossFull: "Borrelia burgdorferi",
+    bossType: "a cartoon Borrelia, a spirochete (a spiral-shaped bacterium that corkscrews through blood and body fluids; a tick bite can carry it in and cause Lyme disease)",
     germ: "bacterium",
     partner: "math",
     partnerTopics: ["numbers", "algebra", "fractions"],
@@ -203,18 +217,19 @@ export const ZONES: Zone[] = [
       hazardName: "heartbeat waves", spikeName: "sticky clots", deco: "blood",
     },
     lines: {
-      intro: "Wheee! I'm SPIRO-SWIRL! I corkscrew through the bloodstream faster than you can blink!",
+      intro: "Wheee! I'm BORRELIA, a spiral spirochete! I hitched a ride on a tick bite, and now I corkscrew through the bloodstream!",
       block: ["Swirly-whirly, that's not it!", "Missed me! Spin again!"],
       hit: ["Whoa, you untwisted me!", "Dizzy... that answer was spot on!"],
-      defeat: "I'm all unwound! You spotted me fair and square. Take my Plasma Float!",
+      defeat: "I'm all unwound! You spotted me. Check for ticks after playing outside, and doctors can treat me. Take my Plasma Float!",
     },
   },
   {
     id: "stomach",
     place: "Stomach",
     defense: "Strong stomach acid breaks down food and stops most swallowed germs.",
-    boss: "HELI-COPTER",
-    bossType: "a cartoon Helicobacter pylori (a curvy bacterium with whip-like tails that can live in the stomach)",
+    boss: "H. PYLORI",
+    bossFull: "Helicobacter pylori",
+    bossType: "a cartoon Helicobacter pylori (a curvy bacterium with whip-like tails that can live in the stomach's lining and cause sore spots called ulcers)",
     germ: "bacterium",
     partner: "social",
     partnerTopics: ["economics", "geography"],
@@ -229,18 +244,19 @@ export const ZONES: Zone[] = [
       hazardName: "acid splashes", spikeName: "acid puddles", deco: "stomach",
     },
     lines: {
-      intro: "Whup-whup-whup! I'm HELI-COPTER! I can twirl my tails and hide from stomach acid!",
-      block: ["Whup-whup! Wrong answer!", "Ha! I flew right over that one!"],
-      hit: ["Mayday! That answer clipped my tail!", "Whoa, my propeller's wobbly!"],
-      defeat: "Landing... you got me identified! Take my Acid Spray!",
+      intro: "Whirr! I'm H. PYLORI! I twirl my whip-like tails, dig into the stomach's slimy lining and cancel out the acid around me!",
+      block: ["Whirr! Wrong answer!", "Ha! I wiggled right past that one!"],
+      hit: ["Whoa! That answer tangled my tails!", "Hey, my spin is all wobbly!"],
+      defeat: "You got me identified! Doctors can find me with a simple breath test. Take my Acid Spray!",
     },
   },
   {
     id: "gut",
     place: "Gut Garden",
     defense: "Trillions of helpful bacteria live in your gut. They help digest food and crowd out harmful germs.",
-    boss: "SALLY MONELLA",
-    bossType: "a cartoon Salmonella (a rod-shaped bacterium that can come from undercooked food)",
+    boss: "SALMONELLA",
+    bossFull: "Salmonella",
+    bossType: "a cartoon Salmonella (a rod-shaped bacterium that can come from undercooked chicken or eggs and cause a tummy ache)",
     germ: "bacterium",
     partner: "ela",
     partnerTopics: ["reading", "grammar"],
@@ -255,18 +271,19 @@ export const ZONES: Zone[] = [
       hazardName: "squeeze waves", spikeName: "grumbly spots", deco: "gut",
     },
     lines: {
-      intro: "Hiya! I'm SALLY MONELLA! I snuck in on an undercooked snack. Time for a tummy rumble!",
+      intro: "Hiya! I'm SALMONELLA, a rod-shaped bacterium! I snuck in on an undercooked snack. Time for a tummy rumble!",
       block: ["Nope! That answer's half-baked!", "Ha! Undercooked answer!"],
       hit: ["Ooh, well done! That was cooked all the way!", "Yikes, you're too smart for me!"],
-      defeat: "Okay, okay, I'm spotted! Always cook your food all the way! Take my Villi Vault!",
+      defeat: "Okay, I'm spotted! Cook food all the way and wash your hands after touching raw chicken or eggs. Take my Villi Vault!",
     },
   },
   {
     id: "skin",
     place: "Skin & Cut",
     defense: "Skin is a wall against germs. When it gets cut, platelets patch the gap and white blood cells rush in.",
-    boss: "STAPH-A-LOT",
-    bossType: "a cartoon Staphylococcus (round bacteria that grow in grape-like bunches)",
+    boss: "S. AUREUS",
+    bossFull: "Staphylococcus aureus",
+    bossType: "a cartoon Staphylococcus aureus, Staph for short (round bacteria that grow in grape-like bunches; \"aureus\" means golden)",
     germ: "bacterium",
     partner: "social",
     partnerTopics: ["geography", "history"],
@@ -281,18 +298,19 @@ export const ZONES: Zone[] = [
       hazardName: "itchy scratches", spikeName: "splinters", deco: "skin",
     },
     lines: {
-      intro: "We're STAPH-A-LOT, a whole bunch of us! We found a cut and we're moving in!",
+      intro: "We're S. AUREUS, Staph for short! \"Aureus\" means golden. We grow in grape-like bunches, and we found a cut!",
       block: ["Ha! Our bunch is still together!", "Wrong! Grab another grape of knowledge!"],
       hit: ["Hey! You plucked one of us!", "Ooh, that answer was sharp!"],
-      defeat: "The whole bunch is spotted! Time to let the cut heal. Take our Platelet Patch!",
+      defeat: "The whole bunch is spotted! Wash the cut, cover it with a bandage and let it heal. Take our Platelet Patch!",
     },
   },
   {
     id: "mouth",
     place: "Mouth & Teeth",
     defense: "Saliva washes your teeth and has germ-fighting helpers. Brushing sweeps away the sticky plaque.",
-    boss: "MUTANS MUNCH",
-    bossType: "a cartoon Streptococcus mutans (a bacterium that turns sugar into tooth-harming acid)",
+    boss: "S. MUTANS",
+    bossFull: "Streptococcus mutans",
+    bossType: "a cartoon Streptococcus mutans (a round bacterium in the mouth that turns sugar into tooth-harming acid and causes cavities)",
     germ: "bacterium",
     partner: "math",
     partnerTopics: ["geometry", "numbers", "fractions"],
@@ -307,10 +325,10 @@ export const ZONES: Zone[] = [
       hazardName: "chomping teeth", spikeName: "sugar crumbs", deco: "mouth",
     },
     lines: {
-      intro: "Nom nom! I'm MUTANS MUNCH! Give me sugar and I'll make acid that bugs your teeth!",
+      intro: "Nom nom! I'm S. MUTANS! Give me sugar and I'll turn it into acid that makes cavities in your teeth!",
       block: ["Sweet! That answer was wrong!", "Ha! No cavity in MY defense!"],
       hit: ["Ack! That answer brushed me away!", "Minty fresh! That one stung!"],
-      defeat: "You spotted me! Brush twice a day and I don't stand a chance. Take my Saliva Slow-Mo!",
+      defeat: "You spotted me! Brush twice a day with fluoride toothpaste and I don't stand a chance. Take my Saliva Slow-Mo!",
     },
   },
 ];

@@ -333,7 +333,8 @@
 /* Touch pad */
 .gf-touch.word { font-family: "Press Start 2P", monospace; font-size: 8px; width: 62px; height: 62px; border-radius: 50%; }
 .gf-touch.jump { border-color: var(--gf-cyan); color: var(--gf-cyan); }
-.gf-touch.beam { border-color: var(--gf-red); color: #ffb0b4; }
+.gf-touch.blast { border-color: #ff7ad1; color: #ffb0e8; }
+.gf-fullname { font-style: italic; color: var(--gf-cyan); margin-top: 2px; }
 .gf-touch.pow { border-color: var(--gf-yellow); color: var(--gf-yellow); }
 .gf-touch.cyc { width: 44px; height: 44px; font-size: 7px; font-family: "Press Start 2P", monospace; color: var(--gf-dim); }
 .gf-touch.pow:disabled, .gf-touch.cyc:disabled { opacity: 0.4; }

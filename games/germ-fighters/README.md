@@ -2,9 +2,9 @@
 
 A run-and-jump adventure inside the human body for **SpiderBen10's Arcade** (K–12, North Carolina Standard Course of
 Study). Germs have snuck into eight **body zones**. Pick any zone on the **body map**, run and jump through it as
-**CYTO** (a cute killer T cell with a *receptor zapper*), and **identify** the zone's stage germ with right answers.
-Zapped germs poof into harmless sparkles and bubbles, and macrophage pals gobble them up: nothing gross, nothing
-scary. Each identified stage germ shares an **immune skill** that works in every other zone. Identify all eight to
+**CYTO** (a cute killer T cell who launches **Granule Blasts**), and **identify** the zone's stage germ (each one a
+real organism, by its real name) with right answers. Germs hit by a granule poof into harmless sparkles and bubbles,
+and macrophage pals gobble them up: nothing gross, nothing scary. Each identified stage germ shares an **immune skill** that works in every other zone. Identify all eight to
 open the **Lymph Node** and face the **Major Virus rush**: six real viruses, cartoon-styled, each with kid-friendly,
 fact-checked cards.
 
@@ -15,21 +15,36 @@ Default subject: **SCIENCE · Life science & health**. MIXED and MATH / ELA / SO
 
 ## The cast (`src/germs/roster.ts`)
 
-- **Cyto** (hero): a killer (cytotoxic, CD8) T cell. **Hana** (helper T cell): runs the REST stops and asks the
-  Antigen Clues. **Macrophage pals** gobble poofed germs. **B cells** power Antibody Burst (Y-shaped antibody zaps).
+- **Cyto** (hero): a killer (cytotoxic, CD8) T cell with black eyes (each with a small white shine; `CYTO_EYE` in
+  `src/germs/render.ts`). **Hana** (helper T cell): runs the REST stops and asks the
+  Antigen Clues. **Macrophage pals** gobble poofed germs. **B cells** power Antibody Burst (Y-shaped antibodies).
   **Platelet friends** are the bridges in Skin & Cut and the Platelet Patch shield. **Friendly gut bacteria** give
   energy in the Gut Garden.
 
-| Zone | Stage germ (boss) | Accurate type | Hazards | Skill earned | Weak spot |
+| Zone | Stage germ on screen | Real organism and facts used | Hazards | Skill earned | Weak spot |
 |---|---|---|---|---|---|
-| Nose & Airways | ADENO-BOUNCE | adenovirus (20-sided, long fibers) | sneeze gusts, sticky mucus, bubble lifts | Sneeze Blast (screen blast) | Cough Dash |
-| Throat & Tonsils | STREP-TACULAR | Streptococcus (chain of round cells) | cough blasts | Cough Dash (dash) | Saliva Slow-Mo |
-| Lung Bubbles | PNEUMO-PAIR | Streptococcus pneumoniae (pairs) | breathing puffs, breathing lifts | Breath Bounce (air jump) | Sneeze Blast |
-| Bloodstream | SPIRO-SWIRL | spirochete (spiral) | heartbeat waves, red-blood-cell rafts | Plasma Float (float) | Platelet Patch |
-| Stomach | HELI-COPTER | Helicobacter pylori (curvy, whip tails) | acid splashes, acid puddles | Acid Spray (3-way zap) | Villi Vault |
-| Gut Garden | SALLY MONELLA | Salmonella (rod; undercooked food) | squeeze waves | Villi Vault (super jump) | Acid Spray |
-| Skin & Cut | STAPH-A-LOT | Staphylococcus (grape-like bunch) | itchy scratches, splinters, platelet bridges | Platelet Patch (shield) | Plasma Float |
-| Mouth & Teeth | MUTANS MUNCH | Streptococcus mutans (sugar → acid) | chomping teeth, sugar crumbs | Saliva Slow-Mo (slow germs) | Breath Bounce |
+| Nose & Airways | ADENOVIRUS | *Adenovirus*: 20-sided shell with long fibers; colds, sore throats, pink eye | sneeze gusts, sticky mucus, bubble lifts | Sneeze Blast (screen blast) | Cough Dash |
+| Throat & Tonsils | STREPTOCOCCUS | *Streptococcus pyogenes* (Strep A): round cells in chains; strep throat; strep test | cough blasts | Cough Dash (dash) | Saliva Slow-Mo |
+| Lung Bubbles | S. PNEUMONIAE | *Streptococcus pneumoniae* (pneumococcus): pairs; ear infections, pneumonia; pneumococcal vaccine | breathing puffs, breathing lifts | Breath Bounce (air jump) | Sneeze Blast |
+| Bloodstream | BORRELIA | *Borrelia burgdorferi*: spiral spirochete; carried by tick bites, travels in the blood; Lyme disease; tick checks, doctors can treat it | heartbeat waves, red-blood-cell rafts | Plasma Float (float) | Platelet Patch |
+| Stomach | H. PYLORI | *Helicobacter pylori*: curvy, whip-like tails; lives in the stomach lining and neutralizes acid around it; ulcers; breath test | acid splashes, acid puddles | Acid Spray (3-way granules) | Villi Vault |
+| Gut Garden | SALMONELLA | *Salmonella*: rod with flagella; undercooked chicken or eggs; cook food, wash hands | squeeze waves | Villi Vault (super jump) | Acid Spray |
+| Skin & Cut | S. AUREUS | *Staphylococcus aureus* (Staph): grape-like bunches, "aureus" = golden; cuts; wash and cover | itchy scratches, splinters, platelet bridges | Platelet Patch (shield) | Plasma Float |
+| Mouth & Teeth | S. MUTANS | *Streptococcus mutans*: turns sugar into acid that makes cavities; brush with fluoride toothpaste | chomping teeth, sugar crumbs | Saliva Slow-Mo (slow germs) | Breath Bounce |
+
+Names on screen are the real organism names in caps; the long ones use the standard abbreviations (S. PNEUMONIAE,
+H. PYLORI, S. AUREUS, S. MUTANS) so they fit banners, the HUD and a 360 px phone. The full name (`bossFull` in
+`roster.ts`) shows in italics on the "identified" screen and as the stage-select tooltip.
+
+### Granule Blast (Cyto's attack)
+
+Z / **BLAST** launches a **cytotoxic granule**: a round, glowing, gently wobbling vesicle (a perforin & granzyme
+packet) with a faint membrane wisp trailing behind. On a germ, a clue or the boss it pops with a small ring of
+bubbles, and germs poof into sparkles as before. Science note shown in How to play: *real killer T cells release
+granules filled with perforin and granzymes to take down infected cells* (perforin opens tiny pores in an infected
+cell, granzymes slip in and make it shut down). In the game Cyto aims them at germs; real killer T cells use them on
+infected body cells. Acid Spray throws three acid-green granules; Antibody Burst swaps them for Y-shaped antibodies.
+Timing and hitboxes are unchanged (6×4, 4.5 px per frame, up to 3 on screen).
 
 **Little germs**: rod bacteria (crawl; left alone for 8 s, K–2 12 s, they **split in two**, binary fission, once),
 round cocci pairs (hop), floating virus particles (drift toward you) and coiled spiral bacteria (puff toxin bubbles).
@@ -40,7 +55,7 @@ and the thankful cell gives a 1-up heart.
 
 A short Lymph Node run (3 Antigen Clues) and then six Major Viruses in a row in one arena, each with its own look and
 pattern. Energy refills between viruses, a lost life keeps the current virus, and game over offers **Retry from
-<virus>**. Each virus shows a three-line fact card on its intro; identified viruses are saved as **virus cards**.
+<virus>**. Every virus is shown by its real name (no nicknames) on banners, the HUD, its card and the report. Each virus shows a three-line fact card on its intro; identified viruses are saved as **virus cards**.
 
 | Virus | Pattern | Key facts (card + questions) |
 |---|---|---|
@@ -51,7 +66,7 @@ pattern. Energy refills between viruses, a lost life keeps the current virus, an
 | MEASLES | arc | among the most contagious diseases; up to 9 in 10 unprotected contacts; lingers in a room up to 2 hours; rash starts on the face; MMR ×2 ≈ 97%; herd immunity ~95%; immune amnesia |
 | CORONAVIRUS | teleport (final) | SARS-CoV-2 causes COVID-19; "corona" = crown (spike proteins); air droplets and particles; vaccines incl. mRNA (don't change DNA); spike binds ACE2; variants; some colds are other coronaviruses |
 
-Bosses are only beaten by right answers. Zap the boss to light its **antigen panel** (3 hits, K–2 2; it also opens by
+Bosses are only beaten by right answers. Hit the boss with granules to light its **antigen panel** (3 hits, K–2 2; it also opens by
 itself after 10 s, K–2 6 s). Right = a big hit; wrong = blocked + explanation, never HP, energy or lives. Using the
 stage germ's weak-spot skill makes the next right answer a double hit (any skill works on a Major Virus). Stage germ
 HP: K–2 3, 3–5 4, 6–12 5. Major Virus HP: K–2 2, 3–8 3, 9–12 4 (Coronavirus +1).
@@ -60,7 +75,7 @@ HP: K–2 3, 3–5 4, 6–12 5. Major Virus HP: K–2 2, 3–8 3, 9–12 4 (Coro
 
 Two halves of three sections each (boss door at about 3,700–4,700 px), seven or eight checkpoints, Hana's **REST
 stop** halfway (checkpoint + two energy cells), then three **Antigen Clues**: glowing germs with a **?** floating in
-front of a sticky **biofilm wall** that no jump or skill gets past. Zap one for a question from the zone's source.
+front of a sticky **biofilm wall** that no jump or skill gets past. Hit one with a granule for a question from the zone's source.
 Right: +10 energy (K–2 +12), +8 skill meter and often a power-up (always for the first right answer in a zone that
 has not given one; then 60%, K–2 75%). Wrong: the explanation, +3 energy, a 10% (K–2 15%) power-up chance, and the
 wall still goes away. Lives are only lost to hazards; K–2 gets 5 lives, softer bumps, narrower gaps, fewer germs,
@@ -74,7 +89,7 @@ slower hazards and pits that cost energy instead of a life.
 | Lymph Leap | jump about 97 px instead of 50 (reaches the high ledges) | 10 s |
 | Vaccine Memory | learned immunity: blocks the next bump or shot, then it's used | 20 s |
 | Fever Boost | run 1.6× faster (a fever slows many germs and speeds up immune cells) | 10 s |
-| Antibody Burst | B cell help: Y-shaped antibody zaps every 4 frames, up to 5 on screen | 10 s |
+| Antibody Burst | B cell help: Y-shaped antibodies instead of granules, every 4 frames, up to 5 on screen | 10 s |
 | Mucus Shield | sticky coat: every germ shot that touches you gets stuck (bumps still hurt) | 12 s |
 
 ## Questions (`src/germs/health.ts`, `src/germs/viruses.ts`, `src/germs/questions.ts`)
@@ -102,7 +117,7 @@ slower hazards and pits that cost energy instead of a life.
 |---|---|---|
 | Move | ← → | ◀ ▶ |
 | Jump | ↑ or Space | JUMP |
-| Receptor zapper (hold to keep zapping) | Z | ZAP |
+| Granule Blast (hold to keep launching) | Z | BLAST |
 | Use / switch immune skill | X / C | SKILL / SWAP |
 | Answer | 1–4 or A–D | tap an answer |
 | Continue after an answer | Enter or Space | the yellow button |
@@ -125,7 +140,9 @@ Skin & Cut, Mouth & Teeth), **Lymph Node** (the rush run), **Germ Showdown** (st
 ```sh
 npm ci
 npm test        # tsx scripts/check-rules.ts (cast, fact tables, every question in every grade and mode, boss rules,
-                # stages, splitting bacteria, the bot clearing all 8 zones and the 6-virus rush in all 4 bands,
+                # stages, splitting bacteria, real germ names (no old pun names left in src/ or the README),
+                # granules (no laser/zapper/beam wording), Cyto's black eyes, the bot clearing all 8 zones and
+                # the 6-virus rush in all 4 bands,
                 # skills, power-ups, Antigen Clues, save, topics) + scripts/check-music.ts
 npm run build   # tsc --noEmit && vite build
 node scripts/playtest.cjs   # Chromium playtest; serve dist at /germ-fighters/ and site/fonts at /fonts/ on port 8911
