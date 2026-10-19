@@ -1,0 +1,381 @@
+/* Germ Fighters — arcade presentation layer (warm plum "inside the body" with SpiderBen10 red & blue accents) */
+
+.gf-root {
+  --gf-bg: #1a0a24;
+  --gf-deep: #0e0414;
+  --gf-red: #ff3a5a;
+  --gf-blue: #6a4ad1;
+  --gf-cyan: #9affd8;
+  --gf-yellow: #ffd23f;
+  --gf-green: #5fff8a;
+  --gf-white: #fff2f6;
+  --gf-dim: #a07ab8;
+  height: 100vh;
+  height: 100dvh;
+  box-sizing: border-box;
+  background: var(--gf-bg);
+  color: var(--gf-white);
+  font-family: "VT323", ui-monospace, monospace;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 16px 12px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  overflow: hidden;
+}
+
+.gf-pixel { font-family: "Press Start 2P", ui-monospace, monospace; letter-spacing: 0.02em; }
+.gf-root .y { color: var(--gf-yellow); }
+.gf-root .c { color: var(--gf-cyan); }
+.gf-root .g { color: var(--gf-green); }
+.gf-root .r { color: #ff8a8a; }
+.gf-root .dim { color: var(--gf-dim); }
+
+.gf-cabinet {
+  width: 100%; max-width: 960px;
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+}
+.gf-toolbar, .gf-hud, .gf-quiz, .gf-controls { flex: none; }
+
+/* The stage takes whatever height is left; the 16:10 screen scales to fit it both ways. */
+.gf-stage {
+  flex: 1; min-height: 120px;
+  display: flex; align-items: flex-start; justify-content: center;
+}
+
+.gf-hud {
+  display: grid;
+  grid-template-columns: repeat(5, auto);
+  justify-content: space-between;
+  gap: 4px 12px;
+  font-size: clamp(8px, 1.6vw, 12px);
+  padding: 6px 2px;
+  text-transform: uppercase;
+}
+.gf-hud .lbl { color: var(--gf-dim); margin-right: 6px; }
+.gf-hud .val { color: var(--gf-white); }
+.gf-hud .lives { color: var(--gf-red); letter-spacing: 2px; font-family: ui-monospace, monospace; }
+.gf-hud .ready { color: var(--gf-yellow); }
+
+.gf-screen {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 320 / 200;
+  box-sizing: border-box;
+  border: 3px solid #5a2a6a;
+  box-shadow: 0 0 0 2px #000, 0 0 40px rgba(255, 90, 140, 0.25);
+  overflow: hidden;
+  background: var(--gf-bg);
+}
+.gf-screen canvas {
+  width: 100%; height: 100%; display: block;
+  image-rendering: pixelated; image-rendering: crisp-edges;
+}
+/* CRT scanlines */
+.gf-screen::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0) 0 2px, rgba(0, 0, 0, 0.16) 2px 3px);
+}
+
+.gf-overlay {
+  position: absolute; inset: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  padding: 3%;
+  background: rgba(14, 4, 20, 0.82);
+  overflow-y: auto;
+}
+.gf-overlay.title { background: rgba(26, 10, 36, 0.55); }
+.gf-panel {
+  width: 100%; max-width: 780px; max-height: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  border: 3px solid var(--gf-cyan);
+  background: #200c2c;
+  padding: clamp(10px, 2.5vw, 22px);
+  box-shadow: 6px 6px 0 #000;
+}
+.gf-panel.title { border-color: var(--gf-red); }
+.gf-panel.won { border-color: var(--gf-yellow); }
+
+.gf-title {
+  font-size: clamp(20px, 5vw, 44px);
+  color: var(--gf-yellow);
+  text-shadow: 3px 3px 0 var(--gf-red), 6px 6px 0 var(--gf-blue);
+  text-align: center; line-height: 1.2;
+}
+.gf-sub { text-align: center; color: var(--gf-cyan); font-size: clamp(7px, 1.4vw, 12px); margin-top: 10px; line-height: 1.5; }
+.gf-h { font-size: clamp(9px, 1.8vw, 14px); color: var(--gf-cyan); margin-bottom: 8px; line-height: 1.4; }
+
+.gf-grades { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 10px 0 8px; }
+.gf-grade {
+  font-size: clamp(9px, 1.4vw, 12px);
+  min-width: 36px; padding: 9px 4px;
+  background: #2a1238; color: var(--gf-white); cursor: pointer;
+  border: 2px solid var(--gf-dim); box-shadow: 3px 3px 0 #000;
+}
+.gf-grade:hover, .gf-grade:focus-visible { border-color: var(--gf-cyan); outline: none; }
+.gf-grade.on { background: var(--gf-red); border-color: var(--gf-yellow); color: #fff; }
+.gf-grade.on:focus-visible { outline: 2px dashed var(--gf-cyan); outline-offset: 2px; }
+
+/* Subject row (like the other arcade games) and, for one subject, its topic row */
+.gf-subjects { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 4px 0 8px; }
+.gf-subject {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  flex: 1 1 108px; max-width: 170px; min-height: 48px; padding: 8px 6px; cursor: pointer;
+  font-family: "VT323", ui-monospace, monospace; color: var(--gf-white);
+  background: #2a1238; border: 2px solid var(--gf-dim); box-shadow: 3px 3px 0 #000;
+}
+.gf-subject .gf-pixel { font-size: clamp(8px, 1.3vw, 11px); line-height: 1.3; }
+.gf-subject small { font-size: clamp(14px, 1.8vw, 17px); color: #e8c8e8; line-height: 1; text-align: center; }
+.gf-subject.on { background: var(--gf-blue); border-color: var(--gf-yellow); }
+.gf-subject.on small { color: #fff; }
+.gf-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 6px 0; }
+.gf-chip {
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 40px; max-width: 100%; padding: 4px 10px; cursor: pointer;
+  font-family: "VT323", ui-monospace, monospace; font-size: clamp(17px, 2.1vw, 20px); line-height: 1;
+  color: var(--gf-white); background: #2a1238; border: 2px solid var(--gf-dim); box-shadow: 3px 3px 0 #000;
+  overflow-wrap: anywhere;
+}
+.gf-chip.all { text-transform: uppercase; letter-spacing: 0.04em; }
+.gf-focusline { text-align: center; margin-top: 6px; }
+.gf-chip.on { background: var(--gf-blue); border: 2px solid var(--gf-yellow); color: #fff; }
+.gf-chip:disabled { cursor: not-allowed; color: #7a5a8a; border-color: #3a2a4a; background: #1a0a22; box-shadow: none; }
+.gf-chip small { font-size: 0.75em; color: #b89ac8; margin-top: 2px; }
+.gf-subject:hover, .gf-subject:focus-visible, .gf-chip:hover:not(:disabled), .gf-chip:focus-visible { border-color: var(--gf-cyan); outline: none; }
+.gf-subject.on:focus-visible, .gf-chip.on:focus-visible { outline: 2px dashed var(--gf-cyan); outline-offset: 2px; }
+.gf-focusnote { text-align: center; color: var(--gf-yellow); margin: 2px 0 4px; }
+.gf-reportmode { margin-top: 4px; }
+
+/* Question panel (boss and Antigen Clue questions), under the game screen */
+.gf-quiz {
+  background: #24102e; border: 2px solid var(--gf-blue); border-left: 6px solid var(--gf-red);
+  padding: 6px 10px 8px; margin: 6px 2px 0;
+  font-size: clamp(18px, 2.4vw, 24px); line-height: 1.05;
+  max-height: 48vh; overflow-y: auto;
+}
+.gf-quiz.correct { border-color: var(--gf-green); }
+.gf-quiz.wrong { border-color: var(--gf-red); }
+.gf-quiz .head { font-size: clamp(7px, 1.1vw, 10px); color: #ff8a8a; display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+.gf-quiz .head .std { color: var(--gf-dim); white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+.gf-quiz .passage { font-size: 0.85em; color: #f0d0f0; border-left: 4px solid var(--gf-dim); padding: 2px 8px; margin: 4px 0; }
+.gf-quiz .prompt { margin: 2px 0 6px; color: var(--gf-white); }
+.gf-quiz .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 8px; }
+.gf-quiz .opt {
+  display: flex; gap: 8px; align-items: baseline;
+  font: inherit; color: #f6e0f0; text-align: left; cursor: pointer;
+  background: #331844; border: 2px solid #4a2a5a; padding: 5px 8px;
+  min-height: 40px; box-shadow: 3px 3px 0 #000;
+}
+.gf-quiz .opt b { font-family: "Press Start 2P", monospace; font-size: 0.5em; font-weight: normal; color: var(--gf-yellow); }
+.gf-quiz .opt:hover:not(:disabled) { border-color: var(--gf-yellow); }
+.gf-quiz .opt:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #000; }
+.gf-quiz .opt:disabled { cursor: default; }
+.gf-quiz .opt.ans { border-color: var(--gf-green); color: var(--gf-green); background: #0d3a22; }
+.gf-quiz .opt.wrong { border-color: var(--gf-red); color: #ffb0b4; background: #3a0d12; }
+.gf-quiz .hint { font-size: 0.75em; margin-top: 5px; }
+.gf-quiz .feedback { margin-top: 6px; }
+.gf-quiz .verdict { font-size: clamp(8px, 1.4vw, 12px); margin-bottom: 4px; line-height: 1.4; }
+.gf-quiz .verdict.ok { color: var(--gf-green); }
+.gf-quiz .verdict.no { color: var(--gf-red); }
+.gf-quiz .why { color: #fff0f6; }
+.gf-quiz .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+.gf-quiz .row .dim { font-size: 0.8em; }
+@media (max-width: 420px) { .gf-quiz .opts { grid-template-columns: 1fr; } }
+
+.gf-speak {
+  font-size: 16px; line-height: 1; padding: 2px 6px; cursor: pointer;
+  background: #2a1238; border: 2px solid var(--gf-dim); color: var(--gf-cyan);
+}
+
+.gf-cta {
+  font-family: "Press Start 2P", monospace; font-size: clamp(9px, 1.6vw, 13px);
+  color: var(--gf-deep); background: var(--gf-yellow); border: 0; padding: 12px 16px;
+  box-shadow: 4px 4px 0 var(--gf-red); cursor: pointer; text-transform: uppercase;
+}
+.gf-cta.big { font-size: clamp(11px, 2vw, 16px); padding: 14px 20px; }
+.gf-cta:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--gf-red); }
+.gf-cta.ghost { background: transparent; color: var(--gf-cyan); box-shadow: none; border: 2px solid var(--gf-cyan); }
+
+/* Touch pad */
+.gf-controls { display: none; margin-top: 8px; gap: 8px; justify-content: space-between; align-items: center; }
+.gf-controls.show { display: flex; }
+.gf-pad { display: flex; gap: 6px; align-items: center; }
+.gf-col { display: flex; flex-direction: column; gap: 6px; }
+.gf-touch {
+  width: 58px; height: 50px; border-radius: 10px;
+  background: #2a1238; color: var(--gf-white); border: 2px solid var(--gf-dim);
+  touch-action: none; font-family: ui-monospace, monospace; font-size: 26px; padding: 0;
+}
+.gf-touch.word { font-family: "Press Start 2P", monospace; font-size: 9px; width: 70px; height: 70px; border-radius: 50%; }
+.gf-touch:active { background: #4a2a6a; }
+
+.gf-help { font-size: clamp(16px, 2.2vw, 20px); color: #e8c8e8; line-height: 1.15; }
+.gf-help.big { font-size: 22px; }
+.gf-help kbd { font-family: "Press Start 2P", monospace; font-size: 0.5em; color: var(--gf-yellow); border: 1px solid var(--gf-dim); padding: 2px 4px; white-space: nowrap; }
+
+.gf-tablewrap { overflow-x: auto; }
+.gf-report-table { width: 100%; border-collapse: collapse; font-size: clamp(16px, 2.2vw, 20px); margin-top: 8px; }
+.gf-report-table th { font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--gf-dim); text-align: left; padding: 4px; }
+.gf-report-table td { padding: 3px 4px; border-top: 1px solid #3a1a44; }
+.gf-dot { display: inline-block; width: 8px; height: 8px; margin-right: 6px; background: var(--gf-yellow); }
+.gf-dot.science { background: var(--gf-green); }
+.gf-dot.ela { background: var(--gf-cyan); }
+.gf-dot.social { background: #ff8a8a; }
+
+.gf-toolbar { position: relative; z-index: 10; display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; margin-bottom: 4px; gap: 8px; }
+.gf-tools { display: flex; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
+.gf-toolbar a, .gf-toolbar button {
+  font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--gf-dim);
+  background: none; border: 0; cursor: pointer; text-decoration: none; padding: 6px 0;
+}
+.gf-toolbar a:hover, .gf-toolbar button:hover { color: var(--gf-cyan); }
+
+/* Early readers (K-2): bigger text */
+.gf-root.early .gf-quiz { font-size: clamp(22px, 3vw, 30px); }
+.gf-root.early .gf-quiz .opt { min-height: 48px; }
+
+/* The toolbar (ARCADE link, MUSIC, SFX, READ ALOUD) has z-index 10, above every overlay, so it stays tappable
+   on the title, pause and game-over screens. Where an overlay covers the whole viewport (small screens,
+   below) it keeps this much room at the top for the toolbar; more where the toolbar wraps. */
+.gf-root { --gf-tb-room: 40px; }
+@media (max-width: 555px) { .gf-root { --gf-tb-room: 74px; } }
+@media (max-width: 520px) { .gf-root { --gf-tb-room: 40px; } }
+@media (max-width: 423px) { .gf-root { --gf-tb-room: 64px; } }
+
+@media (max-width: 700px), (max-height: 640px) {
+  /* Small screens: the game screen is too short for text panels, so they take the viewport */
+  .gf-overlay { position: fixed; padding: 12px; padding-top: var(--gf-tb-room); align-items: flex-start; }
+  .gf-panel { max-height: none; }
+}
+
+/* Portrait phones and tablets: keep the question panel right under the screen, pads at the bottom */
+@media (orientation: portrait) and (max-width: 900px) {
+  .gf-stage { flex: 0 1 auto; }
+  .gf-controls { margin-top: auto; padding-top: 8px; }
+}
+
+/* Short landscape screens (phones): touch pads move to the sides of the game screen */
+@media (max-height: 500px) and (orientation: landscape) {
+  .gf-root { padding: 4px 8px 6px; }
+  .gf-cabinet.touch-on { padding: 0 150px; box-sizing: border-box; max-width: none; }
+  .gf-controls.show {
+    position: fixed; left: 8px; right: 8px; bottom: 10px; margin: 0; z-index: 1;
+    pointer-events: none;
+  }
+  .gf-controls.show .gf-pad { pointer-events: auto; }
+  .gf-controls.show .gf-pad.act { flex-wrap: wrap; width: 144px; justify-content: flex-end; }
+  .gf-hud { padding: 2px; }
+  .gf-quiz { max-height: 60vh; padding: 3px 8px 5px; font-size: 17px; }
+  .gf-quiz .opt { min-height: 30px; padding: 2px 6px; }
+}
+@media (max-width: 520px) {
+  .gf-root { padding: 6px 8px 10px; }
+  .gf-hud { grid-template-columns: repeat(3, auto); }
+  .gf-toolbar a, .gf-toolbar button { font-size: 7px; }
+  .gf-tools { gap: 10px; }
+  .gf-touch { width: 50px; height: 46px; }
+  .gf-touch.word { width: 62px; height: 62px; font-size: 8px; }
+}
+@media (max-width: 370px) {
+  .gf-touch { width: 46px; }
+  .gf-touch.word { width: 58px; height: 58px; }
+}
+
+/* ---------------------------------------------------------------- Germ Fighters additions */
+
+.gf-logo { display: flex; justify-content: center; margin-bottom: 4px; }
+.gf-logo canvas { width: 56px; height: auto; image-rendering: pixelated; }
+.gf-tag { text-align: center; color: var(--gf-white); font-size: clamp(17px, 2.3vw, 22px); margin-top: 6px; }
+.gf-savebar { display: flex; flex-wrap: wrap; gap: 8px 14px; justify-content: center; align-items: center; margin-top: 8px; }
+.gf-powerchips { display: inline-flex; gap: 4px; flex-wrap: wrap; vertical-align: middle; }
+.gf-powerchip { display: inline-flex; align-items: center; gap: 4px; font-size: 0.85em; padding: 1px 5px; border: 1px solid var(--gf-dim); }
+.gf-powerchip i { display: inline-block; width: 9px; height: 9px; }
+
+/* Body map: 3x3, the hero (or the Lymph Node) in the middle */
+.gf-select { width: 100%; max-width: 820px; }
+.gf-select .gf-panel { padding: clamp(8px, 2vw, 16px); }
+.gf-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(4px, 1.2vw, 10px); margin-top: 8px; }
+.gf-tile {
+  position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: repeat(3, auto);
+  align-items: center; align-content: center; column-gap: 8px; row-gap: 2px;
+  min-width: 0; padding: 5px 6px; cursor: pointer; text-align: left;
+  font-family: "VT323", ui-monospace, monospace; color: var(--gf-white);
+  background: #2a1238; border: 2px solid var(--gf-dim); box-shadow: 3px 3px 0 #000;
+}
+.gf-tile:hover, .gf-tile:focus-visible { border-color: var(--gf-yellow); outline: none; background: #3a1a4a; }
+.gf-tile > canvas { grid-row: 1 / span 3; width: clamp(36px, 6.5vw, 58px); height: auto; image-rendering: pixelated; }
+.gf-tile .nm { font-family: "Press Start 2P", monospace; font-size: clamp(6px, 1.05vw, 9px); color: #ff8a8a; line-height: 1.3; overflow-wrap: anywhere; }
+.gf-tile .subj { font-size: clamp(13px, 1.6vw, 16px); color: var(--gf-cyan); line-height: 1; overflow-wrap: anywhere; }
+.gf-tile .pw { font-size: clamp(13px, 1.6vw, 16px); color: var(--gf-yellow); line-height: 1; overflow-wrap: anywhere; }
+.gf-tile.beaten { border-color: var(--gf-green); background: #163a2a; }
+.gf-tile.beaten .nm { color: var(--gf-green); }
+.gf-tile .done { position: absolute; top: 3px; right: 5px; font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--gf-green); }
+.gf-tile.center { border-color: var(--gf-cyan); }
+.gf-tile.center.locked { cursor: not-allowed; opacity: 0.85; }
+.gf-tile.center.open { border-color: var(--gf-red); animation: gf-pulse 1s steps(2) infinite; }
+@keyframes gf-pulse { 50% { border-color: var(--gf-yellow); } }
+/* Phones: portrait on top, text under it */
+@media (max-width: 560px) {
+  .gf-tile { grid-template-columns: minmax(0, 1fr); text-align: center; justify-items: center; padding: 5px 3px; }
+  .gf-tile > canvas { grid-row: auto; width: 40px; }
+  .gf-tile .subj { display: none; }
+}
+
+/* Boss line strip */
+.gf-say { margin: 6px 2px 0; padding: 4px 8px; border: 2px solid var(--gf-red); background: #2a0c26; font-size: clamp(17px, 2.2vw, 21px); line-height: 1.05; }
+.gf-say b { font-family: "Press Start 2P", monospace; font-weight: normal; font-size: 0.5em; color: #ff8a8a; margin-right: 6px; }
+.gf-quiz .boss-line { color: #ffb0b4; margin-top: 4px; font-size: 0.85em; }
+
+/* Touch pad */
+.gf-touch.word { font-family: "Press Start 2P", monospace; font-size: 8px; width: 62px; height: 62px; border-radius: 50%; }
+.gf-touch.jump { border-color: var(--gf-cyan); color: var(--gf-cyan); }
+.gf-touch.beam { border-color: var(--gf-red); color: #ffb0b4; }
+.gf-touch.pow { border-color: var(--gf-yellow); color: var(--gf-yellow); }
+.gf-touch.cyc { width: 44px; height: 44px; font-size: 7px; font-family: "Press Start 2P", monospace; color: var(--gf-dim); }
+.gf-touch.pow:disabled, .gf-touch.cyc:disabled { opacity: 0.4; }
+
+.gf-earned { display: flex; gap: 12px; align-items: center; justify-content: center; margin: 10px 0; flex-wrap: wrap; }
+.gf-earned canvas { width: 80px; image-rendering: pixelated; }
+.gf-hint { color: var(--gf-yellow); }
+
+/* Overlays taller than the screen scroll from the top instead of being clipped */
+.gf-overlay { align-items: flex-start; }
+.gf-overlay > .gf-panel, .gf-overlay > .gf-select { margin-top: auto; margin-bottom: auto; }
+.gf-select .gf-help { font-size: clamp(15px, 1.9vw, 18px); }
+
+/* ---------------------------------------------------------------- power-ups and Antigen Clues */
+
+/* Active power-ups: chips over the bottom-left of the screen (pointer-transparent, no layout shift). */
+.gf-boosts {
+  position: absolute; left: 4px; bottom: 4px; right: 4px;
+  display: flex; flex-wrap: wrap; gap: 4px;
+  pointer-events: none;
+  font-size: clamp(6px, 1.2vw, 9px);
+}
+.gf-boost {
+  position: relative; display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 5px 4px 3px; background: #000000bb; border: 1px solid; color: var(--gf-white);
+  max-width: 100%; overflow: hidden; white-space: nowrap;
+}
+.gf-boost .ico { width: 12px; height: 12px; image-rendering: pixelated; flex: none; }
+.gf-boost .sec { color: var(--gf-yellow); }
+.gf-boost .meter { position: absolute; left: 0; bottom: 0; height: 2px; }
+.gf-boost.ending { animation: gf-blink 0.4s steps(2) infinite; }
+@keyframes gf-blink { 50% { opacity: 0.35; } }
+@media (max-width: 520px) { .gf-boost .nm { display: none; } }
+
+.gf-quiz.clue { border-left-color: var(--gf-yellow); }
+.gf-quiz.clue .head { color: var(--gf-yellow); }
+
+/* Virus fact cards (boss intro strip and the victory screen) */
+.gf-card { margin: 4px 0 0; padding-left: 18px; color: #fff3c4; font-size: 0.9em; }
+.gf-card li { margin: 1px 0; }
+.gf-fact { margin: 6px 0; text-align: left; }
+.gf-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px; margin: 10px 0; }
+.gf-vcard { display: flex; gap: 8px; align-items: center; border: 2px solid var(--gf-dim); background: #2a1238; padding: 4px 6px; font-size: clamp(15px, 1.9vw, 18px); line-height: 1.05; min-width: 0; }
+.gf-vcard canvas { width: 40px; height: auto; image-rendering: pixelated; flex: none; }
+.gf-logo { gap: 6px; }

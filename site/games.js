@@ -530,6 +530,21 @@ window.GAMES = [
     year: 2026,
     added: "2026-10-15",
   },
+  {
+    id: "germ-fighters",
+    focus: true,
+    title: "Germ Fighters",
+    tagline: "Play as Cyto the killer T cell: zap cartoon germs through eight body zones, identify each stage germ with right answers, then spot six real Major Viruses in a fact-packed boss rush.",
+    subjects: ["Science", "Math", "ELA", "Social Studies"],
+    topics: ["life", "earth", "physical", "numbers", "factors", "ratios", "fractions", "algebra", "geometry", "reading", "phonics", "grammar", "civics", "history", "geography", "economics"],
+    styles: ["action", "adventure"],
+    length: "adventure",
+    inspiredBy: "robot-boss stage-select platformers",
+    url: "/germ-fighters/",
+    image: "img/germ-fighters.png",
+    year: 2026,
+    added: "2026-10-19",
+  },
 ];
 
 // Production shows only the fully tested games; the dev site shows them all.
