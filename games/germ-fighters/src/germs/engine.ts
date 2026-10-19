@@ -1,10 +1,10 @@
 import type { ChipAudio } from "../kit/audio";
-import { POWER_UP, QUIZ_RIGHT } from "@/music";
+import { CLUE_RIGHT, POWER_UP } from "@/music";
 import type { Band } from "./band";
 import { BOOSTS, BOOST_IDS, type BoostId } from "./boosts";
 import { buildLevel, SCREEN_H, SCREEN_W } from "./levels";
-import { drawGame, drawPreview, themeFor, type Look, type Particle } from "./render";
-import { FINAL_BOSS, POWERS, ROBOTS, type PowerId, type StageId } from "./robots";
+import { bossNameOf, drawGame, drawPreview, themeFor, type BossKey, type Gobbler, type Look, type Particle } from "./render";
+import { POWERS, RUSH, ZONES, type PowerId, type StageId, type VirusId } from "./roster";
 import type { AnswerResult } from "./rules";
 import { NO_INPUT, Sim, type Mode, type SimEvent } from "./sim";
 
@@ -23,18 +23,22 @@ export interface Hud {
   checkpoint: number;
   /** Active power-ups with frames left. */
   boosts: { id: BoostId; left: number; max: number }[];
-  qbDone: number;
-  qbTotal: number;
+  cluesDone: number;
+  cluesTotal: number;
+  /** Lymph Node: which Major Virus is up (0-based). */
+  rushIdx: number;
 }
 
 export interface EngineCallbacks {
   onHud: (h: Hud) => void;
-  onBossIntro: () => void;
-  /** A question opened: the boss's reboot panel, or Quiz Bot n. */
-  onQuestion: (kind: "boss" | "bot", n: number) => void;
+  /** A boss is dropping in (a stage germ, or the next Major Virus). */
+  onBossIntro: (boss: BossKey) => void;
+  /** A question opened: the boss's antigen panel, or Antigen Clue n. */
+  onQuestion: (kind: "boss" | "clue", n: number) => void;
+  /** A Major Virus was identified (next: the one coming up, or null after the last). */
+  onVirusDown?: (virus: VirusId, next: VirusId | null) => void;
   onCleared: () => void;
   onGameOver: () => void;
-  onNote?: (text: string) => void;
 }
 
 type Held = "left" | "right" | "jump" | "shoot";
@@ -42,12 +46,13 @@ type Press = "shoot" | "power" | "cycle";
 
 const STEP = 1000 / 60;
 
-export class RoboEngine {
+export class GermEngine {
   sim: Sim | null = null;
   private ctx: CanvasRenderingContext2D;
   private look: Look | null = null;
   private preview: { sim: Sim; look: Look } | null = null;
   private particles: Particle[] = [];
+  private gobblers: Gobbler[] = [];
   private banner: { text: string; sub?: string; t: number } | null = null;
   private held: Record<Held, boolean> = { left: false, right: false, jump: false, shoot: false };
   private pressed: Record<Press, boolean> = { shoot: false, power: false, cycle: false };
@@ -59,6 +64,7 @@ export class RoboEngine {
   private frame = 0;
   paused = false;
   private hudTick = 0;
+  private stuckNote = 0;
 
   constructor(canvas: HTMLCanvasElement, private audio: ChipAudio, private cb: EngineCallbacks) {
     canvas.width = SCREEN_W * 2;
@@ -93,14 +99,16 @@ export class RoboEngine {
     this.preview = { sim, look: lookFor(id) };
   }
 
-  startStage(id: StageId, band: Band, powers: PowerId[]) {
+  /** Starts a stage (the Lymph Node rush can start at Major Virus `rushFrom`). */
+  startStage(id: StageId, band: Band, powers: PowerId[], rushFrom = 0) {
     this.preview = null;
-    this.sim = new Sim(buildLevel(id, band), band, powers);
+    this.sim = new Sim(buildLevel(id, band), band, powers, undefined, rushFrom);
     this.look = lookFor(id);
     this.particles = [];
+    this.gobblers = [];
     this.paused = false;
     this.releaseAll();
-    const name = id === "fortress" ? FINAL_BOSS.stage.name : ROBOTS.find((r) => r.id === id)!.stage.name;
+    const name = id === "rush" ? RUSH.stage.name : ZONES.find((z) => z.id === id)!.stage.name;
     this.banner = { text: "READY!", sub: name.toUpperCase(), t: 0 };
     this.pushHud();
   }
@@ -143,9 +151,9 @@ export class RoboEngine {
     this.pushHud();
   }
 
-  /** Debug hook: straight to the boss. */
-  warpToBoss() {
-    this.sim?.warpToBoss();
+  /** Debug hook: straight to the boss (in the Lymph Node, optionally Major Virus n). */
+  warpToBoss(virus?: number) {
+    this.sim?.warpToBoss(virus);
     if (this.sim) this.handle(this.sim.drain());
   }
 
@@ -156,7 +164,7 @@ export class RoboEngine {
     this.pushHud();
   }
 
-  /** Debug hook: open the boss's reboot panel now. */
+  /** Debug hook: open the boss's antigen panel now. */
   forceQuestion() {
     this.sim?.forceQuestion();
     if (this.sim) this.handle(this.sim.drain());
@@ -174,6 +182,11 @@ export class RoboEngine {
       p.vy += 0.08;
       return --p.life > 0;
     });
+    this.gobblers = this.gobblers.filter((g) => {
+      g.t++;
+      g.x += g.dir * 0.6;
+      return g.t < 50;
+    });
     const sim = this.sim;
     if (!sim || this.paused) return;
     const h = this.held;
@@ -181,7 +194,7 @@ export class RoboEngine {
       left: h.left,
       right: h.right,
       jump: h.jump || this.jumpTap,
-      // Holding Z keeps firing (kinder on tablets).
+      // Holding Z keeps zapping (kinder on tablets).
       shoot: this.pressed.shoot || (h.shoot && this.frame % 10 === 0),
       power: this.pressed.power,
       cycle: this.pressed.cycle,
@@ -214,8 +227,20 @@ export class RoboEngine {
         case "jump": a.jump(); break;
         case "enemyHit": a.blip(); this.sparks(e.x, e.y, ["#ffffff", "#5ef0ff"], 4, 1); break;
         case "short":
-          a.explode();
-          this.sparks(e.x, e.y, ["#ffd23f", "#5ef0ff", "#ffffff", "#9aa4c8"], 16);
+          // A germ poofs into harmless sparkles and bubbles; a macrophage pal gobbles them up.
+          a.tone(880, 0.12, "triangle", 0.3, 1760);
+          this.sparks(e.x, e.y, ["#ffe066", "#9affd8", "#ffffff", "#ff9ac8"], 16);
+          if (this.gobblers.length < 3) this.gobblers.push({ x: e.x - 18, y: e.y + 2, t: 0, dir: 1 });
+          break;
+        case "split":
+          a.tone(300, 0.1, "square", 0.2, 600);
+          this.sparks(e.x, e.y, ["#8ae06a", "#ffffff"], 6, 1);
+          this.note("SPLIT!", "BACTERIA DIVIDE IN TWO IF LEFT ALONE");
+          break;
+        case "stuck":
+          if (this.frame - this.stuckNote > 30) a.tone(220, 0.08, "triangle", 0.25, 160);
+          this.stuckNote = this.frame;
+          this.sparks(e.x, e.y, ["#c8ff5a", "#ffffff"], 4, 0.6);
           break;
         case "hurt": a.tone(160, 0.18, "sawtooth", 0.3, 80); break;
         case "pit": a.tone(400, 0.4, "triangle", 0.4, 60); break;
@@ -223,11 +248,11 @@ export class RoboEngine {
         case "respawn": this.note("READY!"); break;
         case "gameOver": a.gameOver(); this.cb.onGameOver(); break;
         case "pickup":
-          if (e.kind === "capsule") { a.levelUp(); this.note("1-UP!", "FULL ENERGY + POWER"); }
-          else a.tone(e.kind === "bolt" ? 1200 : 900, 0.08, "square", 0.25, 1600);
+          if (e.kind === "capsule") { a.levelUp(); this.note("1-UP!", "THE HEALED CELL SAYS THANK YOU"); }
+          else a.tone(e.kind === "nutrient" ? 1200 : 900, 0.08, "square", 0.25, 1600);
           break;
         case "checkpoint": a.checkpoint(); this.note("CHECKPOINT!"); break;
-        case "gate": a.levelUp(); this.note("POWER SPOT OPEN!", "GRAB THE 1-UP"); break;
+        case "gate": a.levelUp(); this.note("CELL HEALED!", "GRAB THE 1-UP HEART"); break;
         case "power": {
           a.tone(500, 0.2, "square", 0.3, 1200);
           const p = sim?.s.p;
@@ -236,14 +261,21 @@ export class RoboEngine {
         }
         case "noPower":
           a.tone(140, 0.12, "square", 0.25);
-          if (e.reason === "none") this.note("NO POWERS YET", "REBOOT A ROBO MASTER TO EARN ONE");
-          else if (e.reason === "meter") this.note("POWER METER LOW", "GRAB BLUE CAPSULES");
+          if (e.reason === "none") this.note("NO SKILLS YET", "IDENTIFY A STAGE GERM TO EARN ONE");
+          else if (e.reason === "meter") this.note("SKILL METER LOW", "GRAB BLUE DROPS");
           else if (e.reason === "ground") this.note("USE IT ON THE GROUND");
           else this.note("USE IT IN THE AIR");
           break;
         case "cycle": a.blip(); this.note(POWERS[e.power].name.toUpperCase()); break;
         // The warning jingle and the fight music are started by the game (cb.onBossIntro).
-        case "bossIntro": this.note("WARNING!", this.look?.bossName); this.cb.onBossIntro(); break;
+        case "bossIntro": {
+          const key = sim ? sim.bossKey : null;
+          if (key) {
+            this.note("WARNING!", bossNameOf(key));
+            this.cb.onBossIntro(key);
+          }
+          break;
+        }
         case "bossStart": break;
         case "panelHit": {
           a.tone(1000, 0.06, "square", 0.25);
@@ -252,19 +284,19 @@ export class RoboEngine {
           break;
         }
         case "question": a.tone(660, 0.12, "square", 0.3, 990); this.cb.onQuestion("boss", 0); break;
-        case "quizBot":
+        case "clue":
           a.tone(880, 0.1, "square", 0.3, 1320);
           this.sparks(e.x, e.y, ["#ffd23f", "#ffffff", "#c9b8ff"], 10, 1.2);
-          this.cb.onQuestion("bot", e.n);
+          this.cb.onQuestion("clue", e.n);
           break;
-        case "quizBotDone": {
-          this.sparks(e.x, e.y, e.correct ? ["#ffd23f", "#5fff8a", "#ffffff", "#5ef0ff"] : ["#9aa4c8", "#ffffff"], e.correct ? 30 : 14, e.correct ? 2.2 : 1.4);
+        case "clueDone": {
+          this.sparks(e.x, e.y, e.correct ? ["#ffd23f", "#5fff8a", "#ffffff", "#9affd8"] : ["#c9b8ff", "#ffffff"], e.correct ? 30 : 14, e.correct ? 2.2 : 1.4);
           if (e.correct) {
             // A power-up reward plays the power-up jingle instead (see "boost").
-            if (!e.reward.boost) a.playJingle(QUIZ_RIGHT);
+            if (!e.reward.boost) a.playJingle(CLUE_RIGHT);
           } else a.wrong();
           const sub = `+${e.reward.energy} ENERGY${e.reward.boost ? ` · ${BOOSTS[e.reward.boost].name.toUpperCase()}!` : ""}`;
-          this.note(e.correct ? "QUIZ BOT REBOOTED!" : "QUIZ BOT POOF!", sub);
+          this.note(e.correct ? "ANTIGEN IDENTIFIED!" : "CLUE POOF!", sub);
           break;
         }
         case "boost": {
@@ -276,28 +308,30 @@ export class RoboEngine {
           break;
         }
         case "boostEnd": a.tone(500, 0.12, "triangle", 0.25, 250); break;
-        case "bubblePop": {
+        case "vaccinePop": {
           a.tone(1200, 0.15, "triangle", 0.3, 400);
           const p = sim?.s.p;
           if (p) this.sparks(p.x + 6, p.y + 10, ["#9ad1ff", "#ffffff"], 14, 1.8);
-          this.note("BUBBLE POP!", "IT BLOCKED THE BUMP");
+          this.note("VACCINE MEMORY!", "YOUR BODY WAS READY FOR THAT ONE");
           break;
         }
-        case "weak": a.tone(880, 0.3, "triangle", 0.4, 1760); this.note("WEAK SPOT!", "NEXT RIGHT ANSWER = DOUBLE REBOOT"); break;
+        case "weak": a.tone(880, 0.3, "triangle", 0.4, 1760); this.note("WEAK SPOT!", "NEXT RIGHT ANSWER = DOUBLE HIT"); break;
         case "bossHit": {
           a.correct();
           const b = sim?.s.boss;
-          if (b) this.sparks(b.x + 13, b.y + 15, ["#ffd23f", "#5ef0ff", "#ffffff"], e.weakness ? 40 : 22, 2.2);
+          if (b) this.sparks(b.x + 13, b.y + 15, ["#ffd23f", "#9affd8", "#ffffff"], e.weakness ? 40 : 22, 2.2);
           break;
         }
         case "blocked": a.wrong(); break;
         case "bossDown": {
           a.levelUp();
           const b = sim?.s.boss;
-          if (b) for (let i = 0; i < 4; i++) this.sparks(b.x + 13, b.y + 15, ["#ffd23f", "#5ef0ff", "#ffffff", "#ff5ec8"], 20, 2.6);
-          this.note("REBOOTED!");
+          if (b) for (let i = 0; i < 4; i++) this.sparks(b.x + 13, b.y + 15, ["#ffd23f", "#9affd8", "#ffffff", "#ff9ac8"], 20, 2.6);
+          this.note("IDENTIFIED!", "POOF! JUST SPARKLES NOW");
           break;
         }
+        case "virusDown": this.cb.onVirusDown?.(e.virus, e.next); break;
+        case "nextVirus": break;
         case "clear": a.stopMusic(); this.cb.onCleared(); break;
         case "bossAttack": break;
       }
@@ -312,7 +346,7 @@ export class RoboEngine {
       energy: Math.max(0, s.energy), lives: s.lives, power: s.power, sel: sim.selectedPower, powers: s.powers, score: s.score, mode: s.mode,
       bossHp: s.fight?.hp ?? 0, bossMax: s.fight?.maxHp ?? 0, weakReady: !!s.fight?.weakReady, progress: sim.progress(), checkpoint: s.checkpoint,
       boosts: BOOST_IDS.filter((id) => s.boosts[id] > 0).map((id) => ({ id, left: s.boosts[id], max: BOOSTS[id].frames })),
-      qbDone: s.qbDone.filter(Boolean).length, qbTotal: s.qbDone.length,
+      cluesDone: s.clueDone.filter(Boolean).length, cluesTotal: s.clueDone.length, rushIdx: s.rushIdx,
     });
   }
 
@@ -321,7 +355,7 @@ export class RoboEngine {
     ctx.setTransform(2, 0, 0, 2, 0, 0);
     ctx.imageSmoothingEnabled = false;
     if (this.sim && this.look) {
-      drawGame(ctx, this.sim, this.look, this.particles, this.frame, this.banner);
+      drawGame(ctx, this.sim, this.look, this.particles, this.gobblers, this.frame, this.banner);
       if (this.paused) {
         ctx.fillStyle = "#00000088";
         ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
@@ -329,14 +363,12 @@ export class RoboEngine {
     } else if (this.preview) {
       drawPreview(ctx, this.preview.sim, this.preview.look, this.frame);
     } else {
-      ctx.fillStyle = "#050818";
+      ctx.fillStyle = "#12061a";
       ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
     }
   }
 }
 
 export function lookFor(id: StageId): Look {
-  if (id === "fortress") return { theme: themeFor("fortress"), boss: "static", bossName: FINAL_BOSS.name };
-  const r = ROBOTS.find((x) => x.id === id)!;
-  return { theme: themeFor(id), boss: r.id, bossName: r.name };
+  return { theme: themeFor(id), stage: id };
 }

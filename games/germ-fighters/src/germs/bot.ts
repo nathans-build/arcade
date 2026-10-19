@@ -1,11 +1,11 @@
-import type { QuizReward } from "./boosts";
+import type { ClueReward } from "./boosts";
 import { PH, Sim, type Input } from "./sim";
 
 
 /*
  * A headless test bot: it plays a stage by looking ahead with cloned sims (a small beam search over
- * short input segments) and answers boss and Quiz Bot questions with given policies. It proves every
- * stage and the fortress can be cleared in every grade band (Quiz Bot barriers included).
+ * short input segments) and answers boss and Antigen Clue questions with given policies. It proves every
+ * body zone and the Lymph Node's Major Virus rush can be cleared in every grade band (clue barriers included).
  */
 
 interface Action {
@@ -80,9 +80,10 @@ function rawScore(sim: Sim): number {
       v -= d > 200 ? (d - 200) : 0;
     }
     if (s.mode === "quiz") v += 2000;
+    v += s.rushIdx * 60000;
     if (s.mode === "bossDown" || s.mode === "clear") v += 50000;
   } else {
-    v += s.p.x * 2 + s.checkpoint * 50 + s.qbAnswered * 600;
+    v += s.p.x * 2 + s.checkpoint * 50 + s.cluesAnswered * 600;
     if (s.mode === "quiz") v += 800;
     // Standing higher is progress too (lifts, ledges).
     if (s.p.onGround) v += (200 - (s.p.y + PH)) * 1.5;
@@ -130,35 +131,37 @@ export interface BotResult {
   livesLost: number;
   questions: number;
   wrong: number;
-  /** Boss HP right before each answer and right after (to prove wrong answers change nothing). */
-  answers: { correct: boolean; hpBefore: number; hpAfter: number; livesBefore: number; livesAfter: number; energyBefore: number; energyAfter: number }[];
-  /** Quiz Bot answers, with what each one gave. */
-  quizBots: { n: number; correct: boolean; reward: QuizReward; livesBefore: number; livesAfter: number; energyBefore: number; energyAfter: number; powerBefore: number; powerAfter: number; x: number }[];
-  /** Quiz Bots answered before the boss door closed. */
-  quizBotsBeforeBoss: number;
+  /** Boss HP right before each answer and right after (to prove wrong answers change nothing), and which boss. */
+  answers: { correct: boolean; hpBefore: number; hpAfter: number; livesBefore: number; livesAfter: number; energyBefore: number; energyAfter: number; boss: string }[];
+  /** Antigen Clue answers, with what each one gave. */
+  clues: { n: number; correct: boolean; reward: ClueReward; livesBefore: number; livesAfter: number; energyBefore: number; energyAfter: number; powerBefore: number; powerAfter: number; x: number }[];
+  /** Antigen Clues answered before the boss door closed. */
+  cluesBeforeBoss: number;
+  /** Bosses beaten, in order (one stage germ, or the six Major Viruses). */
+  bosses: string[];
   reason: string;
 }
 
 /**
- * Plays the stage to the end. `answerRight(n)` decides whether question n (0-based) is answered right.
- * `onQuestion` lets the caller draw a real question for each panel (tests check them).
+ * Plays the stage to the end. `answerRight(n)` decides whether boss question n (0-based) is answered right.
+ * `onQuestion` lets the caller draw a real question for each panel (tests check them); it gets the boss key.
  */
 export function playStage(
   sim: Sim,
   opts: {
     answerRight?: (n: number) => boolean;
-    /** Quiz Bot policy (n = 0-based Quiz Bot question). Default: right, wrong, right. */
-    answerBot?: (n: number) => boolean;
+    /** Antigen Clue policy (n = 0-based clue question). Default: right, wrong, right. */
+    answerClue?: (n: number) => boolean;
     maxFrames?: number;
-    onQuestion?: (n: number) => void;
-    onQuizBot?: (n: number) => void;
+    onQuestion?: (n: number, boss: string) => void;
+    onClue?: (n: number) => void;
     skipToBoss?: boolean;
   } = {},
 ): BotResult {
   const answerRight = opts.answerRight ?? (() => true);
-  const answerBot = opts.answerBot ?? ((n: number) => n !== 1);
-  const maxFrames = opts.maxFrames ?? 60 * 60 * 10;
-  const res: BotResult = { cleared: false, frames: 0, livesLost: 0, questions: 0, wrong: 0, answers: [], quizBots: [], quizBotsBeforeBoss: 0, reason: "" };
+  const answerClue = opts.answerClue ?? ((n: number) => n !== 1);
+  const maxFrames = opts.maxFrames ?? 60 * 60 * 14;
+  const res: BotResult = { cleared: false, frames: 0, livesLost: 0, questions: 0, wrong: 0, answers: [], clues: [], cluesBeforeBoss: 0, bosses: [], reason: "" };
   if (opts.skipToBoss) sim.warpToBoss();
   let plan: { a: Action; f: number } | null = null;
   const start = sim.s.t;
@@ -173,26 +176,29 @@ export function playStage(
       break;
     }
     if (s.mode === "quiz" && s.ask !== "boss") {
-      const n = res.quizBots.length;
-      opts.onQuizBot?.(n);
-      const right = answerBot(n);
+      const n = res.clues.length;
+      opts.onClue?.(n);
+      const right = answerClue(n);
       const before = { lives: s.lives, energy: s.energy, power: s.power };
       const r = sim.answer(right);
-      res.quizBots.push({ n, correct: right, reward: r.reward!, livesBefore: before.lives, livesAfter: s.lives, energyBefore: before.energy, energyAfter: s.energy, powerBefore: before.power, powerAfter: s.power, x: s.p.x });
-      if (!s.locked) res.quizBotsBeforeBoss++;
+      res.clues.push({ n, correct: right, reward: r.reward!, livesBefore: before.lives, livesAfter: s.lives, energyBefore: before.energy, energyAfter: s.energy, powerBefore: before.power, powerAfter: s.power, x: s.p.x });
+      if (!s.locked) res.cluesBeforeBoss++;
       sim.resume();
       plan = null;
       continue;
     }
     if (s.mode === "quiz") {
-      opts.onQuestion?.(res.questions);
+      const boss = sim.bossKey;
+      opts.onQuestion?.(res.questions, boss);
       const right = answerRight(res.questions);
       const before = { hp: s.fight!.hp, lives: s.lives, energy: s.energy };
       sim.answer(right);
-      res.answers.push({ correct: right, hpBefore: before.hp, hpAfter: s.fight!.hp, livesBefore: before.lives, livesAfter: s.lives, energyBefore: before.energy, energyAfter: s.energy });
+      res.answers.push({ correct: right, hpBefore: before.hp, hpAfter: s.fight!.hp, livesBefore: before.lives, livesAfter: s.lives, energyBefore: before.energy, energyAfter: s.energy, boss });
       res.questions++;
       if (!right) res.wrong++;
+      const down = s.fight!.hp <= 0;
       sim.resume();
+      if (down) res.bosses.push(boss);
       plan = null;
       continue;
     }

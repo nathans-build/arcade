@@ -22,10 +22,10 @@ import {
   type Question,
   type Subject,
 } from "@/kit";
-import { bandOf } from "@/robo/band";
-import { BOOSTS, BOOST_IDS, QUIZ_BOTS_PER_STAGE, type BoostId } from "@/robo/boosts";
-import { catalog } from "@/robo/bank";
-import { RoboEngine, type Hud } from "@/robo/engine";
+import { bandOf } from "@/germs/band";
+import { BOOSTS, BOOST_IDS, CLUES_PER_STAGE, type BoostId } from "@/germs/boosts";
+import { catalog } from "@/germs/bank";
+import { GermEngine, type Hud } from "@/germs/engine";
 import {
   FOCUS_SUBJECTS,
   MIXED,
@@ -41,28 +41,28 @@ import {
   topicsOf,
   validateFocus,
   type FocusChoice,
-  type RoboSubject,
+  type GermSubject,
   type TopicChoice,
-} from "@/robo/focus";
-import { gatePowerFor } from "@/robo/levels";
-import { RoboQuestions, dealQuestion, resolveRobot, sourceLabel } from "@/robo/questions";
-import { drawBoostIcon, drawHero, drawPowerIcon, drawRobot, HERO_COLORS } from "@/robo/render";
-import { FINAL_BOSS, HERO, POWERS, ROBOTS, robotById, type PowerId, type Robot, type RobotId, type StageId } from "@/robo/robots";
-import { fortressOpen, loadSave, markBeaten, markFortress, powersOf, writeSave, type AnswerResult, type SaveData } from "@/robo/rules";
-import { MAX_ENERGY, POWER_MAX, startLives } from "@/robo/sim";
-import { BOSS_WARNING, CITADEL_CLEARED, JINGLES, POWER_EARNED, RECHARGE, SELECT_SONG, SONGS, bossSongFor, stageSongFor } from "@/music";
-import "@/robo/robo.css";
+} from "@/germs/focus";
+import { GermQuestions, dealQuestion, resolveVirus, resolveZone, sourceLabel, type Slot } from "@/germs/questions";
+import { bossNameOf, drawBoostIcon, drawBoss, drawHelper, drawHero, drawPowerIcon, HERO_COLORS, type BossKey } from "@/germs/render";
+import { HERO, POWERS, RUSH, VIRUSES, ZONES, virusById, zoneById, type PowerId, type StageId, type VirusId, type Zone, type ZoneId } from "@/germs/roster";
+import { loadSave, markBeaten, markRush, markVirus, powersOf, rushOpen, writeSave, type AnswerResult, type SaveData } from "@/germs/rules";
+import { MAX_ENERGY, POWER_MAX, startLives } from "@/germs/sim";
+import { BOSS_WARNING, GAME_OVER, JINGLES, SELECT_SONG, SONGS, STAGE_CLEARED, VICTORY, VIRUS_DOWN, bossSongFor, stageSongFor } from "@/music";
+import "@/germs/germs.css";
 
-const GAME_ID = "robo-masters";
+const GAME_ID = "germ-fighters";
 
 type Screen = "title" | "select" | "playing" | "cleared" | "over" | "victory";
 
 interface Quiz {
-  /** The boss's reboot panel, or Quiz Bot n (0-based) before the boss. */
-  kind: "boss" | "bot";
+  /** The boss's antigen panel, or Antigen Clue n (0-based) before the boss. */
+  kind: "boss" | "clue";
   n: number;
   stage: StageId;
-  from: RobotId;
+  /** The zone or Major Virus whose question source was used. */
+  slot: Slot;
   q: Question;
   picked: number | null;
   result: AnswerResult | null;
@@ -71,8 +71,8 @@ interface Quiz {
 
 interface LogEntry {
   stage: StageId;
-  /** Answered at a Quiz Bot (not the boss). */
-  bot: boolean;
+  /** Answered at an Antigen Clue (not a boss). */
+  clue: boolean;
   subject: Subject;
   standard: string;
   skill: string;
@@ -81,15 +81,16 @@ interface LogEntry {
 
 const SUBJECT_TAG: Record<Subject, string> = { math: "MATH", science: "SCIENCE", ela: "ELA", social: "SOCIAL STUDIES" };
 
-/** Stage select layout: robots around the hero, row by row (null = the middle tile). */
-const GRID: (RobotId | null)[] = ["splitz", "igneous", "syntaxor", "meridian", null, "cumulo", "polarix", "chlorophil", "clio"];
+/** Stage select layout: body zones around the Lymph Node (null = the middle tile). */
+const GRID: (ZoneId | null)[] = ["nose", "throat", "lungs", "mouth", null, "blood", "stomach", "gut", "skin"];
 
 const EMPTY_HUD: Hud = {
   energy: MAX_ENERGY, lives: 3, power: POWER_MAX, sel: null, powers: [], score: 0, mode: "play", bossHp: 0, bossMax: 0, weakReady: false, progress: 0, checkpoint: -1,
-  boosts: [], qbDone: 0, qbTotal: QUIZ_BOTS_PER_STAGE,
+  boosts: [], cluesDone: 0, cluesTotal: CLUES_PER_STAGE, rushIdx: 0,
 };
 
 const debug = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("debug");
+const isVirus = (k: string): k is VirusId => VIRUSES.some((v) => v.id === k);
 
 function initialFocus(grade: Grade): { choice: FocusChoice; note: string | null } {
   const url = focusFromUrl(typeof window === "undefined" ? "" : window.location.search, grade, catalog);
@@ -102,19 +103,17 @@ function initialFocus(grade: Grade): { choice: FocusChoice; note: string | null 
 }
 
 function stageName(id: StageId): string {
-  return id === "fortress" ? FINAL_BOSS.stage.name : robotById(id).stage.name;
-}
-function bossName(id: StageId): string {
-  return id === "fortress" ? FINAL_BOSS.name : robotById(id).name;
-}
-function bossLines(id: StageId) {
-  return id === "fortress" ? FINAL_BOSS.lines : robotById(id).lines;
+  return id === "rush" ? RUSH.stage.name : zoneById(id).stage.name;
 }
 
-export default function RoboMasters() {
+function linesOf(key: BossKey) {
+  return isVirus(key) ? virusById(key).lines : zoneById(key).lines;
+}
+
+export default function GermFighters() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const engineRef = useRef<RoboEngine | null>(null);
-  const questionsRef = useRef<RoboQuestions | null>(null);
+  const engineRef = useRef<GermEngine | null>(null);
+  const questionsRef = useRef<GermQuestions | null>(null);
   const audio = useMemo(() => new ChipAudio(), []);
 
   const [grade, setGrade] = useState<Grade>(() => initialGrade("3"));
@@ -123,10 +122,10 @@ export default function RoboMasters() {
   const [focusNote, setFocusNote] = useState<string | null>(focusInit.note);
   const [save, setSave] = useState<SaveData>(() => loadSave());
   const [screen, setScreen] = useState<Screen>("title");
-  const [stage, setStage] = useState<StageId>("splitz");
+  const [stage, setStage] = useState<StageId>("nose");
   const [hud, setHud] = useState<Hud>(EMPTY_HUD);
   const [quiz, setQuiz] = useState<Quiz | null>(null);
-  const [say, setSay] = useState<{ who: string; text: string } | null>(null);
+  const [say, setSay] = useState<{ who: string; text: string; card?: string[] } | null>(null);
   const [log, setLog] = useState<LogEntry[]>([]);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(audio.muted);
@@ -137,6 +136,8 @@ export default function RoboMasters() {
   const [touch, setTouch] = useState(false);
   const [highScore, setHighScore] = useState(() => loadProgress(GAME_ID).highScore);
   const [selFocus, setSelFocus] = useState(0);
+  /** Lymph Node: the Major Virus reached in this run (a retry can start there). */
+  const [rushReached, setRushReached] = useState(0);
   const stageRef = useRef<HTMLDivElement>(null);
   const [screenWidth, setScreenWidth] = useState<number | null>(null);
 
@@ -168,43 +169,63 @@ export default function RoboMasters() {
     return () => mq.removeEventListener?.("change", onChange);
   }, []);
 
-  const ask = useCallback((kind: "boss" | "bot", n: number) => {
+  const ask = useCallback((kind: "boss" | "clue", n: number) => {
     const qs = questionsRef.current;
-    if (!qs) return;
+    const sim = engineRef.current?.sim;
+    if (!qs || !sim) return;
     const id = stageIdRef.current;
-    // Quiz Bots ask from the same source as the stage's boss (its robot's subject/topic).
-    const { q, from } = qs.draw(id);
+    // Clues ask from the same source as the stage's boss. In the Lymph Node, clues borrow a body zone's
+    // health questions (saving each virus's own facts for its fight), and boss panels ask the virus that is up.
+    const slot: Slot = id !== "rush" ? id : kind === "clue" ? ZONES[(n * 3 + 1) % ZONES.length].id : sim.bossKey;
+    const q = qs.draw(slot);
     engineRef.current?.releaseAll();
     const dealt = dealQuestion(q);
-    setQuiz({ kind, n, stage: id, from, q: dealt, picked: null, result: null, line: null });
+    setQuiz({ kind, n, stage: id, slot, q: dealt, picked: null, result: null, line: null });
     if (readAloudRef.current) speakQuestion(dealt.prompt, dealt.choices);
   }, []);
 
   // The engine lives as long as the page; menus show a stage scrolling behind them.
   useEffect(() => {
-    const engine = new RoboEngine(canvasRef.current!, audio, {
+    const engine = new GermEngine(canvasRef.current!, audio, {
       onHud: setHud,
-      onBossIntro: () => {
+      onBossIntro: (key) => {
         const id = stageIdRef.current;
         audio.playJingle(BOSS_WARNING, { then: bossSongFor(id) });
-        const line = bossLines(id).intro;
-        setSay({ who: bossName(id), text: line });
-        if (readAloudRef.current) speak(line);
+        const lines = linesOf(key);
+        if (isVirus(key)) {
+          const v = virusById(key);
+          setRushReached(VIRUSES.indexOf(v));
+          setSay({ who: v.name, text: lines.intro, card: v.card });
+          if (readAloudRef.current) speak(`${lines.intro} ${v.card.join(" ")}`);
+        } else {
+          setSay({ who: bossNameOf(key), text: lines.intro });
+          if (readAloudRef.current) speak(lines.intro);
+        }
       },
       onQuestion: (kind, n) => ask(kind, n),
+      onVirusDown: (virus, next) => {
+        setSave((s) => {
+          const nx = markVirus(s, virus);
+          writeSave(nx);
+          return nx;
+        });
+        if (next) audio.playJingle(VIRUS_DOWN, { then: bossSongFor("rush") });
+        const v = virusById(virus);
+        setSay({ who: v.name, text: v.lines.defeat, card: v.card });
+      },
       onCleared: () => {
         const id = stageIdRef.current;
         setQuiz(null);
         setSay(null);
         setSave((s) => {
-          const next = id === "fortress" ? markFortress(s) : markBeaten(s, id);
-          writeSave(next);
-          return next;
+          const nx = id === "rush" ? markRush(s) : markBeaten(s, id);
+          writeSave(nx);
+          return nx;
         });
         setHighScore(submitScore(GAME_ID, engine.sim?.s.score ?? 0));
-        setScreen(id === "fortress" ? "victory" : "cleared");
-        audio.playJingle(id === "fortress" ? CITADEL_CLEARED : POWER_EARNED, { then: "stop" });
-        if (readAloudRef.current) speak(id === "fortress" ? FINAL_BOSS.lines.defeat : `${robotById(id as RobotId).lines.defeat}`);
+        setScreen(id === "rush" ? "victory" : "cleared");
+        audio.playJingle(id === "rush" ? VICTORY : STAGE_CLEARED, { then: "stop" });
+        if (readAloudRef.current) speak(id === "rush" ? RUSH.lines.defeat : zoneById(id).lines.defeat);
       },
       onGameOver: () => {
         setQuiz(null);
@@ -212,11 +233,11 @@ export default function RoboMasters() {
         setHighScore(submitScore(GAME_ID, engine.sim?.s.score ?? 0));
         setScreen("over");
         audio.stopMusic();
-        audio.playJingle(RECHARGE, { then: "stop" });
+        audio.playJingle(GAME_OVER, { then: "stop" });
       },
     });
     engineRef.current = engine;
-    engine.showPreview("splitz", bandOf(gradeRef.current));
+    engine.showPreview("nose", bandOf(gradeRef.current));
     engine.start();
     return () => {
       engine.stop();
@@ -224,24 +245,6 @@ export default function RoboMasters() {
       stopSpeaking();
     };
   }, [audio, ask]);
-
-  // Debug / playtest hooks.
-  useEffect(() => {
-    if (!debug) return;
-    const w = window as unknown as Record<string, unknown>;
-    w.__rm = {
-      engine: engineRef.current,
-      get sim() {
-        return engineRef.current?.sim ?? null;
-      },
-      warpToBoss: () => engineRef.current?.warpToBoss(),
-      giveBoost: (id: BoostId) => engineRef.current?.giveBoost(id),
-      forceQuestion: () => engineRef.current?.forceQuestion(),
-    };
-    w.__rmQuiz = quiz;
-    w.__rmSave = save;
-    w.__rmScreen = screen;
-  }, [quiz, save, screen]);
 
   const chooseGrade = useCallback((g: Grade) => {
     setGrade(g);
@@ -267,25 +270,52 @@ export default function RoboMasters() {
     setSay(null);
     setPaused(false);
     setScreen("select");
-    engineRef.current?.showPreview("splitz", bandOf(grade));
+    engineRef.current?.showPreview("nose", bandOf(grade));
   }, [audio, grade]);
 
-  const startStage = useCallback((id: StageId) => {
+  const startStage = useCallback((id: StageId, rushFrom = 0) => {
     audio.unlock();
     stopSpeaking();
     audio.playSong(stageSongFor(id), { restart: true });
     if (!questionsRef.current || questionsRef.current.grade !== grade || JSON.stringify(questionsRef.current.choice) !== JSON.stringify(runFocus)) {
-      questionsRef.current = new RoboQuestions(grade, runFocus, catalog);
+      questionsRef.current = new GermQuestions(grade, runFocus, catalog);
     }
     setStage(id);
     stageIdRef.current = id;
     setQuiz(null);
     setSay(null);
     setPaused(false);
-    setHud({ ...EMPTY_HUD, lives: startLives(bandOf(grade)), powers: powersOf(save) });
+    setRushReached(rushFrom);
+    setHud({ ...EMPTY_HUD, lives: startLives(bandOf(grade)), powers: powersOf(save), rushIdx: rushFrom });
     setScreen("playing");
-    engineRef.current?.startStage(id, bandOf(grade), powersOf(save));
+    engineRef.current?.startStage(id, bandOf(grade), powersOf(save), rushFrom);
   }, [audio, grade, runFocus, save]);
+
+  // Debug / playtest hooks.
+  useEffect(() => {
+    if (!debug) return;
+    const w = window as unknown as Record<string, unknown>;
+    w.__gf = {
+      engine: engineRef.current,
+      get sim() {
+        return engineRef.current?.sim ?? null;
+      },
+      warpToBoss: (virus?: number) => engineRef.current?.warpToBoss(virus),
+      giveBoost: (id: BoostId) => engineRef.current?.giveBoost(id),
+      forceQuestion: () => engineRef.current?.forceQuestion(),
+      /** Skips to the Lymph Node's Major Virus rush (all eight zones counted as identified), at virus n. */
+      skipToRush: (n = 0) => {
+        const all: SaveData = { ...save, beaten: ZONES.map((z) => z.id) };
+        writeSave(all);
+        setSave(all);
+        startStage("rush", n);
+        setTimeout(() => engineRef.current?.warpToBoss(n), 50);
+      },
+    };
+    w.__gfQuiz = quiz;
+    w.__gfSave = save;
+    w.__gfScreen = screen;
+  }, [quiz, save, screen, startStage]);
 
   const answer = useCallback(
     (i: number) => {
@@ -293,11 +323,14 @@ export default function RoboMasters() {
       audio.unlock();
       const correct = i === quiz.q.answer;
       recordAnswer(GAME_ID, quiz.q, correct);
-      setLog((l) => [...l, { stage: quiz.stage, bot: quiz.kind === "bot", subject: quiz.q.subject, standard: quiz.q.standard, skill: quiz.q.skill, correct }]);
+      setLog((l) => [...l, { stage: quiz.stage, clue: quiz.kind === "clue", subject: quiz.q.subject, standard: quiz.q.standard, skill: quiz.q.skill, correct }]);
       const result = engineRef.current?.answer(correct) ?? null;
-      const lines = bossLines(quiz.stage);
       const n = log.length;
-      const line = quiz.kind === "bot" ? null : result?.defeated ? lines.defeat : correct ? lines.hit[n % lines.hit.length] : lines.block[n % lines.block.length];
+      let line: string | null = null;
+      if (quiz.kind === "boss") {
+        const lines = linesOf(quiz.slot);
+        line = result?.defeated ? lines.defeat : correct ? lines.hit[n % lines.hit.length] : lines.block[n % lines.block.length];
+      }
       setQuiz({ ...quiz, picked: i, result, line });
       if (readAloudRef.current) speak(correct ? `Correct! ${quiz.q.explanation}` : `The answer is ${quiz.q.choices[quiz.q.answer]}. ${quiz.q.explanation}`);
     },
@@ -308,7 +341,7 @@ export default function RoboMasters() {
     if (!quiz || quiz.picked === null) return;
     stopSpeaking();
     setQuiz(null);
-    setSay(null);
+    if (!(quiz.stage === "rush" && quiz.result?.defeated)) setSay(null);
     engineRef.current?.resume();
   }, [quiz]);
 
@@ -332,7 +365,7 @@ export default function RoboMasters() {
   }, [quiz]);
 
   const eraseSave = useCallback(() => {
-    const empty: SaveData = { beaten: [], fortress: false };
+    const empty: SaveData = { beaten: [], viruses: [], rush: false };
     writeSave(empty);
     setSave(empty);
   }, []);
@@ -415,7 +448,7 @@ export default function RoboMasters() {
     };
   }, [screen, quiz, paused, answer, next, togglePause, replay, toSelect, audio]);
 
-  // Touch pad: arrows and jump/beam are held, power and switch fire on press.
+  // Touch pad: arrows and jump/zap are held, skill and switch fire on press.
   const holdProps = (k: "left" | "right" | "jump" | "shoot") => ({
     onPointerDown: (e: React.PointerEvent) => {
       e.preventDefault();
@@ -446,18 +479,18 @@ export default function RoboMasters() {
   const owned = powersOf(save);
 
   return (
-    <div className={`rm-root ${early ? "early" : ""}`}>
-      <div className="rm-toolbar">
+    <div className={`gf-root ${early ? "early" : ""}`}>
+      <div className="gf-toolbar">
         <a href={arcadeLink(grade)}>◀ ARCADE</a>
-        <div className="rm-tools">
+        <div className="gf-tools">
           {playing && <button onClick={() => togglePause()}>{paused ? "RESUME" : "PAUSE"}</button>}
           {playing && <button onClick={toSelect}>STAGES</button>}
           {muted ? (
             <button onClick={() => setMuted(audio.toggleMute())} title="Sound is off on this device (M)">SOUND OFF</button>
           ) : (
             <>
-              <button onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
-              <button onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
+              <button className="gf-music" onClick={() => setMusicOn(audio.toggleMusic())} aria-pressed={musicOn} title="Music on/off">{musicOn ? "MUSIC ON" : "MUSIC OFF"}</button>
+              <button className="gf-sfx" onClick={() => setSfxOn(audio.toggleSfx())} aria-pressed={sfxOn} title="Sound effects on/off">{sfxOn ? "SFX ON" : "SFX OFF"}</button>
             </>
           )}
           {speechSupported() && (
@@ -468,25 +501,25 @@ export default function RoboMasters() {
         </div>
       </div>
 
-      <div className={`rm-cabinet ${showPad ? "touch-on" : ""}`}>
-        <div className="rm-hud rm-pixel">
-          <div><span className="lbl">Stage</span><span className="val">{playing || screen === "over" ? stageName(stage) : "Select"}</span></div>
+      <div className={`gf-cabinet ${showPad ? "touch-on" : ""}`}>
+        <div className="gf-hud gf-pixel">
+          <div><span className="lbl">Zone</span><span className="val">{playing || screen === "over" ? stageName(stage) : "Select"}</span></div>
           <div><span className="lbl">Lives</span><span className="val lives">{"♥".repeat(Math.max(0, playing ? hud.lives : 0))}</span></div>
           <div><span className="lbl">Score</span><span className="val">{String(hud.score).padStart(6, "0")}</span></div>
           <div><span className="lbl">Hi</span><span className="val">{String(Math.max(highScore, hud.score)).padStart(6, "0")}</span></div>
-          <div className="rm-hudpower">
-            <span className="lbl">Power</span>
+          <div className="gf-hudpower">
+            <span className="lbl">Skill</span>
             <span className="val" style={{ color: hud.sel ? POWERS[hud.sel].color : undefined }}>{playing && hud.sel ? POWERS[hud.sel].name : "—"}</span>
           </div>
         </div>
 
-        <div className="rm-stage" ref={stageRef}>
-          <div className="rm-screen" style={screenWidth ? { width: screenWidth } : undefined}>
-            <canvas ref={canvasRef} aria-label="Robo Masters game screen" />
+        <div className="gf-stage" ref={stageRef}>
+          <div className="gf-screen" style={screenWidth ? { width: screenWidth } : undefined}>
+            <canvas ref={canvasRef} aria-label="Germ Fighters game screen" />
             {playing && hud.boosts.length > 0 && (
-              <div className="rm-boosts rm-pixel" aria-live="polite">
+              <div className="gf-boosts gf-pixel" aria-live="polite">
                 {hud.boosts.map((b) => (
-                  <span key={b.id} className={`rm-boost ${b.left < 120 ? "ending" : ""}`} data-boost={b.id} style={{ borderColor: BOOSTS[b.id].color }}>
+                  <span key={b.id} className={`gf-boost ${b.left < 120 ? "ending" : ""}`} data-boost={b.id} style={{ borderColor: BOOSTS[b.id].color }}>
                     <BoostIcon id={b.id} />
                     <span className="nm">{BOOSTS[b.id].name}</span>
                     <span className="sec">{Math.ceil(b.left / 60)}s</span>
@@ -501,36 +534,39 @@ export default function RoboMasters() {
             )}
 
             {screen === "select" && (
-              <StageSelect grade={grade} focus={runFocus} save={save} onPick={startStage} onBack={() => setScreen("title")} sel={selFocus} onSel={setSelFocus} />
+              <StageSelect grade={grade} focus={runFocus} save={save} onPick={(id) => startStage(id)} onBack={() => setScreen("title")} sel={selFocus} onSel={setSelFocus} />
             )}
 
             {playing && paused && !quiz && (
-              <div className="rm-overlay">
-                <div className="rm-panel" style={{ textAlign: "center" }}>
-                  <div className="rm-title rm-pixel">PAUSED</div>
+              <div className="gf-overlay">
+                <div className="gf-panel" style={{ textAlign: "center" }}>
+                  <div className="gf-title gf-pixel">PAUSED</div>
                   <HowToPlay />
                   <div style={{ marginTop: 14, display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-                    <button className="rm-cta ghost" onClick={toSelect}>Stage select</button>
-                    <button className="rm-cta" autoFocus onClick={() => togglePause(false)}>Resume</button>
+                    <button className="gf-cta ghost" onClick={toSelect}>Stage select</button>
+                    <button className="gf-cta" autoFocus onClick={() => togglePause(false)}>Resume</button>
                   </div>
                 </div>
               </div>
             )}
 
-            {screen === "cleared" && stage !== "fortress" && (
-              <Cleared robot={robotById(stage as RobotId)} save={save} onNext={toSelect} bots={log.filter((l) => l.bot && l.stage === stage).slice(-QUIZ_BOTS_PER_STAGE)} />
+            {screen === "cleared" && stage !== "rush" && (
+              <Cleared zone={zoneById(stage)} save={save} onNext={toSelect} clues={log.filter((l) => l.clue && l.stage === stage).slice(-CLUES_PER_STAGE)} />
             )}
 
             {screen === "over" && (
-              <div className="rm-overlay">
-                <div className="rm-panel" style={{ textAlign: "center" }}>
-                  <div className="rm-h rm-pixel" style={{ color: "var(--rm-red)" }}>OUT OF LIVES</div>
-                  <div className="rm-help big">
-                    Rivet needs a quick recharge! Your rebooted Robo Masters and powers are saved.
+              <div className="gf-overlay">
+                <div className="gf-panel" style={{ textAlign: "center" }}>
+                  <div className="gf-h gf-pixel" style={{ color: "var(--gf-red)" }}>OUT OF LIVES</div>
+                  <div className="gf-help big">
+                    {HERO.name} needs a quick rest! Your identified germs, immune skills and virus cards are saved.
                   </div>
                   <div style={{ marginTop: 14, display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-                    <button className="rm-cta ghost" onClick={toSelect}>Stage select</button>
-                    <button className="rm-cta" autoFocus onClick={() => startStage(stage)}>Try {stageName(stage)} again ▶</button>
+                    <button className="gf-cta ghost" onClick={toSelect}>Stage select</button>
+                    {stage === "rush" && rushReached > 0 && (
+                      <button className="gf-cta ghost" data-retry-virus={rushReached} onClick={() => startStage("rush", rushReached)}>Retry from {VIRUSES[rushReached].name} ▶</button>
+                    )}
+                    <button className="gf-cta" autoFocus onClick={() => startStage(stage)}>Try {stageName(stage)} again ▶</button>
                   </div>
                 </div>
               </div>
@@ -543,26 +579,31 @@ export default function RoboMasters() {
         </div>
 
         {playing && say && !quiz && (
-          <div className="rm-say" role="status">
+          <div className="gf-say" role="status">
             <b>{say.who}</b>
             {say.text}
+            {say.card && (
+              <ul className="gf-card" data-virus-card={say.who}>
+                {say.card.map((c) => <li key={c}>{c}</li>)}
+              </ul>
+            )}
           </div>
         )}
 
-        {playing && quiz && <QuizPanel quiz={quiz} grade={grade} focus={runFocus} onAnswer={answer} onNext={next} onSpeak={replay} />}
+        {playing && quiz && <QuizPanel quiz={quiz} grade={grade} focus={runFocus} rushIdx={hud.rushIdx} onAnswer={answer} onNext={next} onSpeak={replay} />}
 
-        <div className={`rm-controls ${showPad ? "show" : ""}`}>
-          <div className="rm-pad move">
-            <button className="rm-touch" {...holdProps("left")} aria-label="Move left">◀</button>
-            <button className="rm-touch" {...holdProps("right")} aria-label="Move right">▶</button>
+        <div className={`gf-controls ${showPad ? "show" : ""}`}>
+          <div className="gf-pad move">
+            <button className="gf-touch" {...holdProps("left")} aria-label="Move left">◀</button>
+            <button className="gf-touch" {...holdProps("right")} aria-label="Move right">▶</button>
           </div>
-          <div className="rm-pad act">
-            <div className="rm-col">
-              <button className="rm-touch cyc" {...pressProps("cycle")} disabled={owned.length < 2} aria-label="Switch power">SWAP</button>
-              <button className="rm-touch word pow" {...pressProps("power")} disabled={owned.length === 0} aria-label="Use power">POWER</button>
+          <div className="gf-pad act">
+            <div className="gf-col">
+              <button className="gf-touch cyc" {...pressProps("cycle")} disabled={owned.length < 2} aria-label="Switch skill">SWAP</button>
+              <button className="gf-touch word pow" {...pressProps("power")} disabled={owned.length === 0} aria-label="Use skill">SKILL</button>
             </div>
-            <button className="rm-touch word beam" {...holdProps("shoot")} aria-label="Reboot beam">BEAM</button>
-            <button className="rm-touch word jump" {...holdProps("jump")} aria-label="Jump">JUMP</button>
+            <button className="gf-touch word beam" {...holdProps("shoot")} aria-label="Receptor zapper">ZAP</button>
+            <button className="gf-touch word jump" {...holdProps("jump")} aria-label="Jump">JUMP</button>
           </div>
         </div>
       </div>
@@ -581,8 +622,8 @@ function SpeakerIcon() {
   );
 }
 
-/** A robot (or the hero) drawn in a small pixel canvas. */
-function Portrait({ who, size = 2 }: { who: RobotId | "static" | "hero"; size?: number }) {
+/** A germ, a virus, the hero or the helper drawn in a small pixel canvas. */
+function Portrait({ who, size = 2 }: { who: BossKey | "hero" | "helper"; size?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const c = ref.current;
@@ -593,11 +634,17 @@ function Portrait({ who, size = 2 }: { who: RobotId | "static" | "hero"; size?: 
     ctx.clearRect(0, 0, 40, 46);
     if (who === "hero") {
       ctx.save();
-      ctx.translate(8, 8);
+      ctx.translate(6, 10);
       ctx.scale(1.4, 1.4);
       drawHero(ctx, 0, 0, { facing: 1, frame: 0, air: false, colors: HERO_COLORS });
       ctx.restore();
-    } else drawRobot(ctx, who, 7, 12, { t: 0, facing: -1 });
+    } else if (who === "helper") {
+      ctx.save();
+      ctx.translate(4, 8);
+      ctx.scale(1.6, 1.6);
+      drawHelper(ctx, 0, 0, 0);
+      ctx.restore();
+    } else drawBoss(ctx, who, 7, 10, { t: 0, facing: -1 });
   }, [who, size]);
   return <canvas ref={ref} width={40 * size} height={46 * size} aria-hidden="true" />;
 }
@@ -624,35 +671,36 @@ function PowerIcon({ p }: { p: PowerId }) {
   return <canvas ref={ref} width={20} height={20} style={{ width: 14, height: 14, imageRendering: "pixelated", verticalAlign: "middle" }} aria-hidden="true" />;
 }
 
-function QuizPanel({ quiz, grade, focus, onAnswer, onNext, onSpeak }: { quiz: Quiz; grade: Grade; focus: FocusChoice; onAnswer: (i: number) => void; onNext: () => void; onSpeak: () => void }) {
+function QuizPanel({ quiz, grade, focus, rushIdx, onAnswer, onNext, onSpeak }: { quiz: Quiz; grade: Grade; focus: FocusChoice; rushIdx: number; onAnswer: (i: number) => void; onNext: () => void; onSpeak: () => void }) {
   const { q, picked, result } = quiz;
-  const name = bossName(quiz.stage);
+  const name = bossNameOf(quiz.slot);
   const done = picked !== null;
   const correct = done && picked === q.answer;
-  const src = sourceLabel(resolveRobot(robotById(quiz.from), grade, focus, catalog));
-  const bot = quiz.kind === "bot";
+  const src = isVirus(quiz.slot) ? sourceLabel(resolveVirus(quiz.slot, grade, focus, catalog)) : sourceLabel(resolveZone(zoneById(quiz.slot), grade, focus, catalog));
+  const clue = quiz.kind === "clue";
   const reward = result?.reward;
   let verdict = "";
-  if (done && bot) {
+  if (done && clue) {
     const got = reward ? `+${reward.energy} ENERGY${reward.boost ? ` + ${BOOSTS[reward.boost].name.toUpperCase()}` : ""}` : "";
-    verdict = correct ? `✔ RIGHT! QUIZ BOT REBOOTED! ${got}` : `✘ THE ANSWER IS ${"ABCD"[q.answer]}. THE QUIZ BOT STILL REBOOTS: ${got}`;
+    verdict = correct ? `✔ RIGHT! ANTIGEN IDENTIFIED! ${got}` : `✘ THE ANSWER IS ${"ABCD"[q.answer]}. HANA STILL CRACKS THE CLUE: ${got}`;
   } else if (done) {
     if (!correct) verdict = `✘ BLOCKED! THE ANSWER IS ${"ABCD"[q.answer]}`;
-    else if (result?.defeated) verdict = `✔ ${result.weakness ? "DOUBLE REBOOT! " : ""}${name} IS REBOOTED!`;
-    else if (result?.weakness) verdict = "✔ WEAK SPOT! DOUBLE REBOOT HIT!";
-    else verdict = "✔ RIGHT! BIG REBOOT HIT!";
+    else if (result?.defeated) verdict = `✔ ${result.weakness ? "DOUBLE HIT! " : ""}${name} IS IDENTIFIED!`;
+    else if (result?.weakness) verdict = "✔ WEAK SPOT! DOUBLE HIT!";
+    else verdict = "✔ RIGHT! BIG HIT!";
   }
+  const rush = quiz.stage === "rush";
   return (
-    <div className={`rm-quiz ${bot ? "bot" : ""} ${done ? (correct ? "correct" : "wrong") : ""}`} role="dialog" aria-label={bot ? "Quiz Bot question" : "Robo Master question"} data-kind={quiz.kind}>
-      <div className="head rm-pixel">
+    <div className={`gf-quiz ${clue ? "clue" : ""} ${done ? (correct ? "correct" : "wrong") : ""}`} role="dialog" aria-label={clue ? "Antigen Clue question" : "Boss question"} data-kind={quiz.kind}>
+      <div className="head gf-pixel">
         <span>
-          {bot ? `QUIZ BOT ${quiz.n + 1}/${QUIZ_BOTS_PER_STAGE} · ${robotById(quiz.from).name}'S QUESTION` : `REBOOT PANEL · ${name}`}
-          {!bot && quiz.stage === "fortress" ? ` (${robotById(quiz.from).name}'S SUBJECT)` : ""}
+          {clue ? `ANTIGEN CLUE ${quiz.n + 1}/${CLUES_PER_STAGE} · HANA ASKS` : `ANTIGEN PANEL · ${name}`}
+          {!clue && rush ? ` · MAJOR VIRUS ${rushIdx + 1}/${VIRUSES.length}` : ""}
         </span>
         <span className="std">
           {src} · {q.standard}
           {speechSupported() && (
-            <button type="button" className="rm-speak" onClick={onSpeak} aria-label="Read the question aloud" title="Read aloud (R)">
+            <button type="button" className="gf-speak" onClick={onSpeak} aria-label="Read the question aloud" title="Read aloud (R)">
               <SpeakerIcon />
             </button>
           )}
@@ -673,18 +721,18 @@ function QuizPanel({ quiz, grade, focus, onAnswer, onNext, onSpeak }: { quiz: Qu
       </div>
       {done && (
         <div className="feedback">
-          <div className={`verdict rm-pixel ${correct ? "ok" : "no"}`}>{verdict}</div>
+          <div className={`verdict gf-pixel ${correct ? "ok" : "no"}`}>{verdict}</div>
           <div className="why">{q.explanation}</div>
           {quiz.line && <div className="boss-line">{name}: “{quiz.line}”</div>}
           <div className="row">
             <span className="dim">
-              {bot
+              {clue
                 ? correct
-                  ? reward?.boost ? `${BOOSTS[reward.boost].name}: ${BOOSTS[reward.boost].desc}.` : "Energy refilled!"
-                  : "No problem: wrong answers never cost energy or lives. The barrier is gone either way."
+                  ? reward?.boost ? `${BOOSTS[reward.boost].name}: ${BOOSTS[reward.boost].desc}. ${BOOSTS[reward.boost].science}` : "Energy refilled!"
+                  : "No problem: wrong answers never cost energy or lives. The biofilm wall is gone either way."
                 : !correct ? "Wrong answers never cost energy or lives. Open the panel again for a new question!" : ""}
             </span>
-            <button className="rm-cta" autoFocus onClick={onNext}>{bot ? "Keep going ▶" : result?.defeated ? "Reboot complete ▶" : "Back to the fight ▶"}</button>
+            <button className="gf-cta" autoFocus onClick={onNext}>{clue ? "Keep going ▶" : result?.defeated ? "Identified! ▶" : "Back to the fight ▶"}</button>
           </div>
         </div>
       )}
@@ -695,28 +743,29 @@ function QuizPanel({ quiz, grade, focus, onAnswer, onNext, onSpeak }: { quiz: Qu
 
 function HowToPlay() {
   return (
-    <div className="rm-help" style={{ marginTop: 10, textAlign: "left" }}>
-      <kbd>◀</kbd> <kbd>▶</kbd> move · <kbd>▲</kbd> or <kbd>SPACE</kbd> jump · <kbd>Z</kbd> reboot beam (hold to keep firing) · <kbd>X</kbd> use your power ·{" "}
-      <kbd>C</kbd> switch power · <kbd>1</kbd>–<kbd>4</kbd> or <kbd>A</kbd>–<kbd>D</kbd> answer · <kbd>ESC</kbd> pause · <kbd>M</kbd> mute · <kbd>R</kbd> read aloud.
-      On a phone or tablet: ◀ ▶, JUMP, BEAM, POWER and SWAP.
+    <div className="gf-help" style={{ marginTop: 10, textAlign: "left" }}>
+      <kbd>◀</kbd> <kbd>▶</kbd> move · <kbd>▲</kbd> or <kbd>SPACE</kbd> jump · <kbd>Z</kbd> receptor zapper (hold to keep zapping) · <kbd>X</kbd> use your immune skill ·{" "}
+      <kbd>C</kbd> switch skill · <kbd>1</kbd>–<kbd>4</kbd> or <kbd>A</kbd>–<kbd>D</kbd> answer · <kbd>ESC</kbd> pause · <kbd>M</kbd> mute · <kbd>R</kbd> read aloud.
+      On a phone or tablet: ◀ ▶, JUMP, ZAP, SKILL and SWAP.
       <br />
-      You are <span className="c">{HERO.name}</span>, {HERO.blurb}. Eight <span className="r">Robo Masters</span> got glitched! Pick any stage, hop
-      past pits and <span className="y">timed hazards</span>, and zap the glitched mini-bots — they short-circuit into sparks and bolts. Lights are{" "}
-      <span className="g">checkpoints</span>. At the end, beam the Robo Master to open its <span className="y">reboot panel</span>: a right answer is a big
-      reboot hit, a wrong one is only blocked (you never lose a fight by answering wrong). Reboot a Robo Master to earn its <span className="y">power</span>.
-      Use a robot's <span className="y">weak-spot power</span> during its fight to make your next right answer a double reboot, and use the matching power at a
-      stage's glowing <span className="y">power spot</span> for a 1-up. Reboot all eight to open the <span className="r">Static Citadel</span>!
+      You are <span className="c">{HERO.name}</span>, {HERO.blurb}. Germs have snuck into eight <span className="r">body zones</span>! Pick any zone, hop past
+      pits and <span className="y">timed hazards</span>, and zap the germs: they poof into harmless sparkles, and macrophage pals gobble them up. Rod bacteria
+      left alone <span className="y">split in two</span>, just like real bacteria, so zap them early! Green flags are <span className="g">checkpoints</span>. At the end, zap the
+      stage germ to open its <span className="y">antigen panel</span>: a right answer is a big hit, a wrong one is only blocked (you never lose a fight by answering
+      wrong). Identify a stage germ to earn its <span className="y">immune skill</span>. Use a germ's <span className="y">weak-spot skill</span> during its fight to make
+      your next right answer a double hit, and use the matching skill to heal each zone's glowing <span className="y">infected cell</span> for a 1-up.
+      Identify all eight to open the <span className="r">Lymph Node</span> and face the six <span className="r">Major Viruses</span>!
       <br />
-      Every stage is long: halfway there is a <span className="g">REST stop</span> with energy cells. After it, three glowing{" "}
-      <span className="y">Quiz Bots</span> (the hover bots with a <b>?</b> screen) guard static barriers. Beam one to get a question from the stage's
-      robot: a right answer gives a big <span className="y">energy refill</span> and often a <span className="c">power-up</span>; a wrong answer is fine
-      too (a little energy, nothing lost) and the barrier still goes away. Power-ups last a few seconds (watch the timer at the top):{" "}
+      Halfway through each zone, {HERO.helper} the helper T cell runs a <span className="g">REST stop</span> with energy. After it, three glowing{" "}
+      <span className="y">Antigen Clues</span> (germs with a <b>?</b>) sit in front of sticky biofilm walls. Zap one for a question: a right answer gives a big{" "}
+      <span className="y">energy refill</span> and often a <span className="c">power-up</span>; a wrong answer is fine too (a little energy, nothing lost) and the wall
+      still goes away. Power-ups last a few seconds (watch the timer):{" "}
       {BOOST_IDS.map((id, i) => (
         <span key={id}>
           <b style={{ color: BOOSTS[id].color }}>{BOOSTS[id].name}</b> ({BOOSTS[id].desc}, {Math.round(BOOSTS[id].frames / 60)} s){i < BOOST_IDS.length - 1 ? " · " : "."}
         </span>
       ))}{" "}
-      Grabbing one you already have restarts its timer. Look for hidden <b>?</b> capsules on high shelves, and use Spring Boots to reach the tall sky ledges!
+      Grabbing one you already have restarts its timer. Look for hidden <b>?</b> capsules on high shelves, and use Lymph Leap to reach the tall ledges!
     </div>
   );
 }
@@ -737,34 +786,34 @@ function radioKeys(e: React.KeyboardEvent<HTMLElement>) {
 function FocusPicker({ grade, focus, note, onFocus }: { grade: Grade; focus: FocusChoice; note: string | null; onFocus: (f: FocusChoice) => void }) {
   const avail = catalog.available(grade);
   const subj = focus.subject === "mixed" ? null : focus.subject;
-  const pickSubject = (s: RoboSubject) => {
+  const pickSubject = (s: GermSubject) => {
     if (s === "mixed") onFocus(MIXED);
-    else if (s !== focus.subject) onFocus({ subject: s, topic: topicForSubject(s, grade, catalog) });
+    else if (s !== focus.subject) onFocus({ subject: s, topic: s === "science" && avail.includes("life") ? "life" : topicForSubject(s, grade, catalog) });
   };
   const topics: { id: TopicChoice; label: string; ok: boolean; note?: string }[] = subj
     ? [{ id: "all", label: allLabel(subj), ok: true }, ...topicsOf(subj).map((t) => ({ id: t.id, label: t.label, ok: avail.includes(t.id), note: catalog.gradesNote(t.id) }))]
     : [];
   return (
-    <div className="rm-focus">
-      <div className="rm-h rm-pixel" style={{ marginTop: 14 }}>PICK A SUBJECT</div>
-      <div className="rm-subjects" role="radiogroup" aria-label="Subject" onKeyDown={radioKeys}>
+    <div className="gf-focus">
+      <div className="gf-h gf-pixel" style={{ marginTop: 14 }}>PICK A SUBJECT</div>
+      <div className="gf-subjects" role="radiogroup" aria-label="Subject" onKeyDown={radioKeys}>
         {SUBJECT_CHOICES.map((s) => {
           const on = focus.subject === s.id;
           return (
-            <button key={s.id} role="radio" aria-checked={on} tabIndex={on ? 0 : -1} data-subject={s.id} className={`rm-subject ${on ? "on" : ""}`} onClick={() => pickSubject(s.id)}>
-              <span className="rm-pixel">{s.label}</span>
+            <button key={s.id} role="radio" aria-checked={on} tabIndex={on ? 0 : -1} data-subject={s.id} className={`gf-subject ${on ? "on" : ""}`} onClick={() => pickSubject(s.id)}>
+              <span className="gf-pixel">{s.label}</span>
               <small>{s.note}</small>
             </button>
           );
         })}
       </div>
-      {note && <div className="rm-help rm-focusnote">{note}</div>}
+      {note && <div className="gf-help gf-focusnote">{note}</div>}
       {subj && (
-        <div className="rm-chips topics" role="radiogroup" aria-label="Topic" onKeyDown={radioKeys}>
+        <div className="gf-chips topics" role="radiogroup" aria-label="Topic" onKeyDown={radioKeys}>
           {topics.map((t) => {
             const on = t.ok && focus.subject !== "mixed" && focus.topic === t.id;
             return (
-              <button key={t.id} role="radio" aria-checked={on} tabIndex={on ? 0 : -1} disabled={!t.ok} className={`rm-chip ${t.id === "all" ? "all" : ""} ${on ? "on" : ""}`} data-topic={t.id} onClick={() => onFocus({ subject: subj, topic: t.id })} title={t.ok ? t.label : `${t.label}: ${t.note}`}>
+              <button key={t.id} role="radio" aria-checked={on} tabIndex={on ? 0 : -1} disabled={!t.ok} className={`gf-chip ${t.id === "all" ? "all" : ""} ${on ? "on" : ""}`} data-topic={t.id} onClick={() => onFocus({ subject: subj, topic: t.id })} title={t.ok ? t.label : `${t.label}: ${t.note}`}>
                 {t.label}
                 {!t.ok && <small>{t.note}</small>}
               </button>
@@ -776,6 +825,12 @@ function FocusPicker({ grade, focus, note, onFocus }: { grade: Grade; focus: Foc
   );
 }
 
+function focusLine(focus: FocusChoice): string {
+  if (focus.subject === "mixed") return "Health questions, mixed with math, ELA and social studies";
+  if (focus.subject === "science" && (focus.topic === "life" || focus.topic === "all")) return focus.topic === "life" ? "Life science & health: germs, the body and how it fights back" : "Health plus all of science";
+  return focus.topic === "all" ? `${FOCUS_SUBJECTS.find((x) => x.id === focus.subject)!.label} (each zone picks a topic)` : focusTopic(focus.topic).label;
+}
+
 function TitleScreen({
   grade, onGrade, focus, focusNote, onFocus, onStart, save, onErase, highScore,
 }: {
@@ -784,27 +839,26 @@ function TitleScreen({
 }) {
   const fromArcade = gradeFromArcade();
   const [confirmErase, setConfirmErase] = useState(false);
-  const one = focus.subject === "mixed" ? null : focus.topic === "all" ? `${FOCUS_SUBJECTS.find((x) => x.id === focus.subject)!.label} (each robot picks a topic)` : focusTopic(focus.topic).label;
   const startRef = useRef<HTMLButtonElement>(null);
   useEffect(() => { startRef.current?.focus({ preventScroll: true }); }, []);
   return (
-    <div className="rm-overlay title">
-      <div className="rm-panel title">
-        <div className="rm-logo"><Portrait who="hero" /></div>
-        <div className="rm-title rm-pixel">ROBO MASTERS</div>
-        <div className="rm-sub rm-pixel">SPIDERBEN10'S ARCADE · K–12 · NC STANDARDS</div>
-        <div className="rm-tag">Eight robots got glitched. Help <b className="c">{HERO.name}</b> reboot them — with right answers!</div>
+    <div className="gf-overlay title">
+      <div className="gf-panel title">
+        <div className="gf-logo"><Portrait who="hero" /><Portrait who="helper" /></div>
+        <div className="gf-title gf-pixel">GERM FIGHTERS</div>
+        <div className="gf-sub gf-pixel">SPIDERBEN10'S ARCADE · K–12 · NC STANDARDS</div>
+        <div className="gf-tag">Germs have snuck into the body! Help <b className="c">{HERO.name}</b> the killer T cell identify them — with right answers!</div>
 
         {fromArcade ? (
-          <div className="rm-sub rm-pixel rm-gradebadge" style={{ marginTop: 12 }}>
+          <div className="gf-sub gf-pixel gf-gradebadge" style={{ marginTop: 12 }}>
             {gradeLabel(grade).toUpperCase()} · <a href={arcadeLink(grade)} style={{ color: "inherit" }}>CHANGE GRADE IN THE ARCADE</a>
           </div>
         ) : (
           <>
-            <div className="rm-h rm-pixel" style={{ marginTop: 14 }}>PICK YOUR GRADE</div>
-            <div className="rm-grades" role="radiogroup" aria-label="Grade" onKeyDown={radioKeys}>
+            <div className="gf-h gf-pixel" style={{ marginTop: 14 }}>PICK YOUR GRADE</div>
+            <div className="gf-grades" role="radiogroup" aria-label="Grade" onKeyDown={radioKeys}>
               {GRADES.map((g) => (
-                <button key={g} role="radio" aria-checked={g === grade} tabIndex={g === grade ? 0 : -1} className={`rm-grade rm-pixel ${g === grade ? "on" : ""}`} onClick={() => onGrade(g)} title={gradeLabel(g)}>
+                <button key={g} role="radio" aria-checked={g === grade} tabIndex={g === grade ? 0 : -1} className={`gf-grade gf-pixel ${g === grade ? "on" : ""}`} onClick={() => onGrade(g)} title={gradeLabel(g)}>
                   {g}
                 </button>
               ))}
@@ -813,43 +867,41 @@ function TitleScreen({
         )}
 
         <FocusPicker grade={grade} focus={focus} note={focusNote} onFocus={onFocus} />
-        {one && (
-          <div className="rm-help rm-focusline">
-            All eight Robo Masters ask: <b className="c">{one}</b>
-          </div>
-        )}
+        <div className="gf-help gf-focusline">
+          Every zone asks: <b className="c">{focusLine(validateFocus(focus, grade, catalog))}</b>
+        </div>
 
         <div style={{ textAlign: "center", margin: "12px 0 4px" }}>
-          <button ref={startRef} className="rm-cta big" onClick={onStart}>Press start ▶</button>
+          <button ref={startRef} className="gf-cta big" onClick={onStart}>Press start ▶</button>
         </div>
-        <div className="rm-savebar rm-help">
+        <div className="gf-savebar gf-help">
           <span>
-            Rebooted <b className="g">{save.beaten.length}/8</b>
-            {save.fortress ? <b className="y"> · CITADEL CLEARED!</b> : ""}
+            Identified <b className="g">{save.beaten.length}/8</b> · Virus cards <b className="y">{save.viruses.length}/{VIRUSES.length}</b>
+            {save.rush ? <b className="y"> · ALL MAJOR VIRUSES SPOTTED!</b> : ""}
           </span>
           {save.beaten.length > 0 && (
-            <span className="rm-powerchips" aria-label="Powers earned">
+            <span className="gf-powerchips" aria-label="Immune skills earned">
               {powersOf(save).map((p) => (
-                <span key={p} className="rm-powerchip"><PowerIcon p={p} />{POWERS[p].name}</span>
+                <span key={p} className="gf-powerchip"><PowerIcon p={p} />{POWERS[p].name}</span>
               ))}
             </span>
           )}
-          {(save.beaten.length > 0 || save.fortress) && (
-            <button className="rm-cta ghost" style={{ padding: "6px 8px", fontSize: 8 }} onClick={() => (confirmErase ? (onErase(), setConfirmErase(false)) : setConfirmErase(true))}>
+          {(save.beaten.length > 0 || save.rush || save.viruses.length > 0) && (
+            <button className="gf-cta ghost" style={{ padding: "6px 8px", fontSize: 8 }} onClick={() => (confirmErase ? (onErase(), setConfirmErase(false)) : setConfirmErase(true))}>
               {confirmErase ? "Tap again to erase" : "Erase save"}
             </button>
           )}
         </div>
-        <div className="rm-h rm-pixel" style={{ marginTop: 10 }}>HOW TO PLAY</div>
+        <div className="gf-h gf-pixel" style={{ marginTop: 10 }}>HOW TO PLAY</div>
         <HowToPlay />
-        <div className="rm-help dim" style={{ marginTop: 6 }}>HI-SCORE {String(highScore).padStart(6, "0")} · Progress saves on this device.</div>
+        <div className="gf-help dim" style={{ marginTop: 6 }}>HI-SCORE {String(highScore).padStart(6, "0")} · Progress saves on this device.</div>
       </div>
     </div>
   );
 }
 
 function StageSelect({ grade, focus, save, onPick, onBack, sel, onSel }: { grade: Grade; focus: FocusChoice; save: SaveData; onPick: (id: StageId) => void; onBack: () => void; sel: number; onSel: (i: number) => void }) {
-  const open = fortressOpen(save);
+  const open = rushOpen(save);
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   useEffect(() => {
     refs.current[sel]?.focus({ preventScroll: true });
@@ -864,50 +916,50 @@ function StageSelect({ grade, focus, save, onPick, onBack, sel, onSel }: { grade
     refs.current[j]?.focus();
   };
   return (
-    <div className="rm-overlay title">
-      <div className="rm-select">
-        <div className="rm-panel title">
-          <div className="rm-h rm-pixel" style={{ textAlign: "center", color: "var(--rm-yellow)" }}>STAGE SELECT · {gradeLabel(grade).toUpperCase()} · {focusLabel(focus).toUpperCase()}</div>
-          <div className="rm-grid" onKeyDown={onKey}>
+    <div className="gf-overlay title">
+      <div className="gf-select">
+        <div className="gf-panel title">
+          <div className="gf-h gf-pixel" style={{ textAlign: "center", color: "var(--gf-yellow)" }}>BODY MAP · {gradeLabel(grade).toUpperCase()} · {focusLabel(focus).toUpperCase()}</div>
+          <div className="gf-grid" onKeyDown={onKey}>
             {GRID.map((id, i) => {
               if (!id) {
                 return (
                   <button
                     key="center"
                     ref={(el) => (refs.current[i] = el)}
-                    className={`rm-tile center ${open ? "open" : "locked"}`}
-                    data-stage="fortress"
+                    className={`gf-tile center ${open ? "open" : "locked"}`}
+                    data-stage="rush"
                     aria-disabled={!open}
                     onFocus={() => onSel(i)}
-                    onClick={() => open && onPick("fortress")}
-                    title={open ? FINAL_BOSS.stage.name : "Reboot all eight Robo Masters to open the Static Citadel"}
+                    onClick={() => open && onPick("rush")}
+                    title={open ? "Lymph Node: the Major Virus rush" : "Identify all eight stage germs to open the Lymph Node"}
                   >
-                    <Portrait who={open ? "static" : "hero"} />
-                    <span className="nm">{open ? "STATIC CITADEL" : HERO.name}</span>
-                    <span className="subj">{open ? "Every subject!" : `${save.beaten.length}/8 rebooted`}</span>
-                    <span className="pw">{open ? (save.fortress ? "CLEARED ✓ — play again" : "FINAL BOSS") : "Citadel locked"}</span>
+                    <Portrait who={open ? "corona" : "hero"} />
+                    <span className="nm">{open ? "LYMPH NODE" : HERO.name}</span>
+                    <span className="subj">{open ? "6 Major Viruses!" : `${save.beaten.length}/8 identified`}</span>
+                    <span className="pw">{open ? (save.rush ? "CLEARED ✓ — play again" : "MAJOR VIRUS RUSH") : "Lymph Node locked"}</span>
                   </button>
                 );
               }
-              const r = robotById(id);
+              const z = zoneById(id);
               const beaten = save.beaten.includes(id);
-              const src = sourceLabel(resolveRobot(r, grade, focus, catalog));
+              const src = sourceLabel(resolveZone(z, grade, focus, catalog));
               return (
-                <button key={id} ref={(el) => (refs.current[i] = el)} className={`rm-tile ${beaten ? "beaten" : ""}`} data-stage={id} data-beaten={beaten ? "1" : "0"} onFocus={() => onSel(i)} onClick={() => onPick(id)} title={`${r.name}: ${r.title}`}>
+                <button key={id} ref={(el) => (refs.current[i] = el)} className={`gf-tile ${beaten ? "beaten" : ""}`} data-stage={id} data-beaten={beaten ? "1" : "0"} onFocus={() => onSel(i)} onClick={() => onPick(id)} title={`${z.place}: ${z.boss}`}>
                   {beaten && <span className="done">✓</span>}
                   <Portrait who={id} />
-                  <span className="nm">{r.name}</span>
+                  <span className="nm">{z.place.toUpperCase()}</span>
                   <span className="subj">{src}</span>
-                  <span className="pw">{beaten ? <><PowerIcon p={r.power} /> {POWERS[r.power].name}</> : r.stage.name}</span>
+                  <span className="pw">{beaten ? <><PowerIcon p={z.power} /> {POWERS[z.power].name}</> : z.boss}</span>
                 </button>
               );
             })}
           </div>
-          <div className="rm-help" style={{ marginTop: 8, textAlign: "center" }}>
-            Arrows + Enter or tap a Robo Master. Any order! {save.beaten.length > 0 ? "Earned powers work in every stage (C / SWAP to pick one, X / POWER to use it)." : ""}
+          <div className="gf-help" style={{ marginTop: 8, textAlign: "center" }}>
+            Arrows + Enter or tap a body zone. Any order! {save.beaten.length > 0 ? "Earned immune skills work in every zone (C / SWAP to pick one, X / SKILL to use it)." : ""}
           </div>
           <div style={{ textAlign: "center", marginTop: 8 }}>
-            <button className="rm-cta ghost" onClick={onBack}>◀ Title</button>
+            <button className="gf-cta ghost" onClick={onBack}>◀ Title</button>
           </div>
         </div>
       </div>
@@ -915,31 +967,33 @@ function StageSelect({ grade, focus, save, onPick, onBack, sel, onSel }: { grade
   );
 }
 
-function Cleared({ robot, save, onNext, bots }: { robot: Robot; save: SaveData; onNext: () => void; bots: LogEntry[] }) {
-  const P = POWERS[robot.power];
-  const helps = ROBOTS.filter((r) => r.weakness === robot.power || gatePowerFor(r.id) === robot.power);
-  const weakTo = ROBOTS.find((r) => r.weakness === robot.power);
+function Cleared({ zone, save, onNext, clues }: { zone: Zone; save: SaveData; onNext: () => void; clues: LogEntry[] }) {
+  const P = POWERS[zone.power];
+  const weakTo = ZONES.find((z) => z.weakness === zone.power);
   return (
-    <div className="rm-overlay">
-      <div className="rm-panel won" style={{ textAlign: "center" }}>
-        <div className="rm-h rm-pixel" style={{ color: "var(--rm-yellow)" }}>{robot.name} REBOOTED!</div>
-        <div className="rm-help">“{robot.lines.defeat}”</div>
-        <div className="rm-earned">
-          <Portrait who={robot.id} />
+    <div className="gf-overlay">
+      <div className="gf-panel won" style={{ textAlign: "center" }}>
+        <div className="gf-h gf-pixel" style={{ color: "var(--gf-yellow)" }}>{zone.boss} IDENTIFIED!</div>
+        <div className="gf-help">“{zone.lines.defeat}”</div>
+        <div className="gf-help gf-fact">
+          <b className="g">{zone.place}:</b> {zone.defense} {zone.boss} is {zone.bossType}.
+        </div>
+        <div className="gf-earned">
+          <Portrait who={zone.id} />
           <div style={{ textAlign: "left" }}>
-            <div className="rm-pixel" style={{ fontSize: 11, color: P.color }} data-power={robot.power}>YOU GOT: {P.name.toUpperCase()}</div>
-            <div className="rm-help">It {P.desc}. Press <kbd>C</kbd> (or SWAP) to pick it and <kbd>X</kbd> (or POWER) to use it.</div>
-            {weakTo && <div className="rm-help rm-hint">Tip: {weakTo.name} has a weak spot for it, and {helps.map((r) => r.stage.name).filter((v, i, a) => a.indexOf(v) === i).join(" and ")} hides a power spot it opens.</div>}
+            <div className="gf-pixel" style={{ fontSize: 11, color: P.color }} data-power={zone.power}>NEW SKILL: {P.name.toUpperCase()}</div>
+            <div className="gf-help">It's {P.desc}. Press <kbd>C</kbd> (or SWAP) to pick it and <kbd>X</kbd> (or SKILL) to use it.</div>
+            {weakTo && <div className="gf-help gf-hint">Tip: {weakTo.boss} in {weakTo.place} has a weak spot for it, and that zone's infected cell needs it too.</div>}
           </div>
         </div>
-        {bots.length > 0 && (
-          <div className="rm-help" data-quizbots={bots.filter((b) => b.correct).length}>
-            Quiz Bots: <b className="g">{bots.filter((b) => b.correct).length}/{bots.length}</b> right
+        {clues.length > 0 && (
+          <div className="gf-help" data-clues={clues.filter((b) => b.correct).length}>
+            Antigen Clues: <b className="g">{clues.filter((b) => b.correct).length}/{clues.length}</b> right
           </div>
         )}
-        <div className="rm-help">Rebooted {save.beaten.length}/8{fortressOpen(save) ? " — the STATIC CITADEL is open!" : ""}</div>
+        <div className="gf-help">Identified {save.beaten.length}/8{rushOpen(save) ? " — the LYMPH NODE is open!" : ""}</div>
         <div style={{ marginTop: 12 }}>
-          <button className="rm-cta" autoFocus onClick={onNext}>Stage select ▶</button>
+          <button className="gf-cta" autoFocus onClick={onNext}>Body map ▶</button>
         </div>
       </div>
     </div>
@@ -955,28 +1009,39 @@ function Victory({ log, grade, focus, score, highScore, onMenu, onSelect }: { lo
     byStd.set(l.standard, cur);
   }
   const right = log.filter((l) => l.correct).length;
-  const bots = log.filter((l) => l.bot);
+  const clues = log.filter((l) => l.clue);
   const practice = [...byStd.entries()].filter(([, v]) => v.c / v.n < 0.75);
   return (
-    <div className="rm-overlay">
-      <div className="rm-panel won">
-        <div className="rm-h rm-pixel" style={{ color: "var(--rm-yellow)" }}>THE STATIC CITADEL IS CLEARED! · {gradeLabel(grade).toUpperCase()}</div>
-        <div className="rm-help">“{FINAL_BOSS.lines.defeat}”</div>
-        <div className="rm-help big">
-          Every robot is rebooted. You are a true <b className="y">ROBO MASTER</b>! Score <b className="y">{score}</b>
+    <div className="gf-overlay">
+      <div className="gf-panel won">
+        <div className="gf-h gf-pixel" style={{ color: "var(--gf-yellow)" }}>EVERY MAJOR VIRUS IS IDENTIFIED! · {gradeLabel(grade).toUpperCase()}</div>
+        <div className="gf-help">“{RUSH.lines.defeat}”</div>
+        <div className="gf-help big">
+          You are a true <b className="y">GERM FIGHTER</b>! Score <b className="y">{score}</b>
           {score >= highScore && score > 0 ? " — NEW HIGH SCORE!" : ""} · Questions <b className="g">{right}/{log.length}</b>
-          {bots.length > 0 ? <> (Quiz Bots <b className="g">{bots.filter((b) => b.correct).length}/{bots.length}</b>)</> : null} · {focusLabel(focus)}
+          {clues.length > 0 ? <> (Antigen Clues <b className="g">{clues.filter((b) => b.correct).length}/{clues.length}</b>)</> : null} · {focusLabel(focus)}
+        </div>
+        <div className="gf-cards">
+          {VIRUSES.map((v) => (
+            <div key={v.id} className="gf-vcard" data-virus={v.id}>
+              <Portrait who={v.id} size={1} />
+              <div>
+                <b className="r">{v.name}</b> <span className="dim">{v.title}</span>
+                <div>{v.card[0]}</div>
+              </div>
+            </div>
+          ))}
         </div>
         {byStd.size > 0 && (
-          <div className="rm-tablewrap">
-            <table className="rm-report-table">
+          <div className="gf-tablewrap">
+            <table className="gf-report-table">
               <thead><tr><th>STANDARD</th><th>SKILL</th><th>RESULT</th></tr></thead>
               <tbody>
                 {[...byStd.entries()].map(([std, v]) => (
                   <tr key={std}>
                     <td className="c">{std}</td>
-                    <td><span className={`rm-dot ${v.subject}`} />{v.skill} <span className="dim">({SUBJECT_TAG[v.subject]})</span></td>
-                    <td style={{ color: v.c === v.n ? "var(--rm-green)" : v.c / v.n >= 0.75 ? "var(--rm-yellow)" : "var(--rm-red)" }}>{v.c}/{v.n}</td>
+                    <td><span className={`gf-dot ${v.subject}`} />{v.skill} <span className="dim">({SUBJECT_TAG[v.subject]})</span></td>
+                    <td style={{ color: v.c === v.n ? "var(--gf-green)" : v.c / v.n >= 0.75 ? "var(--gf-yellow)" : "var(--gf-red)" }}>{v.c}/{v.n}</td>
                   </tr>
                 ))}
               </tbody>
@@ -984,13 +1049,13 @@ function Victory({ log, grade, focus, score, highScore, onMenu, onSelect }: { lo
           </div>
         )}
         {practice.length > 0 && (
-          <div className="rm-help" style={{ marginTop: 10 }}>
+          <div className="gf-help" style={{ marginTop: 10 }}>
             <span className="y">Practice next:</span> {practice.map(([std, v]) => `${v.skill} (${std})`).join(", ")}.
           </div>
         )}
         <div style={{ display: "flex", gap: 12, marginTop: 16, justifyContent: "flex-end", flexWrap: "wrap" }}>
-          <button className="rm-cta ghost" onClick={onMenu}>Title screen</button>
-          <button className="rm-cta" autoFocus onClick={onSelect}>Stage select ▶</button>
+          <button className="gf-cta ghost" onClick={onMenu}>Title screen</button>
+          <button className="gf-cta" autoFocus onClick={onSelect}>Body map ▶</button>
         </div>
       </div>
     </div>

@@ -1,12 +1,13 @@
 import type { Band } from "./band";
-import { ROBOTS, type PowerId, type StageId } from "./robots";
+import { ZONES, type PowerId, type StageId } from "./roster";
 
 /*
  * Stage layouts, built from a short list of segments per stage (pixel units on a 320x200 screen).
- * Every stage: a long side-scrolling run with gaps, moving platforms, lifts, hazards, glitched mini-bots,
- * a checkpoint per section, a mid-stage rest stop, one power spot, three Quiz Bots (each guarding a
- * static barrier) and hidden power-up spots, then the boss arena. K-2 gets narrower gaps, fewer
- * mini-bots and slower hazards and platforms.
+ * Every body-zone stage: a long side-scrolling run with gaps, moving platforms (red-blood-cell rafts, breathing
+ * bubbles...), lifts, timed hazards, cartoon germs, a checkpoint per section, a mid-stage rest stop, one
+ * infected cell to help, three Antigen Clues (each in front of a biofilm barrier) and hidden power-up spots,
+ * then the stage germ's arena. The Lymph Node (the Major Virus rush) is a shorter run before its arena.
+ * K-2 gets narrower gaps, fewer germs and slower hazards and platforms.
  */
 
 export const SCREEN_W = 320;
@@ -20,22 +21,24 @@ export const ARENA_W = SCREEN_W;
 export interface Rect { x: number; y: number; w: number; h: number }
 export interface Solid extends Rect {
   kind: "ground" | "block" | "wall" | "barrier";
-  /** For a barrier: the Quiz Bot whose reboot switches it off. */
+  /** For a barrier: the Antigen Clue whose answer clears it. */
   qb?: number;
 }
 /** A one-way platform moving back and forth (triangle wave) along one axis. */
 export interface Mover extends Rect { axis: "x" | "y"; range: number; period: number; phase: number }
-/** A timed hazard (geyser, lightning, crusher...): dangerous while on. */
+/** A timed hazard (sneeze gust, acid splash, chomping teeth...): dangerous while on. */
 export interface Pulse extends Rect { period: number; on: number; phase: number }
-export type EnemyKind = "walker" | "hopper" | "flyer" | "turret";
+/** rod = rod bacterium that can split in two; cocci = round hopping bacteria; virus = floating virus particle;
+ * spiral = coiled spiral bacterium that puffs toxin bubbles. */
+export type EnemyKind = "rod" | "cocci" | "virus" | "spiral";
 export interface EnemySpawn { x: number; y: number; kind: EnemyKind }
 export interface Checkpoint { x: number; y: number }
-/** A power spot: a glitch cage around a bonus capsule that opens only to one power. */
+/** An infected cell: viruses stuck on a body cell; only one immune skill helps it (and frees a 1-up). */
 export interface Gate { x: number; y: number; power: PowerId }
-/** A Quiz Bot: a special glowing bot holding a question screen, hovering in front of a static barrier. */
-export interface QuizBotSpawn { x: number; y: number; barrierX: number }
-/** A pickup placed in the level: energy cells at rest stops, bolts, and hidden power-up capsules. */
-export interface ItemSpawn { x: number; y: number; kind: "cell" | "energy" | "bolt" | "boost" }
+/** An Antigen Clue: a glowing germ carrying a question, floating in front of a biofilm barrier. */
+export interface ClueSpawn { x: number; y: number; barrierX: number }
+/** A pickup placed in the level: energy cells at rest stops, nutrient sparkles, and hidden power-up capsules. */
+export interface ItemSpawn { x: number; y: number; kind: "cell" | "energy" | "nutrient" | "boost" }
 
 export interface Level {
   id: StageId;
@@ -49,9 +52,9 @@ export interface Level {
   enemies: EnemySpawn[];
   checkpoints: Checkpoint[];
   gate: Gate | null;
-  quizBots: QuizBotSpawn[];
+  clues: ClueSpawn[];
   items: ItemSpawn[];
-  /** High ledges reachable only with a big jump (Spring Boots, Magma Hop...): optional bonus spots. */
+  /** High ledges reachable only with a big jump (Lymph Leap, Villi Vault...): optional bonus spots. */
   skyLedges: Rect[];
   /** The mid-stage rest stop (a checkpoint with energy cells). */
   restX: number;
@@ -73,109 +76,108 @@ type Seg =
   | ["blocks", number]
   | ["check"]
   | ["gate"]
-  /** A Quiz Bot station: flat ground, the Quiz Bot, its barrier, then a checkpoint past it. */
-  | ["quiz"]
+  /** An Antigen Clue station: flat ground, the clue, its barrier, then a checkpoint past it. */
+  | ["clue"]
   /** The mid-stage rest stop: a checkpoint and two energy cells. */
   | ["rest"]
   /** Stepping block up to a high block with a hidden power-up capsule. */
   | ["shelf"]
-  /** A high ledge (only a big jump reaches it) with an energy cell and bolts. */
+  /** A high ledge (only a big jump reaches it) with an energy cell and nutrient sparkles. */
   | ["sky"];
 
-/* Each stage leans on its own idea: pies and movers, geysers over lava, ink stampers and blocks,
- * cliffs and drops, lifts in the storm, zap gates on a neon number line, thorns and vines, gear lifts.
- * Every stage has two halves of three sections each. The first half has the power spot; then comes the
- * mid-stage REST STOP (checkpoint + energy cells), and the second half has the three Quiz Bot stations,
+/* Each zone leans on its own idea: red-blood-cell rafts in the bloodstream, acid splashes in the stomach,
+ * mucus and sneeze gusts in the nose, platelet bridges over a cut, breathing lifts in the lungs, chomping
+ * teeth in the mouth, squeeze waves in the gut, cough blasts and lifts in the throat.
+ * Every stage has two halves of three sections each. The first half has the infected cell; then comes the
+ * mid-stage REST STOP (checkpoint + energy cells), and the second half has the three Antigen Clue stations,
  * a hidden power-up capsule on a shelf and a high "sky ledge" for big jumps. Every section ends at a
- * checkpoint (each Quiz Bot station has one just past its barrier). */
+ * checkpoint (each Antigen Clue station has one just past its barrier). */
 const LAYOUTS: Record<StageId, Seg[]> = {
-  splitz: [
-    ["flat", 220, ["walker"]], ["gap", 40], ["flat", 120, ["hopper"]], ["mover", 128], ["flat", 150, ["walker", "flyer"]], ["check"],
-    ["up", 24], ["flat", 96], ["spikes", 140], ["flat", 120, ["turret"]], ["gap", 44], ["flat", 100], ["check"],
-    ["pulse", 2], ["flat", 90], ["gate"], ["flat", 100, ["walker", "walker"]], ["blocks", 3], ["flat", 130, ["flyer"]], ["down", 24], ["flat", 80], ["check"],
+  blood: [
+    ["flat", 220, ["rod"]], ["gap", 40], ["flat", 120, ["cocci"]], ["mover", 128], ["flat", 150, ["rod", "virus"]], ["check"],
+    ["up", 24], ["flat", 96], ["spikes", 140], ["flat", 120, ["spiral"]], ["gap", 44], ["flat", 100], ["check"],
+    ["pulse", 2], ["flat", 90], ["gate"], ["flat", 100, ["rod", "rod"]], ["blocks", 3], ["flat", 130, ["virus"]], ["down", 24], ["flat", 80], ["check"],
     ["rest"],
-    ["flat", 90, ["walker"]], ["mover", 128], ["flat", 90, ["hopper"]], ["pulse", 2], ["flat", 60], ["quiz"],
-    ["shelf"], ["gap", 40], ["flat", 100, ["flyer"]], ["blocks", 3], ["flat", 80, ["walker"]], ["quiz"],
-    ["up", 24], ["sky"], ["mover", 136], ["flat", 100, ["turret", "walker"]], ["spikes", 120], ["flat", 60], ["quiz"], ["down", 24], ["flat", 80], ["check"], ["flat", 60],
+    ["flat", 90, ["rod"]], ["mover", 128], ["flat", 90, ["cocci"]], ["pulse", 2], ["flat", 60], ["clue"],
+    ["shelf"], ["gap", 40], ["flat", 100, ["virus"]], ["blocks", 3], ["flat", 80, ["rod"]], ["clue"],
+    ["up", 24], ["sky"], ["mover", 136], ["flat", 100, ["spiral", "rod"]], ["spikes", 120], ["flat", 60], ["clue"], ["down", 24], ["flat", 80], ["check"], ["flat", 60],
   ],
-  igneous: [
-    ["flat", 200, ["walker"]], ["pulse", 2], ["flat", 80, ["flyer"]], ["blocks", 3], ["flat", 120, ["hopper"]], ["check"],
-    ["gap", 40], ["flat", 80], ["gap", 44], ["flat", 120, ["walker", "flyer"]], ["pulse", 3], ["flat", 80], ["check"],
-    ["mover", 136], ["flat", 100, ["turret"]], ["gate"], ["flat", 80], ["up", 28], ["flat", 100, ["hopper"]], ["blocks", 2], ["flat", 100], ["check"],
+  stomach: [
+    ["flat", 200, ["rod"]], ["pulse", 2], ["flat", 80, ["virus"]], ["blocks", 3], ["flat", 120, ["cocci"]], ["check"],
+    ["gap", 40], ["flat", 80], ["gap", 44], ["flat", 120, ["rod", "virus"]], ["pulse", 3], ["flat", 80], ["check"],
+    ["mover", 136], ["flat", 100, ["spiral"]], ["gate"], ["flat", 80], ["up", 28], ["flat", 100, ["cocci"]], ["blocks", 2], ["flat", 100], ["check"],
     ["rest"],
-    ["flat", 90, ["hopper"]], ["pulse", 3], ["flat", 80, ["flyer"]], ["blocks", 3], ["flat", 60], ["quiz"],
-    ["gap", 40], ["flat", 80, ["walker"]], ["sky"], ["pulse", 2], ["flat", 80, ["turret"]], ["quiz"],
-    ["down", 28], ["shelf"], ["blocks", 2], ["flat", 90, ["hopper", "flyer"]], ["gap", 44], ["flat", 60], ["quiz"], ["flat", 60],
+    ["flat", 90, ["cocci"]], ["pulse", 3], ["flat", 80, ["virus"]], ["blocks", 3], ["flat", 60], ["clue"],
+    ["gap", 40], ["flat", 80, ["rod"]], ["sky"], ["pulse", 2], ["flat", 80, ["spiral"]], ["clue"],
+    ["down", 28], ["shelf"], ["blocks", 2], ["flat", 90, ["cocci", "virus"]], ["gap", 44], ["flat", 60], ["clue"], ["flat", 60],
   ],
-  syntaxor: [
-    ["flat", 200, ["walker"]], ["blocks", 2], ["flat", 120, ["turret"]], ["spikes", 120], ["flat", 100], ["check"],
-    ["up", 30], ["flat", 100, ["flyer"]], ["gap", 44], ["flat", 100], ["pulse", 2], ["flat", 100, ["walker"]], ["check"],
-    ["mover", 128], ["flat", 100], ["gate"], ["flat", 90, ["hopper"]], ["down", 30], ["flat", 100, ["turret", "flyer"]], ["blocks", 3], ["flat", 100], ["check"],
+  nose: [
+    ["flat", 200, ["rod"]], ["blocks", 2], ["flat", 120, ["spiral"]], ["spikes", 120], ["flat", 100], ["check"],
+    ["up", 30], ["flat", 100, ["virus"]], ["gap", 44], ["flat", 100], ["pulse", 2], ["flat", 100, ["rod"]], ["check"],
+    ["mover", 128], ["flat", 100], ["gate"], ["flat", 90, ["cocci"]], ["down", 30], ["flat", 100, ["spiral", "virus"]], ["blocks", 3], ["flat", 100], ["check"],
     ["rest"],
-    ["flat", 90, ["turret"]], ["spikes", 120], ["flat", 80, ["walker"]], ["pulse", 2], ["flat", 60], ["quiz"],
-    ["shelf"], ["blocks", 3], ["flat", 90, ["flyer"]], ["up", 30], ["flat", 80, ["hopper"]], ["quiz"],
-    ["sky"], ["mover", 128], ["flat", 90, ["walker", "turret"]], ["down", 30], ["spikes", 120], ["flat", 60], ["quiz"], ["flat", 60],
+    ["flat", 90, ["spiral"]], ["spikes", 120], ["flat", 80, ["rod"]], ["pulse", 2], ["flat", 60], ["clue"],
+    ["shelf"], ["blocks", 3], ["flat", 90, ["virus"]], ["up", 30], ["flat", 80, ["cocci"]], ["clue"],
+    ["sky"], ["mover", 128], ["flat", 90, ["rod", "spiral"]], ["down", 30], ["spikes", 120], ["flat", 60], ["clue"], ["flat", 60],
   ],
-  meridian: [
-    ["flat", 200, ["walker"]], ["up", 28], ["flat", 90], ["up", 28], ["flat", 100, ["hopper"]], ["gap", 44], ["flat", 100], ["check"],
-    ["down", 28], ["flat", 100, ["flyer"]], ["mover", 136], ["flat", 100, ["walker"]], ["pulse", 2], ["flat", 90], ["check"],
-    ["lift", 72], ["flat", 100, ["turret"]], ["gate"], ["flat", 90], ["gap", 40], ["flat", 80, ["flyer"]], ["down", 44], ["flat", 100, ["walker"]], ["down", 28], ["flat", 100], ["check"],
+  skin: [
+    ["flat", 200, ["rod"]], ["up", 28], ["flat", 90], ["up", 28], ["flat", 100, ["cocci"]], ["gap", 44], ["flat", 100], ["check"],
+    ["down", 28], ["flat", 100, ["virus"]], ["mover", 136], ["flat", 100, ["rod"]], ["pulse", 2], ["flat", 90], ["check"],
+    ["lift", 72], ["flat", 100, ["spiral"]], ["gate"], ["flat", 90], ["gap", 40], ["flat", 80, ["virus"]], ["down", 44], ["flat", 100, ["rod"]], ["down", 28], ["flat", 100], ["check"],
     ["rest"],
-    ["up", 28], ["flat", 90, ["walker"]], ["gap", 44], ["flat", 90, ["flyer"]], ["down", 28], ["flat", 60], ["quiz"],
-    ["sky"], ["lift", 56], ["flat", 90, ["turret"]], ["mover", 136], ["flat", 80, ["hopper"]], ["quiz"],
-    ["down", 36], ["flat", 90, ["walker"]], ["shelf"], ["pulse", 2], ["flat", 80, ["flyer"]], ["gap", 40], ["flat", 60], ["quiz"], ["flat", 60],
+    ["up", 28], ["flat", 90, ["rod"]], ["gap", 44], ["flat", 90, ["virus"]], ["down", 28], ["flat", 60], ["clue"],
+    ["sky"], ["lift", 56], ["flat", 90, ["spiral"]], ["mover", 136], ["flat", 80, ["cocci"]], ["clue"],
+    ["down", 36], ["flat", 90, ["rod"]], ["shelf"], ["pulse", 2], ["flat", 80, ["virus"]], ["gap", 40], ["flat", 60], ["clue"], ["flat", 60],
   ],
-  cumulo: [
-    ["flat", 200, ["flyer"]], ["lift", 64], ["flat", 100, ["walker"]], ["pulse", 2], ["flat", 100], ["check"],
-    ["gap", 40], ["flat", 90, ["flyer"]], ["mover", 128], ["flat", 100, ["hopper"]], ["down", 32], ["flat", 100, ["flyer"]], ["check"],
-    ["lift", 72], ["flat", 100], ["gate"], ["flat", 90, ["turret"]], ["pulse", 3], ["flat", 80], ["down", 40], ["flat", 100, ["flyer", "walker"]], ["check"],
+  lungs: [
+    ["flat", 200, ["virus"]], ["lift", 64], ["flat", 100, ["rod"]], ["pulse", 2], ["flat", 100], ["check"],
+    ["gap", 40], ["flat", 90, ["virus"]], ["mover", 128], ["flat", 100, ["cocci"]], ["down", 32], ["flat", 100, ["virus"]], ["check"],
+    ["lift", 72], ["flat", 100], ["gate"], ["flat", 90, ["spiral"]], ["pulse", 3], ["flat", 80], ["down", 40], ["flat", 100, ["virus", "rod"]], ["check"],
     ["rest"],
-    ["gap", 40], ["flat", 90, ["flyer"]], ["pulse", 3], ["flat", 60, ["walker"]], ["down", 24], ["flat", 60], ["quiz"],
-    ["sky"], ["lift", 56], ["flat", 90, ["flyer"]], ["mover", 128], ["flat", 80, ["hopper"]], ["quiz"],
-    ["down", 32], ["flat", 90, ["turret"]], ["pulse", 2], ["shelf"], ["gap", 40], ["flat", 80, ["flyer", "walker"]], ["down", 24], ["flat", 60], ["quiz"], ["flat", 60],
+    ["gap", 40], ["flat", 90, ["virus"]], ["pulse", 3], ["flat", 60, ["rod"]], ["down", 24], ["flat", 60], ["clue"],
+    ["sky"], ["lift", 56], ["flat", 90, ["virus"]], ["mover", 128], ["flat", 80, ["cocci"]], ["clue"],
+    ["down", 32], ["flat", 90, ["spiral"]], ["pulse", 2], ["shelf"], ["gap", 40], ["flat", 80, ["virus", "rod"]], ["down", 24], ["flat", 60], ["clue"], ["flat", 60],
   ],
-  polarix: [
-    ["flat", 200, ["walker"]], ["pulse", 2], ["flat", 100, ["turret"]], ["mover", 128], ["flat", 100], ["check"],
-    ["pulse", 3], ["flat", 80, ["hopper"]], ["gap", 44], ["flat", 90], ["mover", 144], ["flat", 100, ["flyer"]], ["check"],
-    ["up", 30], ["flat", 100, ["walker"]], ["gate"], ["flat", 90], ["spikes", 120], ["flat", 100, ["turret", "flyer"]], ["down", 30], ["flat", 100], ["check"],
+  mouth: [
+    ["flat", 200, ["rod"]], ["pulse", 2], ["flat", 100, ["spiral"]], ["mover", 128], ["flat", 100], ["check"],
+    ["pulse", 3], ["flat", 80, ["cocci"]], ["gap", 44], ["flat", 90], ["mover", 144], ["flat", 100, ["virus"]], ["check"],
+    ["up", 30], ["flat", 100, ["rod"]], ["gate"], ["flat", 90], ["spikes", 120], ["flat", 100, ["spiral", "virus"]], ["down", 30], ["flat", 100], ["check"],
     ["rest"],
-    ["flat", 90, ["turret"]], ["pulse", 3], ["flat", 80, ["walker"]], ["mover", 136], ["flat", 60], ["quiz"],
-    ["sky"], ["gap", 44], ["flat", 90, ["hopper"]], ["pulse", 2], ["flat", 80, ["flyer"]], ["quiz"],
-    ["up", 30], ["shelf"], ["spikes", 120], ["flat", 90, ["walker", "turret"]], ["mover", 128], ["flat", 60], ["quiz"], ["down", 30], ["flat", 60],
+    ["flat", 90, ["spiral"]], ["pulse", 3], ["flat", 80, ["rod"]], ["mover", 136], ["flat", 60], ["clue"],
+    ["sky"], ["gap", 44], ["flat", 90, ["cocci"]], ["pulse", 2], ["flat", 80, ["virus"]], ["clue"],
+    ["up", 30], ["shelf"], ["spikes", 120], ["flat", 90, ["rod", "spiral"]], ["mover", 128], ["flat", 60], ["clue"], ["down", 30], ["flat", 60],
   ],
-  chlorophil: [
-    ["flat", 200, ["hopper"]], ["spikes", 120], ["flat", 100, ["walker"]], ["blocks", 3], ["flat", 100], ["check"],
-    ["up", 26], ["flat", 100, ["flyer"]], ["spikes", 140], ["flat", 100], ["pulse", 2], ["flat", 90, ["walker"]], ["check"],
-    ["mover", 128], ["flat", 100, ["hopper"]], ["gate"], ["flat", 90], ["gap", 40], ["flat", 100, ["flyer", "turret"]], ["down", 26], ["flat", 100], ["check"],
+  gut: [
+    ["flat", 200, ["cocci"]], ["spikes", 120], ["flat", 100, ["rod"]], ["blocks", 3], ["flat", 100], ["check"],
+    ["up", 26], ["flat", 100, ["virus"]], ["spikes", 140], ["flat", 100], ["pulse", 2], ["flat", 90, ["rod"]], ["check"],
+    ["mover", 128], ["flat", 100, ["cocci"]], ["gate"], ["flat", 90], ["gap", 40], ["flat", 100, ["virus", "spiral"]], ["down", 26], ["flat", 100], ["check"],
     ["rest"],
-    ["flat", 90, ["walker"]], ["spikes", 140], ["flat", 80, ["hopper"]], ["pulse", 2], ["flat", 60], ["quiz"],
-    ["shelf"], ["mover", 128], ["flat", 90, ["flyer"]], ["blocks", 3], ["flat", 60], ["quiz"],
-    ["up", 26], ["sky"], ["spikes", 120], ["flat", 90, ["turret", "walker"]], ["gap", 40], ["flat", 60], ["quiz"], ["down", 26], ["flat", 60],
+    ["flat", 90, ["rod"]], ["spikes", 140], ["flat", 80, ["cocci"]], ["pulse", 2], ["flat", 60], ["clue"],
+    ["shelf"], ["mover", 128], ["flat", 90, ["virus"]], ["blocks", 3], ["flat", 60], ["clue"],
+    ["up", 26], ["sky"], ["spikes", 120], ["flat", 90, ["spiral", "rod"]], ["gap", 40], ["flat", 60], ["clue"], ["down", 26], ["flat", 60],
   ],
-  clio: [
-    ["flat", 200, ["walker"]], ["lift", 64], ["flat", 100, ["turret"]], ["pulse", 2], ["flat", 100], ["check"],
-    ["down", 32], ["flat", 100, ["hopper"]], ["mover", 128], ["flat", 100, ["flyer"]], ["pulse", 2], ["flat", 90], ["check"],
-    ["lift", 64], ["flat", 100, ["walker"]], ["gate"], ["flat", 90], ["blocks", 3], ["flat", 100, ["flyer", "turret"]], ["down", 32], ["flat", 100], ["check"],
+  throat: [
+    ["flat", 200, ["rod"]], ["lift", 64], ["flat", 100, ["spiral"]], ["pulse", 2], ["flat", 100], ["check"],
+    ["down", 32], ["flat", 100, ["cocci"]], ["mover", 128], ["flat", 100, ["virus"]], ["pulse", 2], ["flat", 90], ["check"],
+    ["lift", 64], ["flat", 100, ["rod"]], ["gate"], ["flat", 90], ["blocks", 3], ["flat", 100, ["virus", "spiral"]], ["down", 32], ["flat", 100], ["check"],
     ["rest"],
-    ["flat", 90, ["hopper"]], ["pulse", 2], ["flat", 80, ["walker"]], ["mover", 128], ["flat", 60], ["quiz"],
-    ["down", 32], ["sky"], ["blocks", 3], ["flat", 90, ["flyer"]], ["pulse", 2], ["flat", 60], ["quiz"],
-    ["lift", 56], ["flat", 90, ["turret"]], ["shelf"], ["mover", 136], ["flat", 80, ["walker", "flyer"]], ["down", 24], ["flat", 60], ["quiz"], ["flat", 60],
+    ["flat", 90, ["cocci"]], ["pulse", 2], ["flat", 80, ["rod"]], ["mover", 128], ["flat", 60], ["clue"],
+    ["down", 32], ["sky"], ["blocks", 3], ["flat", 90, ["virus"]], ["pulse", 2], ["flat", 60], ["clue"],
+    ["lift", 56], ["flat", 90, ["spiral"]], ["shelf"], ["mover", 136], ["flat", 80, ["rod", "virus"]], ["down", 24], ["flat", 60], ["clue"], ["flat", 60],
   ],
-  fortress: [
-    ["flat", 200, ["walker"]], ["gap", 44], ["flat", 100, ["turret"]], ["pulse", 2], ["flat", 100], ["mover", 128], ["flat", 100, ["flyer"]], ["check"],
-    ["lift", 64], ["flat", 100, ["hopper"]], ["spikes", 120], ["flat", 100, ["walker"]], ["blocks", 3], ["flat", 100], ["check"],
-    ["pulse", 3], ["flat", 90, ["flyer", "turret"]], ["down", 32], ["flat", 100], ["mover", 136], ["flat", 100, ["hopper"]], ["gate"], ["flat", 90], ["check"],
-    ["up", 28], ["flat", 100, ["walker", "flyer"]], ["gap", 40], ["flat", 100], ["pulse", 2], ["flat", 100, ["turret"]], ["check"],
+  rush: [
+    ["flat", 200, ["rod"]], ["gap", 40], ["flat", 100, ["virus"]], ["mover", 128], ["flat", 100, ["cocci"]], ["check"],
+    ["pulse", 2], ["flat", 90, ["spiral"]], ["gate"], ["flat", 90], ["blocks", 3], ["flat", 100, ["rod", "virus"]], ["check"],
     ["rest"],
-    ["flat", 90, ["walker", "flyer"]], ["pulse", 3], ["flat", 80, ["turret"]], ["mover", 136], ["flat", 60], ["quiz"],
-    ["down", 28], ["sky"], ["spikes", 120], ["flat", 90, ["hopper", "walker"]], ["blocks", 3], ["flat", 60], ["quiz"],
-    ["shelf"], ["gap", 44], ["flat", 90, ["flyer", "turret"]], ["pulse", 2], ["flat", 60], ["quiz"], ["flat", 60],
+    ["flat", 90, ["rod"]], ["pulse", 2], ["flat", 60], ["clue"],
+    ["shelf"], ["gap", 40], ["flat", 90, ["virus"]], ["clue"],
+    ["sky"], ["mover", 128], ["flat", 80, ["cocci"]], ["clue"], ["flat", 60],
   ],
 };
 
 export interface Tuning {
   gapScale: number;
-  /** Keep every n-th mini-bot (1 = all). */
+  /** Keep every n-th germ (1 = all). */
   enemyEvery: number;
   moverPeriod: number;
   pulsePeriod: number;
@@ -195,10 +197,10 @@ export function tuningFor(band: Band): Tuning {
   }
 }
 
-/** The power spot in each stage opens to the power the stage's boss is weak to (the fortress: Polarity Pulse). */
+/** The infected cell in each stage is helped by the skill the stage germ is weak to (the Lymph Node: Sneeze Blast). */
 export function gatePowerFor(id: StageId): PowerId {
-  if (id === "fortress") return "polarity";
-  return ROBOTS.find((r) => r.id === id)!.weakness;
+  if (id === "rush") return "sneeze";
+  return ZONES.find((z) => z.id === id)!.weakness;
 }
 
 export function buildLevel(id: StageId, band: Band): Level {
@@ -210,7 +212,7 @@ export function buildLevel(id: StageId, band: Band): Level {
   const enemies: EnemySpawn[] = [];
   const checkpoints: Checkpoint[] = [];
   let gate: Gate | null = null;
-  const quizBots: QuizBotSpawn[] = [];
+  const clues: ClueSpawn[] = [];
   const items: ItemSpawn[] = [];
   const skyLedges: Rect[] = [];
   let restX = 0;
@@ -222,7 +224,7 @@ export function buildLevel(id: StageId, band: Band): Level {
   const addEnemy = (kind: EnemyKind, ex: number, ey: number) => {
     enemyCount++;
     if (tune.enemyEvery > 1 && enemyCount % tune.enemyEvery === 0) return;
-    const y = kind === "flyer" ? ey - 64 : kind === "turret" ? ey - 14 : ey - 12;
+    const y = kind === "virus" ? ey - 64 : kind === "spiral" ? ey - 14 : ey - 12;
     enemies.push({ x: ex, y, kind });
   };
   const gapW = (w: number) => Math.round(w * tune.gapScale);
@@ -297,13 +299,13 @@ export function buildLevel(id: StageId, band: Band): Level {
       case "gate":
         gate = { x: x - 50, y: gy, power: gatePowerFor(id) };
         break;
-      case "quiz": {
+      case "clue": {
         const len = 200;
         ground(x, len, gy);
-        const qb = quizBots.length;
+        const qb = clues.length;
         const barrierX = x + 144;
-        quizBots.push({ x: barrierX - 14, y: gy - 30, barrierX });
-        // A static barrier from the ground to far above the screen: no jump or power gets past it.
+        clues.push({ x: barrierX - 14, y: gy - 30, barrierX });
+        // A biofilm barrier from the ground to far above the screen: no jump or skill gets past it.
         solids.push({ x: barrierX, y: -400, w: 12, h: gy + 400, kind: "barrier", qb });
         checkpoints.push({ x: x + 176, y: gy });
         x += len;
@@ -333,14 +335,14 @@ export function buildLevel(id: StageId, band: Band): Level {
         const ledge = { x: x + 50, y: gy - 80, w: 46, h: 10 };
         solids.push({ ...ledge, kind: "block" });
         skyLedges.push(ledge);
-        items.push({ x: x + 54, y: ledge.y - 12, kind: "cell" }, { x: x + 68, y: ledge.y - 12, kind: "bolt" }, { x: x + 82, y: ledge.y - 12, kind: "bolt" });
+        items.push({ x: x + 54, y: ledge.y - 12, kind: "cell" }, { x: x + 68, y: ledge.y - 12, kind: "nutrient" }, { x: x + 82, y: ledge.y - 12, kind: "nutrient" });
         x += len;
         break;
       }
     }
   }
 
-  // The boss arena: a closed room one screen wide.
+  // The boss arena: a closed chamber one screen wide.
   const arenaX = x;
   ground(arenaX, ARENA_W, gy);
   solids.push({ x: arenaX + ARENA_W, y: 0, w: 32, h: FLOOR_BOTTOM, kind: "wall" });
@@ -354,7 +356,7 @@ export function buildLevel(id: StageId, band: Band): Level {
     for (let c = Math.max(0, Math.floor(s.x / 64)); c <= Math.min(nCols - 1, Math.floor((s.x + s.w) / 64)); c++) cols[c].push(i);
   });
 
-  return { id, band, width, start: { x: 40, y: GROUND_Y }, solids, movers, pulses, spikes, enemies, checkpoints, gate, quizBots, items, skyLedges, restX, arenaX, arenaY: gy, cols };
+  return { id, band, width, start: { x: 40, y: GROUND_Y }, solids, movers, pulses, spikes, enemies, checkpoints, gate, clues, items, skyLedges, restX, arenaX, arenaY: gy, cols };
 }
 
 /** Triangle wave 0..1..0 over one period. */

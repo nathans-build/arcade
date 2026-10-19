@@ -85,7 +85,7 @@ const NORO: Bank = {
   g68: [
     hq("noro-g68-1", "8", "LS.8.1.1", "How norovirus spreads", "Norovirus spreads mostly through...", ["Germy hands, food, surfaces", "Mosquito bites", "Sunlight", "Antibiotics"], "Norovirus passes from person to person, through food or water, and from touching surfaces with the virus on them."),
     hq("noro-g68-2", "8", "LS.8.1.1", "Infectious dose", "How few norovirus particles can make someone sick?", ["About 18", "At least a million", "Exactly 1,000", "None"], "As few as about 18 norovirus particles can make a person sick. That's why it spreads so fast."),
-    hq("noro-g68-3", "8", "LS.8.1.1", "Antibiotics", "Why don't antibiotics treat norovirus?", ["It's a virus", "It lives in the lungs", "It's too big", "It's a fungus"], "Antibiotics only work on bacteria. For norovirus, rest and drinking fluids help most."),
+    hq("noro-g68-3", "8", "LS.8.1.1", "Antibiotics", "Why don't antibiotics treat norovirus?", ["It's a virus", "It lives in the lungs", "It's too big", "It's a fungus"], "Antibiotics only work on bacteria. For norovirus, rest and fluids help, and washing hands with soap and water stops it spreading."),
     hq("noro-g68-4", "8", "LS.8.1.2", "Outbreaks", "Norovirus outbreaks are common on cruise ships and in schools because...", ["People share spaces and food", "The sun is stronger", "The water is salty", "People wear hats"], "When many people share food, bathrooms and surfaces, a germ that spreads easily can cause an outbreak."),
   ],
   hs: [

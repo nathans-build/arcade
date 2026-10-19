@@ -200,21 +200,35 @@ export class SubjectDeck {
   }
 }
 
-/** The health pools for a zone (or the rush): its own items first, then the band's other health items and kit life items. */
-export function healthPools(grade: Grade, zone: ZoneId | null, topic: TopicChoice, catalog: FocusCatalog): { own: HealthQuestion[]; rest: Question[] } {
+/**
+ * The health pools for a zone (or the rush): its own tagged items, the band's other health items, and the kit's
+ * science items that fit a health theme (plus the rest of the kit's science for SCIENCE · ALL).
+ */
+export function healthPools(grade: Grade, zone: ZoneId | null, topic: TopicChoice, catalog: FocusCatalog): { own: HealthQuestion[]; rest: HealthQuestion[]; kit: Question[] } {
   const band = HEALTH[bandOf(grade)];
   const own = zone ? band.filter((q) => q.zones.includes(zone)) : [];
+  const rest = band.filter((q) => !own.includes(q));
   const kitLife = catalog.writtenPool(grade, "life").filter((q) => HEALTH_FLAVOR.test(flavorText(q)));
   const kitAll = topic === "all" ? catalog.subjectPool(grade, "science") : [];
-  const rest = dedupe<Question>([...band.filter((q) => !own.includes(q)), ...kitLife, ...kitAll]).filter((q) => !own.some((o) => o.prompt === q.prompt));
-  return { own, rest };
+  const kit = dedupe<Question>([...kitLife, ...kitAll]).filter((q) => !band.some((o) => o.prompt === q.prompt));
+  return { own, rest, kit };
+}
+
+/** Draws from tiers, best first: each tier is picked with its chance while it still has fresh items. */
+function drawTiers(tiers: { pool: Pool; chance: number }[]): Question {
+  for (const t of tiers) if (t.pool.fresh > 0 && Math.random() < t.chance) return t.pool.draw()!;
+  for (const t of tiers) if (t.pool.fresh > 0) return t.pool.draw()!;
+  for (const t of tiers) {
+    const q = t.pool.draw();
+    if (q) return q;
+  }
+  throw new Error("empty health pools");
 }
 
 /** One body zone's questions. */
 export class ZoneDeck {
   readonly resolved: Resolved;
-  private own: Pool | null = null;
-  private rest: Pool | null = null;
+  private tiers: { pool: Pool; chance: number }[] = [];
   private plain: SubjectDeck | null = null;
   private partner: SubjectDeck | null = null;
   private turn = 0;
@@ -224,8 +238,8 @@ export class ZoneDeck {
     const r = this.resolved;
     if (r.health) {
       const p = healthPools(grade, zone.id, r.topic, catalog);
-      this.own = new Pool(p.own);
-      this.rest = new Pool(p.rest);
+      // Zone items first (about 2 in 3 while fresh ones remain), then the band's health items, then kit items.
+      this.tiers = [{ pool: new Pool(p.own), chance: 0.67 }, { pool: new Pool(p.rest), chance: r.topic === "all" ? 0.6 : 0.8 }, { pool: new Pool(p.kit), chance: 1 }];
       if (r.partner) this.partner = new SubjectDeck(r.partner, grade, catalog, opts);
     } else this.plain = new SubjectDeck(r, grade, catalog, opts);
   }
@@ -233,24 +247,28 @@ export class ZoneDeck {
   /** Every written question this zone can ask (health pools; the kit pool otherwise; empty for math). */
   get pool(): Question[] {
     if (this.plain) return this.plain.pool;
-    return [...this.own!.items, ...this.rest!.items];
+    return this.tiers.flatMap((t) => t.pool.items);
   }
 
   draw(): Question {
     if (this.plain) return this.plain.draw();
     const t = this.turn++;
     if (this.partner && t % 2 === 1) return this.partner.draw();
-    // Zone items first (about 2 in 3 while fresh ones remain), then everything else.
-    const own = this.own!;
-    if (own.fresh > 0 && (Math.random() < 0.67 || this.rest!.fresh === 0)) return own.draw()!;
-    return this.rest!.draw() ?? own.draw()!;
+    return drawTiers(this.tiers);
   }
+}
+
+/** What a Major Virus asks: its own facts in the health modes (and MIXED), else the chosen subject/topic. */
+export function resolveVirus(virus: VirusId, grade: Grade, choice: FocusChoice, catalog: FocusCatalog): Resolved {
+  const c = validateFocus(choice, grade, catalog);
+  if (healthMode(c)) return { subject: "science", topic: c.subject === "science" ? c.topic : "life", health: true, partner: null };
+  return resolveZone(virusZone(virus), grade, c, catalog);
 }
 
 /** One Major Virus's questions: its own facts for the band first, then general health items. */
 export class VirusDeck {
   private facts: Pool | null = null;
-  private rest: Pool | null = null;
+  private tiers: { pool: Pool; chance: number }[] = [];
   private plain: SubjectDeck | null = null;
   readonly health: boolean;
   readonly resolved: Resolved;
@@ -258,12 +276,12 @@ export class VirusDeck {
   constructor(readonly virus: VirusId, readonly grade: Grade, choice: FocusChoice, catalog: FocusCatalog, opts: { adaptive?: boolean } = {}) {
     const c = validateFocus(choice, grade, catalog);
     this.health = healthMode(c);
+    this.resolved = resolveVirus(virus, grade, c, catalog);
     if (this.health) {
-      this.resolved = { subject: "science", topic: c.subject === "science" ? c.topic : "life", health: true, partner: null };
       this.facts = new Pool(VIRUS_QUESTIONS[virus][bandOf(grade)]);
-      this.rest = new Pool(healthPools(grade, null, this.resolved.topic, catalog).rest);
+      const p = healthPools(grade, null, this.resolved.topic, catalog);
+      this.tiers = [{ pool: new Pool(p.rest), chance: 0.8 }, { pool: new Pool(p.kit), chance: 1 }];
     } else {
-      this.resolved = resolveZone(virusZone(virus), grade, c, catalog);
       this.plain = new SubjectDeck(this.resolved, grade, catalog, opts);
     }
   }
@@ -276,7 +294,7 @@ export class VirusDeck {
   draw(): Question {
     if (this.plain) return this.plain.draw();
     if (this.facts!.fresh > 0) return this.facts!.draw()!;
-    return this.rest!.draw() ?? this.facts!.draw()!;
+    return drawTiers(this.tiers);
   }
 }
 

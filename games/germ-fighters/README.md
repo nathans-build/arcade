@@ -1,88 +1,100 @@
-# Robo Masters
+# Germ Fighters
 
-A run-and-jump robot adventure for **SpiderBen10's Arcade** (K–12, North Carolina Standard Course of Study).
-Eight **Robo Masters** got glitched. Pick any of them on the **stage select**, run and jump through its stage as
-**RIVET** (a pocket-sized repair robot with a reboot beam), and then **reboot** the robot with right answers.
-Glitched mini-bots short-circuit into sparks and bolts; nobody gets hurt. Each rebooted Robo Master shares its
-**power**, which works in every other stage. Reboot all eight to open the **Static Citadel** and its final boss,
-**Lord Static**, who mixes every subject.
+A run-and-jump adventure inside the human body for **SpiderBen10's Arcade** (K–12, North Carolina Standard Course of
+Study). Germs have snuck into eight **body zones**. Pick any zone on the **body map**, run and jump through it as
+**CYTO** (a cute killer T cell with a *receptor zapper*), and **identify** the zone's stage germ with right answers.
+Zapped germs poof into harmless sparkles and bubbles, and macrophage pals gobble them up: nothing gross, nothing
+scary. Each identified stage germ shares an **immune skill** that works in every other zone. Identify all eight to
+open the **Lymph Node** and face the **Major Virus rush**: six real viruses, cartoon-styled, each with kid-friendly,
+fact-checked cards.
 
-Inspired by the *mechanics* of 1980s robot-boss stage-select platformers. All names, characters and art are
-original pixel art drawn in code; no external requests.
+Built on the arcade's stage-select platformer engine (inspired by 1980s boss stage-select platformers); every name,
+character, line, picture and note here is original pixel art and chiptune made in code. No external requests.
 
-## The Robo Masters (`src/robo/robots.ts`)
+Default subject: **SCIENCE · Life science & health**. MIXED and MATH / ELA / SOCIAL STUDIES are still available.
 
-| Robo Master | MIXED subject (topic) | Stage | Power earned | Weak spot |
-|---|---|---|---|---|
-| SPLITZ (pie robot) | Math (fractions, grades 3–7; K–1 and 8–12 geometry, grade 2 numbers) | Pie Factory | Fraction Splitter (3-way beam) | Polarity Pulse |
-| IGNEOUS REX (volcano dino) | Science (Earth: rocks, volcanoes, Earth's surface) | Magma Mines | Magma Hop (super jump) | Cloud Step |
-| SYNTAXOR (book + comma) | ELA (grammar & words) | Punctuation Press | Comma Shield (shield) | Compass Dash |
-| MERIDIAN (globe head) | Social studies (geography: maps, places) | Compass Cliffs | Compass Dash (dash) | Magma Hop |
-| CUMULO-TRON (storm cloud) | Science (Earth: weather, water cycle) | Thunderhead Tower | Cloud Step (air jump) | Time Brake |
-| POLARIX (magnet arms) | Math (numbers & operations: number lines, integers; HS algebra) | Number Line Neon | Polarity Pulse (clears the screen) | Comma Shield |
-| CHLORO-PHIL (flowerpot) | Science (life: plants) | Greenhouse Grove | Leaf Glide (glide) | Fraction Splitter |
-| CLOCKWORK CLIO (clock head) | Social studies (history) | Gearworks Museum | Time Brake (slows the world) | Leaf Glide |
-| LORD STATIC (TV head, final boss) | Every robot's subject in turn | Static Citadel | — | any power |
+## The cast (`src/germs/roster.ts`)
 
-Every boss has its own look, movement pattern (bounce, hop, hover, dash, zigzag, arcing orbs, sprouting vines,
-pendulum, teleport) and punny intro / block / hit / reboot lines.
+- **Cyto** (hero): a killer (cytotoxic, CD8) T cell. **Hana** (helper T cell): runs the REST stops and asks the
+  Antigen Clues. **Macrophage pals** gobble poofed germs. **B cells** power Antibody Burst (Y-shaped antibody zaps).
+  **Platelet friends** are the bridges in Skin & Cut and the Platelet Patch shield. **Friendly gut bacteria** give
+  energy in the Gut Garden.
 
-## How a stage plays
+| Zone | Stage germ (boss) | Accurate type | Hazards | Skill earned | Weak spot |
+|---|---|---|---|---|---|
+| Nose & Airways | ADENO-BOUNCE | adenovirus (20-sided, long fibers) | sneeze gusts, sticky mucus, bubble lifts | Sneeze Blast (screen blast) | Cough Dash |
+| Throat & Tonsils | STREP-TACULAR | Streptococcus (chain of round cells) | cough blasts | Cough Dash (dash) | Saliva Slow-Mo |
+| Lung Bubbles | PNEUMO-PAIR | Streptococcus pneumoniae (pairs) | breathing puffs, breathing lifts | Breath Bounce (air jump) | Sneeze Blast |
+| Bloodstream | SPIRO-SWIRL | spirochete (spiral) | heartbeat waves, red-blood-cell rafts | Plasma Float (float) | Platelet Patch |
+| Stomach | HELI-COPTER | Helicobacter pylori (curvy, whip tails) | acid splashes, acid puddles | Acid Spray (3-way zap) | Villi Vault |
+| Gut Garden | SALLY MONELLA | Salmonella (rod; undercooked food) | squeeze waves | Villi Vault (super jump) | Acid Spray |
+| Skin & Cut | STAPH-A-LOT | Staphylococcus (grape-like bunch) | itchy scratches, splinters, platelet bridges | Platelet Patch (shield) | Plasma Float |
+| Mouth & Teeth | MUTANS MUNCH | Streptococcus mutans (sugar → acid) | chomping teeth, sugar crumbs | Saliva Slow-Mo (slow germs) | Breath Bounce |
 
-- A long side-scrolling run (about twice the original length: boss door at roughly 3,900–4,500 px, the Static
-  Citadel about 5,300 px) in **two halves of three sections**: gaps, moving platforms, lifts, stepping blocks over
-  hazards, a timed hazard per theme (pie cutters, magma geysers, ink stampers, boulders, lightning, zap gates,
-  snapping vines, gear crushers) and glitched mini-bots (walkers, hoppers, flyers, zap turrets). Seven or eight
-  checkpoints: one per section, a **REST stop** halfway (checkpoint + two big energy cells), and one just past
-  each Quiz Bot barrier.
-- **Quiz Bots** (`src/robo/levels.ts` "quiz" segments, `src/robo/sim.ts`): three per stage, all in the second half
-  and before the boss door. A Quiz Bot is a gold-framed hover bot holding a purple **?** screen, plugged into a
-  fizzing static **barrier** that no jump or power gets past. It never bumps you. One beam hit opens a question
-  from the stage's robot (same source, focus and topic rules as the boss; 1–4 / A–D / tap). Right: +10 energy
-  (K–2 +12), +8 power meter and often a power-up (always for the first right answer in a stage that has not given
-  one; then 60%, K–2 75%). Wrong: the explanation, +3 energy, a 10% (K–2 15%) power-up chance, and the barrier still
-  goes away: wrong answers never cost lives or energy. Quiz Bot answers count in the Citadel report and on the
-  "rebooted" screen ("Quiz Bots 2/3 right").
-- **Power-ups** (`src/robo/boosts.ts`; separate from the eight earned powers), shown as chips with a countdown
-  bar over the bottom of the screen and icons by the meters; grabbing one you already have restarts its timer
-  (no stacking); different ones can run together; they end when Rivet respawns:
+**Little germs**: rod bacteria (crawl; left alone for 8 s, K–2 12 s, they **split in two**, binary fission, once),
+round cocci pairs (hop), floating virus particles (drift toward you) and coiled spiral bacteria (puff toxin bubbles).
+Each zone has a glowing **infected cell** with viruses stuck on it: use the right immune skill near it to heal it,
+and the thankful cell gives a 1-up heart.
 
-  | Power-up | Effect | Time |
-  |---|---|---|
-  | Phase Cloak | see-through: mini-bots, robots and their zaps pass through you (pits and spikes still count) | 8 s |
-  | Spring Boots | jump about 97 px instead of 50 (reaches the high "sky ledges") | 10 s |
-  | Shield Bubble | blocks the next bump or zap, then pops | 20 s |
-  | Turbo Treads | run 1.6x faster | 10 s |
-  | Rapid Beam | beam every 4 frames instead of 8, up to 5 on screen | 10 s |
-  | Bolt Magnet | pulls bolts, energy and capsules within 110 px | 12 s |
+### Major Virus rush (Lymph Node)
 
-  They come from Quiz Bots, from a hidden **?** capsule on a high shelf in every stage, and now and then (5%)
-  from a mini-bot. None of them touches the boss: it is still only rebooted by right answers.
-- **Energy**: red-and-white capsules (+6) from mini-bots, big yellow energy cells (+10) at the REST stop and on
-  the sky ledge, and Quiz Bot rewards.
-- **Power spot**: a glowing cage holding a 1-up. It opens only to one power (the one the stage's boss is weak to).
-- **Boss fight**: beam the Robo Master to light up its **reboot panel** (3 hits, K–2: 2; it also opens by itself
-  after 10 s, K–2: 6 s). A right answer is a big reboot hit; a wrong answer is only **blocked** and shows the
-  explanation. Wrong answers never cost HP, energy or lives. Using the robot's **weak-spot power** during the
-  fight makes the next right answer a double reboot. Boss HP: K–2 3, 3–5 4, 6–12 5 (Lord Static +3).
-- Lives are only lost to hazards (pits, zaps, bumps). K–2 gets 5 lives, softer bumps, narrower gaps, fewer
-  mini-bots, slower hazards, and pits that cost energy instead of a life. Out of lives: try again from stage select;
-  rebooted robots and powers stay saved.
-- Save (password-free, this device): `arcade.robo-masters.save.v1`; subject/topic: `arcade.robo-masters.subject`
-  and `.topic`.
+A short Lymph Node run (3 Antigen Clues) and then six Major Viruses in a row in one arena, each with its own look and
+pattern. Energy refills between viruses, a lost life keeps the current virus, and game over offers **Retry from
+<virus>**. Each virus shows a three-line fact card on its intro; identified viruses are saved as **virus cards**.
 
-## Questions and topics
+| Virus | Pattern | Key facts (card + questions) |
+|---|---|---|
+| RHINOVIRUS | hop | most common colds; "rhino" = nose; >100 types so colds come back; hands and droplets; grows best in the cooler nose; no cold vaccine; antibiotics don't help |
+| INFLUENZA | zigzag | flu: fever, aches, cough, tiredness; droplets; a new vaccine every year (6 months and older); H and N spikes (H1N1); antiviral medicine; drift and shift |
+| NOROVIRUS | dash | most common stomach bug; very catching (as few as ~18 particles); soap and water beat hand sanitizer (no envelope); bleach cleaners; dehydration; not the flu |
+| VARICELLA | sprout | chickenpox: itchy blister-like spots; air and blisters; vaccine (live attenuated); immune memory; latent in nerves → shingles; contagious 1–2 days before the rash until blisters crust |
+| MEASLES | arc | among the most contagious diseases; up to 9 in 10 unprotected contacts; lingers in a room up to 2 hours; rash starts on the face; MMR ×2 ≈ 97%; herd immunity ~95%; immune amnesia |
+| CORONAVIRUS | teleport (final) | SARS-CoV-2 causes COVID-19; "corona" = crown (spike proteins); air droplets and particles; vaccines incl. mRNA (don't change DNA); spike binds ACE2; variants; some colds are other coronaviruses |
 
-Math is generated by the kit (`mathQuestion`, adaptive level when on); science, ELA and social studies come
-from the kit banks (`bankFor`), sorted into the arcade's topic ids by NC code (`src/robo/focus.ts`, adapted from
-Dojo Tower). A small extra bank (`src/robo/extras.ts`, 75 items) fills thin spots for the volcano, weather,
-plant and map robots. Each robot prefers on-theme items (a keyword "flavour") when there are at least 6.
+Bosses are only beaten by right answers. Zap the boss to light its **antigen panel** (3 hits, K–2 2; it also opens by
+itself after 10 s, K–2 6 s). Right = a big hit; wrong = blocked + explanation, never HP, energy or lives. Using the
+stage germ's weak-spot skill makes the next right answer a double hit (any skill works on a Major Virus). Stage germ
+HP: K–2 3, 3–5 4, 6–12 5. Major Virus HP: K–2 2, 3–8 3, 9–12 4 (Coronavirus +1).
 
-The title has **MATH · SCIENCE · ELA · SOCIAL STUDIES · MIXED** (default MIXED: each robot asks its own
-subject). Picking one subject retunes all eight robots to that subject (each robot takes its own topic of it,
-e.g. MATH: Splitz fractions, Igneous geometry, Polarix numbers…); picking a topic makes all eight ask that topic.
-`?topic=<id>` and `?subject=<id>` deep-link like the other arcade games (ignored with a note if the grade
-lacks the topic). Read-aloud is on by default for K–2.
+## How a zone plays
+
+Two halves of three sections each (boss door at about 3,700–4,700 px), seven or eight checkpoints, Hana's **REST
+stop** halfway (checkpoint + two energy cells), then three **Antigen Clues**: glowing germs with a **?** floating in
+front of a sticky **biofilm wall** that no jump or skill gets past. Zap one for a question from the zone's source.
+Right: +10 energy (K–2 +12), +8 skill meter and often a power-up (always for the first right answer in a zone that
+has not given one; then 60%, K–2 75%). Wrong: the explanation, +3 energy, a 10% (K–2 15%) power-up chance, and the
+wall still goes away. Lives are only lost to hazards; K–2 gets 5 lives, softer bumps, narrower gaps, fewer germs,
+slower hazards and pits that cost energy instead of a life.
+
+**Power-ups** (`src/germs/boosts.ts`, each with a one-line science note shown in the clue panel):
+
+| Power-up | Effect | Time |
+|---|---|---|
+| Phase Through Membrane | germs, viruses and their shots pass through you (pits and hazards still count) | 8 s |
+| Lymph Leap | jump about 97 px instead of 50 (reaches the high ledges) | 10 s |
+| Vaccine Memory | learned immunity: blocks the next bump or shot, then it's used | 20 s |
+| Fever Boost | run 1.6× faster (a fever slows many germs and speeds up immune cells) | 10 s |
+| Antibody Burst | B cell help: Y-shaped antibody zaps every 4 frames, up to 5 on screen | 10 s |
+| Mucus Shield | sticky coat: every germ shot that touches you gets stuck (bumps still hurt) | 12 s |
+
+## Questions (`src/germs/health.ts`, `src/germs/viruses.ts`, `src/germs/questions.ts`)
+
+- **Health bank**: K–2 24, 3–5 24, 6–8 22, 9–12 22 items (germs vs. healthy habits; body systems and the body's
+  defenses; cells, bacteria vs. viruses, antibiotics, immune response, vaccines, spread; innate vs. adaptive immunity,
+  T/B cells, antigens, MHC, lytic/lysogenic cycles, resistance, herd immunity, vaccine types). Items are tagged with
+  the zones they fit; each zone asks its own first (about 2 in 3), then the rest of the band and the kit's
+  life-science items that fit a health theme.
+- **Virus fact questions**: 4 per virus per band (96).
+- **Modes**: SCIENCE · Life & health (default) and SCIENCE · ALL (adds the rest of the kit's science); MIXED (every
+  other question is the zone's partner subject: math, ELA or social studies); one subject (each zone takes its own
+  topic of it); one topic. The Major Viruses ask their own facts in the health modes and MIXED, else the chosen
+  subject, and always show their fact card.
+- **NC codes**: K–5 habits use Healthful Living *Personal & Consumer Health* codes `K.PCH.1` … `5.PCH.1` (format from
+  the 2010 Essential Standards: please verify against the current Healthful Living numbering); 3–5 science uses
+  `LS.3.1.2` (skin, unconfirmed in the kit), `LS.4.1.1`, `LS.5.1.1`, `LS.5.1.2` (body systems), `LS.5.2.2`
+  (decomposers / helpful microbes, a stretch for some items); 6–8 `LS.7.1.1–.3`, `LS.8.1.1` (pathogens), `LS.8.1.2`
+  (epidemics, pandemics); 9–12 Biology `LS.Bio.1.4`, `LS.Bio.1.5`, `LS.Bio.3.1` (closest fit for the immune system),
+  `LS.Bio.9.1` (antibiotic resistance).
 
 ## Controls
 
@@ -90,29 +102,35 @@ lacks the topic). Read-aloud is on by default for K–2.
 |---|---|---|
 | Move | ← → | ◀ ▶ |
 | Jump | ↑ or Space | JUMP |
-| Reboot beam (hold to keep firing) | Z | BEAM |
-| Use power / switch power | X / C | POWER / SWAP |
+| Receptor zapper (hold to keep zapping) | Z | ZAP |
+| Use / switch immune skill | X / C | SKILL / SWAP |
 | Answer | 1–4 or A–D | tap an answer |
 | Continue after an answer | Enter or Space | the yellow button |
 | Pause / mute / read aloud | Esc or P / M / R | toolbar buttons |
 
-A–D are only ever answer keys, never movement.
+Save (this device): `arcade.germ-fighters.save.v1` (identified zones, virus cards, rush cleared); subject/topic
+`arcade.germ-fighters.subject` / `.topic`. The toolbar sits above every overlay (z-index) and full-screen overlays
+on phones leave room for it at the top.
+
+## Music (`src/music.ts`)
+
+Original 4-channel chiptunes: **Body Map** (stage select), eight zone themes on one E-minor patrol groove with their
+own leads, keys and tempos (Nose & Airways, Throat & Tonsils, Lung Bubbles, Bloodstream, Stomach, Gut Garden,
+Skin & Cut, Mouth & Teeth), **Lymph Node** (the rush run), **Germ Showdown** (stage germ fights), **Major Virus Rush**
+(boss rush); jingles **Germ Alert**, **Antigen Identified**, **Immune Boost!**, **Germ Identified** (stage cleared),
+**Virus Spotted**, **Immune System Victory** (final fanfare) and **Cyto Needs a Rest** (game over).
 
 ## Develop
 
 ```sh
 npm ci
-npm test        # tsx scripts/check-rules.ts (about 95 s: roster, questions for every robot x grade x mode,
-                # boss rules, a headless bot clearing all 9 longer stages in all 4 grade bands and answering
-                # every Quiz Bot, powers, stage length/checkpoints/Quiz Bot placement, Quiz Bot rewards,
-                # every power-up's effect and timer, save, topics) + scripts/check-music.ts
+npm test        # tsx scripts/check-rules.ts (cast, fact tables, every question in every grade and mode, boss rules,
+                # stages, splitting bacteria, the bot clearing all 8 zones and the 6-virus rush in all 4 bands,
+                # skills, power-ups, Antigen Clues, save, topics) + scripts/check-music.ts
 npm run build   # tsc --noEmit && vite build
-node scripts/playtest.cjs   # Chromium playtest; see the comment at its top for serving (port 8843, or BASE=...;
-                            # ONLY="quiz bots" runs one scenario)
+node scripts/playtest.cjs   # Chromium playtest; serve dist at /germ-fighters/ and site/fonts at /fonts/ on port 8911
+                            # (or BASE=...); ONLY="phone" runs matching scenarios; SHOT=path saves a 640x400 picture
 ```
 
-`src/kit/` is an identical copy of the arcade's `kit/`. `?debug` exposes `window.__rm` (warp to the boss,
-open the reboot panel, `giveBoost(id)`) for the playtest.
-
-Music (`src/music.ts`): stage themes, the boss and Citadel songs, and jingles, including **Quiz Bot Rebooted**
-(a right Quiz Bot answer) and **Power-Up!** (any power-up).
+`src/kit/` is an identical copy of the arcade's `kit/`. `?debug` exposes `window.__gf` (`warpToBoss(virus?)`,
+`forceQuestion()`, `giveBoost(id)`, `skipToRush(n)`), `__gfQuiz`, `__gfSave`, `__gfScreen` and the kit's `__music`.
