@@ -41,7 +41,7 @@ export const BOOSTS: Record<BoostId, BoostInfo> = {
     science: "A fever warms the body: many germs slow down while immune cells speed up.", color: "#ffb35e", color2: "#c0561a",
   },
   antibody: {
-    name: "Antibody Burst", frames: 10 * 60, desc: "B cell friends help: Y-shaped antibody zaps fire twice as fast", tip: "ANTIBODY ZAPS FIRE TWICE AS FAST",
+    name: "Antibody Burst", frames: 10 * 60, desc: "B cell friends help: your Granule Blast turns into Y-shaped antibodies that fly out twice as fast", tip: "Y-SHAPED ANTIBODIES FLY TWICE AS FAST",
     science: "B cells make Y-shaped antibodies that grab onto one exact germ.", color: "#ffe066", color2: "#b8862b",
   },
   mucus: {
@@ -54,7 +54,7 @@ export const BOOSTS: Record<BoostId, BoostInfo> = {
 export const LEAP_JUMP_V = -7.8;
 /** Fever Boost run-speed factor. */
 export const FEVER = 1.6;
-/** Antibody Burst: frames between zaps and zaps on screen. */
+/** Antibody Burst: frames between shots and shots on screen. */
 export const RAPID_COOLDOWN = 4;
 export const RAPID_SHOTS = 5;
 /** Mucus Shield reach around the hero (px) that catches germ shots. */

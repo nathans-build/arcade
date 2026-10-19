@@ -1,6 +1,7 @@
 /*
  * Germ Fighters checks:   npm test   (npx tsx scripts/check-rules.ts)
- * 1. The cast: hero, helper, 8 body zones (stage germs with accurate germ types, distinct looks, patterns,
+ * 1. The cast: hero (Granule Blast, black eyes), helper, 8 body zones (stage germs with real names, no old pun
+ *    names anywhere in src/ or the README, accurate germ types, distinct looks, patterns,
  *    stages, songs, kid-friendly lines), 8 immune skills and weak spots, 6 Major Viruses (the required real
  *    viruses, no frightening ones) and their fact tables (antibiotics never work on viruses; norovirus:
  *    soap and water beat sanitizer; measles: MMR; flu: yearly vaccine; no vaccine for the common cold).
@@ -39,6 +40,7 @@ import {
 import { ALL_HEALTH, HEALTH, type HealthQuestion } from "../src/germs/health";
 import { ARENA_W, buildLevel, gatePowerFor, tuningFor } from "../src/germs/levels";
 import { GermQuestions, dealQuestion, healthMode, isHealthItem, matchesPlain, matchesSource, resolveVirus, resolveZone } from "../src/germs/questions";
+import { ACID_GRANULE_COLORS, CYTO_EYE, CYTO_EYE_SHINE, GRANULE_COLORS } from "../src/germs/render";
 import { HERO, POWERS, POWER_IDS, RUSH, VIRUSES, VIRUS_IDS, ZONES, ZONE_IDS, type PowerId, type StageId, type VirusId } from "../src/germs/roster";
 import {
   EMPTY_SAVE, SAVE_KEY, applyAnswer, bossHp, loadSave, markBeaten, markRush, markVirus, newFight, panelHits, panelTimeout,
@@ -90,12 +92,12 @@ for (const place of ["Nose & Airways", "Throat & Tonsils", "Lung Bubbles", "Bloo
 // Germ types are accurate for the real germs they are named after.
 const GERM_TYPE: Record<string, { kind: "bacterium" | "virus"; type: RegExp }> = {
   nose: { kind: "virus", type: /adenovirus/i },
-  throat: { kind: "bacterium", type: /Streptococcus.*chain/i },
+  throat: { kind: "bacterium", type: /Streptococcus.*Strep A.*chain/i },
   lungs: { kind: "bacterium", type: /Streptococcus pneumoniae.*pairs/i },
-  blood: { kind: "bacterium", type: /spirochete.*spiral/i },
+  blood: { kind: "bacterium", type: /Borrelia.*spirochete.*spiral.*tick/i },
   stomach: { kind: "bacterium", type: /Helicobacter pylori/i },
   gut: { kind: "bacterium", type: /Salmonella.*rod/i },
-  skin: { kind: "bacterium", type: /Staphylococcus.*grape/i },
+  skin: { kind: "bacterium", type: /Staphylococcus aureus.*grape/i },
   mouth: { kind: "bacterium", type: /Streptococcus mutans.*sugar/i },
 };
 for (const z of ZONES) {
@@ -111,6 +113,61 @@ for (const z of ZONES) {
   check(z.retune.science.includes("life"), () => `${z.id}: SCIENCE retunes to life science`);
 }
 check(LYMPH_SONG.title === RUSH.stage.name, () => "the Lymph Node has its own theme");
+
+// Real germ names: every stage germ is shown by its real organism name (standard abbreviations when long).
+const REAL_NAMES: Record<string, [string, RegExp]> = {
+  nose: ["ADENOVIRUS", /^Adenovirus$/],
+  throat: ["STREPTOCOCCUS", /^Streptococcus pyogenes \(Strep A\)$/],
+  lungs: ["S. PNEUMONIAE", /^Streptococcus pneumoniae/],
+  blood: ["BORRELIA", /^Borrelia burgdorferi$/],
+  stomach: ["H. PYLORI", /^Helicobacter pylori$/],
+  gut: ["SALMONELLA", /^Salmonella$/],
+  skin: ["S. AUREUS", /^Staphylococcus aureus$/],
+  mouth: ["S. MUTANS", /^Streptococcus mutans$/],
+};
+for (const z of ZONES) {
+  const [name, full] = REAL_NAMES[z.id];
+  check(z.boss === name, () => `${z.id}: stage germ should be shown as ${name}, got ${z.boss}`);
+  check(full.test(z.bossFull), () => `${z.id}: full name ${z.bossFull}`);
+  // Fits a 5px HUD label, the 6px banner sub-line and a stage-select tile on a 360px phone.
+  check(z.boss.length <= 13 && z.boss === z.boss.toUpperCase(), () => `${z.id}: on-screen name too long or not caps: ${z.boss}`);
+  check(z.lines.intro.includes(z.boss), () => `${z.id}: the intro line introduces the germ by its real name`);
+}
+// The old pun names are gone from the game's source and README (the kit's banks are not this game's text).
+const OLD_NAMES = /adeno-?bounce|strep-?tacular|pneumo-?pair|spiro-?swirl|heli-copter|sally monella|staph-?a-?lot|mutans munch|whup-whup|propeller|mayday/i;
+const PROJECTILE_WORDS = /\b(lasers?|zappers?|zap|zaps|zapp\w*|zapped|beams?)\b/i;
+const gameRoot = new URL("..", import.meta.url).pathname;
+function sourceFiles(dir: string): string[] {
+  return readdirSync(dir).flatMap((f) => {
+    const p = join(dir, f);
+    if (statSync(p).isDirectory()) return f === "kit" ? [] : sourceFiles(p);
+    return /\.(ts|tsx|css|svg|html)$/.test(f) ? [p] : [];
+  });
+}
+const texts = [...sourceFiles(join(gameRoot, "src")), join(gameRoot, "README.md"), join(gameRoot, "index.html"), join(gameRoot, "public", "favicon.svg")];
+for (const f of texts) {
+  const body = readFileSync(f, "utf8");
+  check(!OLD_NAMES.test(body), () => `${f}: old pun name left: ${body.match(OLD_NAMES)?.[0]}`);
+}
+// The projectile is cytotoxic granules: no laser / zapper / beam / zap wording in anything a player reads.
+for (const f of [join(gameRoot, "src", "GermFighters.tsx"), join(gameRoot, "README.md"), join(gameRoot, "index.html"), join(gameRoot, "src", "germs", "roster.ts"), join(gameRoot, "src", "germs", "boosts.ts")]) {
+  const body = readFileSync(f, "utf8").replace(/no laser\/zapper\/beam wording/g, "");
+  check(!PROJECTILE_WORDS.test(body), () => `${f}: projectile should be granules, found "${body.match(PROJECTILE_WORDS)?.[0]}"`);
+}
+const playerText = [HERO.blurb, HERO.attack.name, HERO.attack.button, HERO.attack.science, ...Object.values(POWERS).flatMap((p) => [p.name, p.short, p.desc]), ...Object.values(BOOSTS).flatMap((b) => [b.name, b.desc, b.tip, b.science])].join(" ");
+check(!PROJECTILE_WORDS.test(playerText), () => `player text: ${playerText.match(PROJECTILE_WORDS)?.[0]}`);
+check(/granule/i.test(HERO.attack.name) && /granule/i.test(HERO.blurb) && HERO.attack.button === "BLAST", () => "Cyto's attack is the Granule Blast (BLAST button)");
+check(/perforin/i.test(HERO.attack.science) && /granzyme/i.test(HERO.attack.science) && /killer T cell/i.test(HERO.attack.science), () => "the Granule Blast science note names perforin and granzymes");
+check(/granule/i.test(POWERS.acid.desc) && /granule/i.test(POWERS.acid.short), () => "Acid Spray throws granules");
+check(/antibod/i.test(BOOSTS.antibody.desc) && /Y-shaped/.test(BOOSTS.antibody.desc), () => "Antibody Burst keeps its Y-shaped antibodies");
+check(!/"beam"/.test(readFileSync(join(gameRoot, "src", "germs", "render.ts"), "utf8") + readFileSync(join(gameRoot, "src", "germs", "sim.ts"), "utf8")), () => "no beam shot kind is left in the sim or renderer");
+check(GRANULE_COLORS.body !== ACID_GRANULE_COLORS.body, () => "Acid Spray granules look different");
+// Cyto's eyes are black with a small white shine (game, portraits and the favicon).
+check(CYTO_EYE === "#000000" && CYTO_EYE_SHINE === "#ffffff", () => `Cyto's eye colour should be black, got ${CYTO_EYE}`);
+{
+  const fav = readFileSync(join(gameRoot, "public", "favicon.svg"), "utf8");
+  check(/x="6" y="6" width="2" height="2" fill="#000000"/.test(fav) && /x="9" y="6" width="2" height="2" fill="#000000"/.test(fav) && !/#5ef0ff/i.test(fav), () => "favicon Cyto has black eyes and no beam");
+}
 
 // The Major Viruses: the brief's six, in order, Coronavirus last; no frightening/sensitive viruses.
 check(VIRUS_IDS.join() === "rhino,flu,noro,varicella,measles,corona", () => `Major Viruses: ${VIRUS_IDS}`);
@@ -411,13 +468,13 @@ for (const band of ["k2", "g68"] as Band[]) {
   sim.step(NO_INPUT);
   check(sim.s.enemies.length === 1 && !sim.s.enemies[0].child, () => `${band}: a respawn clears the copies`);
 }
-// Zapped early, a rod never gets to split.
+// Hit early with granules, a rod never gets to split.
 {
   const sim = standAt("nose", 60);
   sim.s.enemies = [{ kind: "rod", x: 110, y: sim.s.p.y + 8, w: 14, h: 12, vx: 0, vy: 0, hp: 1, dead: false, t: 0, dir: -1, sx: 110, sy: sim.s.p.y + 8, flash: 0 }];
   for (let i = 0; i < 40; i++) sim.step({ ...NO_INPUT, shoot: i % 9 === 0 });
   for (let i = 0; i < splitFrames("g68") + 60; i++) sim.step(NO_INPUT);
-  check(sim.s.enemies[0].dead && sim.s.splits === 0, () => "a zapped rod poofs and never splits");
+  check(sim.s.enemies[0].dead && sim.s.splits === 0, () => "a rod popped early with granules poofs and never splits");
 }
 
 // The bot plays every zone and the whole Major Virus rush in every band, answering some questions wrong,
@@ -503,7 +560,14 @@ const press = (sim: Sim, inp: Partial<Input>) => sim.step({ ...NO_INPUT, ...inp 
 
   const ac = freshSim("stomach", ["acid"]);
   press(ac, { power: true });
-  check(ac.s.shots.filter((x) => x.from === "hero").length === 3 && ac.s.power === POWER_MAX - POWERS.acid.cost, () => "Acid Spray fires three zaps");
+  check(ac.s.shots.filter((x) => x.from === "hero").length === 3 && ac.s.power === POWER_MAX - POWERS.acid.cost, () => "Acid Spray fires three granules");
+  check(ac.s.shots.filter((x) => x.from === "hero").every((x) => x.kind === "acidGranule" && x.w === 6 && x.h === 4), () => "Acid Spray shots are acid granules with the same hitbox");
+  {
+    const g = freshSim("nose", []);
+    press(g, { shoot: true });
+    const shot = g.s.shots.find((x) => x.from === "hero");
+    check(!!shot && shot.kind === "granule" && shot.w === 6 && shot.h === 4 && Math.abs(shot.vx) === 4.5, () => `Z launches a granule (${JSON.stringify(shot)})`);
+  }
 
   const vv = freshSim("gut", ["villi"]);
   const plain = freshSim("gut", []);
@@ -771,7 +835,7 @@ for (const band of BANDS) {
     }
     check(Math.abs((b.s.p.x - x0) - (a.s.p.x - x0) * FEVER) < 2 && a.s.p.x - x0 > RUN * 25, () => `Fever Boost ${b.s.p.x - x0} vs ${a.s.p.x - x0}`);
   }
-  // Antibody Burst: more zaps in the same time.
+  // Antibody Burst: more shots in the same time.
   {
     const count = (on: boolean) => {
       const sim = standAt(id, flatX);

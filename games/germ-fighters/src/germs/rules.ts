@@ -6,7 +6,7 @@ import { VIRUS_IDS, ZONES, ZONE_IDS, type PowerId, type VirusId, type ZoneId } f
  * Boss-fight and save rules, kept pure so tests can check them.
  *
  * A stage germ (and every Major Virus) is only beaten by right answers. Its antigen panel opens after a
- * few zaps (or by itself after a while), and then it asks a question:
+ * few granule hits (or by itself after a while), and then it asks a question:
  *   right  -> a big hit (two if the player used the germ's weak-spot skill since the last question)
  *   wrong  -> the germ blocks; the explanation shows, and NOTHING else changes (no HP, energy or lives lost).
  *             The next panel asks a new question.
@@ -43,7 +43,7 @@ export function virusHp(band: Band, last = false): number {
   return last ? base + 1 : base;
 }
 
-/** Zaps that open a boss's antigen panel (it also opens by itself after panelTimeout frames). */
+/** Granule hits that open a boss's antigen panel (it also opens by itself after panelTimeout frames). */
 export function panelHits(band: Band): number {
   return band === "k2" ? 2 : 3;
 }

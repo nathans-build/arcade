@@ -448,7 +448,7 @@ export default function GermFighters() {
     };
   }, [screen, quiz, paused, answer, next, togglePause, replay, toSelect, audio]);
 
-  // Touch pad: arrows and jump/zap are held, skill and switch fire on press.
+  // Touch pad: arrows, jump and Granule Blast are held, skill and switch fire on press.
   const holdProps = (k: "left" | "right" | "jump" | "shoot") => ({
     onPointerDown: (e: React.PointerEvent) => {
       e.preventDefault();
@@ -602,7 +602,7 @@ export default function GermFighters() {
               <button className="gf-touch cyc" {...pressProps("cycle")} disabled={owned.length < 2} aria-label="Switch skill">SWAP</button>
               <button className="gf-touch word pow" {...pressProps("power")} disabled={owned.length === 0} aria-label="Use skill">SKILL</button>
             </div>
-            <button className="gf-touch word beam" {...holdProps("shoot")} aria-label="Receptor zapper">ZAP</button>
+            <button className="gf-touch word blast" {...holdProps("shoot")} aria-label={HERO.attack.name}>{HERO.attack.button}</button>
             <button className="gf-touch word jump" {...holdProps("jump")} aria-label="Jump">JUMP</button>
           </div>
         </div>
@@ -744,20 +744,20 @@ function QuizPanel({ quiz, grade, focus, rushIdx, onAnswer, onNext, onSpeak }: {
 function HowToPlay() {
   return (
     <div className="gf-help" style={{ marginTop: 10, textAlign: "left" }}>
-      <kbd>◀</kbd> <kbd>▶</kbd> move · <kbd>▲</kbd> or <kbd>SPACE</kbd> jump · <kbd>Z</kbd> receptor zapper (hold to keep zapping) · <kbd>X</kbd> use your immune skill ·{" "}
+      <kbd>◀</kbd> <kbd>▶</kbd> move · <kbd>▲</kbd> or <kbd>SPACE</kbd> jump · <kbd>Z</kbd> {HERO.attack.name} (hold to keep launching granules) · <kbd>X</kbd> use your immune skill ·{" "}
       <kbd>C</kbd> switch skill · <kbd>1</kbd>–<kbd>4</kbd> or <kbd>A</kbd>–<kbd>D</kbd> answer · <kbd>ESC</kbd> pause · <kbd>M</kbd> mute · <kbd>R</kbd> read aloud.
-      On a phone or tablet: ◀ ▶, JUMP, ZAP, SKILL and SWAP.
+      On a phone or tablet: ◀ ▶, JUMP, {HERO.attack.button}, SKILL and SWAP.
       <br />
-      You are <span className="c">{HERO.name}</span>, {HERO.blurb}. Germs have snuck into eight <span className="r">body zones</span>! Pick any zone, hop past
-      pits and <span className="y">timed hazards</span>, and zap the germs: they poof into harmless sparkles, and macrophage pals gobble them up. Rod bacteria
-      left alone <span className="y">split in two</span>, just like real bacteria, so zap them early! Green flags are <span className="g">checkpoints</span>. At the end, zap the
-      stage germ to open its <span className="y">antigen panel</span>: a right answer is a big hit, a wrong one is only blocked (you never lose a fight by answering
+      You are <span className="c">{HERO.name}</span>, {HERO.blurb}. <span className="dim">{HERO.attack.science}</span> Germs have snuck into eight <span className="r">body zones</span>! Pick any zone, hop past
+      pits and <span className="y">timed hazards</span>, and pop the germs with granules: they poof into harmless sparkles, and macrophage pals gobble them up. Rod bacteria
+      left alone <span className="y">split in two</span>, just like real bacteria, so pop them early! Green flags are <span className="g">checkpoints</span>. At the end, hit the
+      stage germ with granules to open its <span className="y">antigen panel</span>: a right answer is a big hit, a wrong one is only blocked (you never lose a fight by answering
       wrong). Identify a stage germ to earn its <span className="y">immune skill</span>. Use a germ's <span className="y">weak-spot skill</span> during its fight to make
       your next right answer a double hit, and use the matching skill to heal each zone's glowing <span className="y">infected cell</span> for a 1-up.
       Identify all eight to open the <span className="r">Lymph Node</span> and face the six <span className="r">Major Viruses</span>!
       <br />
       Halfway through each zone, {HERO.helper} the helper T cell runs a <span className="g">REST stop</span> with energy. After it, three glowing{" "}
-      <span className="y">Antigen Clues</span> (germs with a <b>?</b>) sit in front of sticky biofilm walls. Zap one for a question: a right answer gives a big{" "}
+      <span className="y">Antigen Clues</span> (germs with a <b>?</b>) sit in front of sticky biofilm walls. Hit one with a granule for a question: a right answer gives a big{" "}
       <span className="y">energy refill</span> and often a <span className="c">power-up</span>; a wrong answer is fine too (a little energy, nothing lost) and the wall
       still goes away. Power-ups last a few seconds (watch the timer):{" "}
       {BOOST_IDS.map((id, i) => (
@@ -945,7 +945,7 @@ function StageSelect({ grade, focus, save, onPick, onBack, sel, onSel }: { grade
               const beaten = save.beaten.includes(id);
               const src = sourceLabel(resolveZone(z, grade, focus, catalog));
               return (
-                <button key={id} ref={(el) => (refs.current[i] = el)} className={`gf-tile ${beaten ? "beaten" : ""}`} data-stage={id} data-beaten={beaten ? "1" : "0"} onFocus={() => onSel(i)} onClick={() => onPick(id)} title={`${z.place}: ${z.boss}`}>
+                <button key={id} ref={(el) => (refs.current[i] = el)} className={`gf-tile ${beaten ? "beaten" : ""}`} data-stage={id} data-beaten={beaten ? "1" : "0"} onFocus={() => onSel(i)} onClick={() => onPick(id)} title={`${z.place}: ${z.bossFull}`}>
                   {beaten && <span className="done">✓</span>}
                   <Portrait who={id} />
                   <span className="nm">{z.place.toUpperCase()}</span>
@@ -974,9 +974,10 @@ function Cleared({ zone, save, onNext, clues }: { zone: Zone; save: SaveData; on
     <div className="gf-overlay">
       <div className="gf-panel won" style={{ textAlign: "center" }}>
         <div className="gf-h gf-pixel" style={{ color: "var(--gf-yellow)" }}>{zone.boss} IDENTIFIED!</div>
+        <div className="gf-help gf-fullname" data-full-name={zone.bossFull}>{zone.bossFull}</div>
         <div className="gf-help">“{zone.lines.defeat}”</div>
         <div className="gf-help gf-fact">
-          <b className="g">{zone.place}:</b> {zone.defense} {zone.boss} is {zone.bossType}.
+          <b className="g">{zone.place}:</b> {zone.defense} This stage germ is {zone.bossType}.
         </div>
         <div className="gf-earned">
           <Portrait who={zone.id} />
