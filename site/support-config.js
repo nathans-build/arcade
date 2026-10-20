@@ -8,13 +8,13 @@ window.SUPPORT = {
     // Venmo can't enforce a minimum, so these only pre-fill the amount and the person can change it.
     // qr: a QR code image (in site/img) for people on a computer to scan with their phone.
     {
-      label: "Tip with Venmo (@nzdogames)",
-      url: "https://www.venmo.com/u/nzdogames",
+      label: "Tip with Venmo (@Tuong-Do-12)",
+      url: "https://venmo.com/u/Tuong-Do-12",
       amounts: [3, 5, 10],
       featured: 5,
-      amountUrl: "https://venmo.com/?txn=pay&recipients=nzdogames&amount={amount}&note=Arcade%20tip",
+      amountUrl: "https://venmo.com/?txn=pay&recipients=Tuong-Do-12&amount={amount}&note=Arcade%20tip",
       qr: "img/venmo-qr.png",
-      qrNote: "On a computer? Scan with your phone's camera to open @nzdogames in Venmo.",
+      qrNote: "On a computer? Scan with your phone's camera to open @Tuong-Do-12 in Venmo.",
     },
   ],
   // A children's charity people can give to directly (the money goes straight to them).
