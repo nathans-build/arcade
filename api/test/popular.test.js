@@ -71,3 +71,15 @@ test("GET /api/popular returns an empty list when storage isn't set up or fails"
   assert.deepStrictEqual(res.jsonBody, { games: [] });
   assert.strictEqual(res.headers["cache-control"], "public, max-age=900");
 });
+
+test("GET /api/popular?all=1 lists every played game, not just the top 8", async () => {
+  const rows = [];
+  for (let i = 0; i < 12; i++) rows.push({ partitionKey: "2026-10-11", rowKey: "play|game-" + i, n: i + 1 });
+  const fn = loadHandler(async () => rows);
+  const top = await fn.handler({ query: new URLSearchParams("") }, {});
+  assert.strictEqual(top.jsonBody.games.length, 8);
+  const all = await fn.handler({ query: new URLSearchParams("all=1") }, {});
+  assert.strictEqual(all.jsonBody.games.length, 12);
+  assert.deepStrictEqual(all.jsonBody.games[11], { id: "game-0", plays: 1 });
+  assert.strictEqual(all.headers["cache-control"], "public, max-age=900");
+});
