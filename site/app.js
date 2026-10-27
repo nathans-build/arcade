@@ -105,7 +105,7 @@
   // Every key here is per player: profile.js swaps all arcade.* keys when players switch.
   var TAB_KEY = "arcade.tab", TOPIC_KEY = "arcade.topic", FIT_KEY = "arcade.fitsGrade", RECENT_KEY = "arcade.recent", FAV_KEY = "arcade.favorites";
   var STYLE_KEY = "arcade.style", LENGTH_KEY = "arcade.length", SORT_KEY = "arcade.sort";
-  var PLAYED_KEY = "arcade.played", SURPRISE_KEY = "arcade.lastSurprise";
+  var PLAYED_KEY = "arcade.played", SURPRISE_KEY = "arcade.lastSurprise", SPOTLIGHT_KEY = "arcade.lastSpotlight";
   var RECENT_MAX = 4, NEW_DAYS = 30;
   var ROW_PHONE_MAX = 4;   // phones show this many games per style row, then "See all"
   var TRY_MAX = 6, TRY_MIN = 3;
@@ -699,6 +699,22 @@
   /* ------------------------------------------------------------------ */
 
   var popular = null; // [{ id, plays }] once loaded
+  // The last totals, kept so the Game spotlight can favour less played games as soon as the
+  // page opens. Shared by every player on the device (it's the arcade's public totals).
+  var PLAYS_CACHE_KEY = "nzdo.playCounts", PLAYS_CACHE_DAYS = 3;
+  function cleanPopular(list) {
+    return (Array.isArray(list) ? list : []).filter(function (x) {
+      return x && typeof x.id === "string" && typeof x.plays === "number" && isFinite(x.plays);
+    }).map(function (x) { return { id: x.id, plays: x.plays }; });
+  }
+  function playCounts() {
+    if (popular) return popular;
+    try {
+      var c = JSON.parse(localStorage.getItem(PLAYS_CACHE_KEY) || "null");
+      if (c && isFinite(c.t) && Date.now() - c.t < PLAYS_CACHE_DAYS * 864e5) return cleanPopular(c.games);
+    } catch (e) { /* ignore */ }
+    return null;
+  }
   function popularOn() {
     if (window.ARCADE_ENV === "production") return true;
     try { return localStorage.getItem("nzdo.trackDev") === "1"; } catch (e) { return false; } // testing on dev, like track.js
@@ -708,15 +724,14 @@
     var ctl = window.AbortController ? new AbortController() : null;
     var timer = setTimeout(function () { if (ctl) ctl.abort(); }, POPULAR_TIMEOUT);
     var done = false;
-    fetch("/api/popular", { credentials: "omit", headers: { accept: "application/json" }, signal: ctl ? ctl.signal : undefined })
+    fetch("/api/popular?all=1", { credentials: "omit", headers: { accept: "application/json" }, signal: ctl ? ctl.signal : undefined })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (d) {
         clearTimeout(timer);
         if (done || !d || !Array.isArray(d.games)) return;
         done = true;
-        popular = d.games.filter(function (x) {
-          return x && typeof x.id === "string" && typeof x.plays === "number" && isFinite(x.plays);
-        }).map(function (x) { return { id: x.id, plays: x.plays }; });
+        popular = cleanPopular(d.games);
+        try { localStorage.setItem(PLAYS_CACHE_KEY, JSON.stringify({ t: Date.now(), games: popular })); } catch (e) { /* ignore */ }
         renderCabinets();
       })
       .catch(function () { clearTimeout(timer); }); // quietly no row
@@ -800,6 +815,7 @@
     }
     if (resultsStatus.textContent !== status) resultsStatus.textContent = status;
     renderNewBanner();
+    renderSpotlight(searching);
     updateAllRows();
 
     cabinets = Array.prototype.slice.call(shelvesBox.querySelectorAll("a.cabinet"));
@@ -915,6 +931,89 @@
   surpriseBox.addEventListener("keydown", function (ev) {
     if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); closeSurprise(true); }
   });
+
+  /* ------------------------------------------------------------------ */
+  /* ⭐ Game spotlight: a random live game that fits the player's grade,  */
+  /* picked fresh on every visit and refresh (never the same game twice  */
+  /* in a row). Less played games (from the arcade's weekly totals) get   */
+  /* better odds. Hidden while searching or after the player closes it.  */
+  /* ------------------------------------------------------------------ */
+
+  var spotlightId = "", spotlightClosed = false;
+  function pickSpotlight() {
+    var pool = games.filter(function (g) { return g.url && supports(g, grade); });
+    if (!pool.length) return "";
+    var last = load(SPOTLIGHT_KEY) || "";
+    var choices = pool.filter(function (g) { return g.id !== last; });
+    if (!choices.length) choices = pool; // only one game fits
+    var g = weightedPick(choices, playCounts());
+    save(SPOTLIGHT_KEY, g.id);
+    return g.id;
+  }
+  // With weekly totals, odds go by rank squared: rank k = n for the least played games, one less
+  // for each game played less than it, down to 1; chances = k². The least played third of the
+  // games gets about two thirds of the spotlights and the most played still turns up now and then.
+  // Games missing from the totals had no plays. Without totals every game has the same odds.
+  function weightedPick(list, counts) {
+    if (!counts || !counts.length) return list[Math.floor(Math.random() * list.length)];
+    var plays = {};
+    counts.forEach(function (p) { plays[p.id] = p.plays; });
+    var n = list.length, total = 0;
+    var w = list.map(function (g) {
+      var mine = plays[g.id] || 0, fewer = 0;
+      list.forEach(function (o) { if ((plays[o.id] || 0) < mine) fewer++; });
+      var k = n - fewer;
+      total += k * k;
+      return k * k;
+    });
+    var r = Math.random() * total;
+    for (var i = 0; i < n; i++) { r -= w[i]; if (r < 0) return list[i]; }
+    return list[n - 1];
+  }
+  function renderSpotlight(searching) {
+    var box = document.getElementById("spotlight");
+    if (!box) return;
+    // Pick once per page load; pick again only if a grade change rules the game out.
+    var cur = byId(spotlightId);
+    if (!cur || !supports(cur, grade)) { spotlightId = pickSpotlight(); cur = byId(spotlightId); }
+    box.textContent = "";
+    box.hidden = !cur || spotlightClosed || searching;
+    if (box.hidden) return;
+    var g = cur;
+    var card = el("div", "surprise-card spotlight-card");
+    var scr = el("div", "surprise-screen");
+    if (g.image) { var img = el("img"); img.src = g.image; img.alt = ""; scr.appendChild(img); }
+    card.appendChild(scr);
+    var body = el("div", "surprise-body");
+    body.appendChild(el("p", "surprise-eyebrow", "⭐ Game spotlight"));
+    body.appendChild(el("h3", null, g.title));
+    body.appendChild(el("p", "tagline", g.tagline));
+    var chips = el("div", "chips");
+    chips.appendChild(el("span", "chip grade", gradeName(grade)));
+    var lc = lengthChip(g);
+    if (lc) chips.appendChild(lc);
+    if (isNew(g)) chips.appendChild(el("span", "chip new", "New!"));
+    body.appendChild(chips);
+    var actions = el("div", "surprise-actions");
+    var play = el("a", "surprise-play", "Play ▶");
+    play.href = gameHref(g);
+    play.setAttribute("aria-label", "Play " + g.title);
+    play.addEventListener("click", function (ev) {
+      if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.button) return;
+      recordLaunch(g.id);
+      coin();
+    });
+    actions.appendChild(play);
+    body.appendChild(actions);
+    card.appendChild(body);
+    card.appendChild(shelfButton("adapt-reset surprise-close", "✕", "Hide the spotlight", function () {
+      spotlightClosed = true;
+      box.hidden = true;
+      box.textContent = "";
+      blip();
+    }));
+    box.appendChild(card);
+  }
 
   // "New games just landed!" banner. Hidden for a player once they dismiss it or tap See them,
   // until a game newer than the ones they've seen is added (arcade.newSeen = newest date seen).
