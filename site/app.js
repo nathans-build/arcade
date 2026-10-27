@@ -105,7 +105,7 @@
   // Every key here is per player: profile.js swaps all arcade.* keys when players switch.
   var TAB_KEY = "arcade.tab", TOPIC_KEY = "arcade.topic", FIT_KEY = "arcade.fitsGrade", RECENT_KEY = "arcade.recent", FAV_KEY = "arcade.favorites";
   var STYLE_KEY = "arcade.style", LENGTH_KEY = "arcade.length", SORT_KEY = "arcade.sort";
-  var PLAYED_KEY = "arcade.played", SURPRISE_KEY = "arcade.lastSurprise";
+  var PLAYED_KEY = "arcade.played", SURPRISE_KEY = "arcade.lastSurprise", SPOTLIGHT_KEY = "arcade.lastSpotlight";
   var RECENT_MAX = 4, NEW_DAYS = 30;
   var ROW_PHONE_MAX = 4;   // phones show this many games per style row, then "See all"
   var TRY_MAX = 6, TRY_MIN = 3;
@@ -800,6 +800,7 @@
     }
     if (resultsStatus.textContent !== status) resultsStatus.textContent = status;
     renderNewBanner();
+    renderSpotlight(searching);
     updateAllRows();
 
     cabinets = Array.prototype.slice.call(shelvesBox.querySelectorAll("a.cabinet"));
@@ -915,6 +916,68 @@
   surpriseBox.addEventListener("keydown", function (ev) {
     if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); closeSurprise(true); }
   });
+
+  /* ------------------------------------------------------------------ */
+  /* ⭐ Game spotlight: a random live game that fits the player's grade,  */
+  /* picked fresh on every visit and refresh (never the same game twice  */
+  /* in a row). Hidden while searching or after the player closes it.    */
+  /* ------------------------------------------------------------------ */
+
+  var spotlightId = "", spotlightClosed = false;
+  function pickSpotlight() {
+    var pool = games.filter(function (g) { return g.url && supports(g, grade); });
+    if (!pool.length) return "";
+    var last = load(SPOTLIGHT_KEY) || "";
+    var choices = pool.filter(function (g) { return g.id !== last; });
+    if (!choices.length) choices = pool; // only one game fits
+    var g = choices[Math.floor(Math.random() * choices.length)];
+    save(SPOTLIGHT_KEY, g.id);
+    return g.id;
+  }
+  function renderSpotlight(searching) {
+    var box = document.getElementById("spotlight");
+    if (!box) return;
+    // Pick once per page load; pick again only if a grade change rules the game out.
+    var cur = byId(spotlightId);
+    if (!cur || !supports(cur, grade)) { spotlightId = pickSpotlight(); cur = byId(spotlightId); }
+    box.textContent = "";
+    box.hidden = !cur || spotlightClosed || searching;
+    if (box.hidden) return;
+    var g = cur;
+    var card = el("div", "surprise-card spotlight-card");
+    var scr = el("div", "surprise-screen");
+    if (g.image) { var img = el("img"); img.src = g.image; img.alt = ""; scr.appendChild(img); }
+    card.appendChild(scr);
+    var body = el("div", "surprise-body");
+    body.appendChild(el("p", "surprise-eyebrow", "⭐ Game spotlight"));
+    body.appendChild(el("h3", null, g.title));
+    body.appendChild(el("p", "tagline", g.tagline));
+    var chips = el("div", "chips");
+    chips.appendChild(el("span", "chip grade", gradeName(grade)));
+    var lc = lengthChip(g);
+    if (lc) chips.appendChild(lc);
+    if (isNew(g)) chips.appendChild(el("span", "chip new", "New!"));
+    body.appendChild(chips);
+    var actions = el("div", "surprise-actions");
+    var play = el("a", "surprise-play", "Play ▶");
+    play.href = gameHref(g);
+    play.setAttribute("aria-label", "Play " + g.title);
+    play.addEventListener("click", function (ev) {
+      if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.button) return;
+      recordLaunch(g.id);
+      coin();
+    });
+    actions.appendChild(play);
+    body.appendChild(actions);
+    card.appendChild(body);
+    card.appendChild(shelfButton("adapt-reset surprise-close", "✕", "Hide the spotlight", function () {
+      spotlightClosed = true;
+      box.hidden = true;
+      box.textContent = "";
+      blip();
+    }));
+    box.appendChild(card);
+  }
 
   // "New games just landed!" banner. Hidden for a player once they dismiss it or tap See them,
   // until a game newer than the ones they've seen is added (arcade.newSeen = newest date seen).
