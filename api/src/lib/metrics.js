@@ -95,6 +95,8 @@ function report(rows, days) {
 /** How many games GET /api/popular returns, and over how many days. */
 const POPULAR_LIMIT = 8;
 const POPULAR_DAYS = 7;
+/** ?all=1 returns every played game (the menu's spotlight favours the least played ones). */
+const POPULAR_ALL_LIMIT = 100;
 
 /**
  * The public "most played this week" list: only each game's total plays, from the same rows and
@@ -109,4 +111,4 @@ function popular(rows, limit = POPULAR_LIMIT) {
   };
 }
 
-module.exports = { countersFor, report, popular, dayKey, safeKey, MAX_SECONDS, POPULAR_LIMIT, POPULAR_DAYS };
+module.exports = { countersFor, report, popular, dayKey, safeKey, MAX_SECONDS, POPULAR_LIMIT, POPULAR_ALL_LIMIT, POPULAR_DAYS };
