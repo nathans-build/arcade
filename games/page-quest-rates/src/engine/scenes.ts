@@ -1,0 +1,2037 @@
+/*
+ * Backgrounds for every scene id in the story format, drawn procedurally in an 80s EGA style
+ * (solid colours, checkerboard dithering, chunky shapes). `bg` is drawn once and cached;
+ * `anim` draws the moving bits (waves, stars, flames, lasers...) every frame.
+ * Characters stand with their feet on `floor`.
+ */
+import type { SceneId } from "@/story/roster";
+import { C, Gfx, W, rnd } from "./gfx";
+
+export interface ScenePainter {
+  floor: number;
+  /** Moving layer drawn BEHIND the cached background (which leaves those areas transparent). */
+  back?: (g: Gfx, t: number) => void;
+  bg: (g: Gfx) => void;
+  anim?: (g: Gfx, t: number) => void;
+}
+
+// ---------- shared bits ----------
+function stars(g: Gfx, n: number, y0: number, y1: number, seed: number, t?: number) {
+  for (let i = 0; i < n; i++) {
+    const x = Math.floor(rnd(seed + i) * W);
+    const y = Math.floor(y0 + rnd(seed + i * 7.3) * (y1 - y0));
+    const tw = t === undefined ? 1 : Math.sin(t * 2 + i) > 0.6 ? 0 : 1;
+    g.px(x, y, tw ? (rnd(seed + i * 3) > 0.8 ? C.yellow : C.white) : C.lgray);
+  }
+}
+
+function cloud(g: Gfx, x: number, y: number, s: number, c: string = C.white, shade: string = C.lgray) {
+  g.ellipse(x, y + 2, 10 * s, 3 * s, shade);
+  g.ellipse(x - 5 * s, y, 6 * s, 3 * s, c);
+  g.ellipse(x + 4 * s, y - 1, 7 * s, 4 * s, c);
+  g.ellipse(x, y + 1, 9 * s, 3 * s, c);
+}
+
+function planks(g: Gfx, y0: number, y1: number, a: string, b: string, line: string) {
+  g.rect(0, y0, W, y1 - y0, a);
+  let y = y0;
+  let row = 0;
+  while (y < y1) {
+    const h = 5 + row;
+    g.rect(0, y + h - 1, W, 1, line);
+    const off = (row * 37) % 60;
+    for (let x = -off; x < W; x += 60) g.rect(x, y, 1, h - 1, line);
+    if (row % 2) g.dither(0, y, W, 1, a, b);
+    y += h;
+    row++;
+  }
+}
+
+function bricks(g: Gfx, x0: number, y0: number, w: number, h: number, a: string, mortar: string, bw = 16, bh = 8) {
+  g.rect(x0, y0, w, h, a);
+  for (let y = y0, r = 0; y < y0 + h; y += bh, r++) {
+    g.rect(x0, y, w, 1, mortar);
+    for (let x = x0 - (r % 2 ? bw / 2 : 0); x < x0 + w; x += bw) if (x >= x0) g.rect(x, y, 1, bh, mortar);
+  }
+}
+
+function flame(g: Gfx, x: number, y: number, t: number, s = 1) {
+  const f = Math.floor(t * 10) % 3;
+  g.ellipse(x, y - 1 * s, 3 * s, (4 + f) * s, C.orange);
+  g.ellipse(x, y, 2 * s, (2 + (f % 2)) * s, C.yellow);
+  g.px(x + (f - 1), y - (6 + f) * s, C.orange);
+}
+
+function torch(g: Gfx, x: number, y: number) {
+  g.rect(x - 1, y, 3, 10, C.dbrown);
+  g.rect(x - 2, y - 1, 5, 2, C.dgray);
+}
+
+function pine(g: Gfx, x: number, base: number, h: number, c: string, dark: string) {
+  g.rect(x - 1, base - 4, 3, 4, C.dbrown);
+  for (let i = 0; i < 3; i++) {
+    const top = base - 4 - h + i * (h / 3.2);
+    const w = (h / 3) * (0.6 + i * 0.35);
+    g.tri(x, top, x - w, top + h / 2.2, x + w, top + h / 2.2, i % 2 ? dark : c);
+  }
+}
+
+function palm(g: Gfx, x: number, base: number, lean: number) {
+  for (let i = 0; i < 14; i++) {
+    const y = base - i * 6;
+    const xx = x + (lean * i * i) / 30;
+    g.rect(xx - 2, y - 6, 5, 6, i % 2 ? C.brown : C.dbrown);
+  }
+  const tx = x + (lean * 169) / 30;
+  const ty = base - 84;
+  const leaves: [number, number][] = [[-26, 8], [26, 10], [-18, -8], [20, -6], [0, -12]];
+  for (const [dx, dy] of leaves) {
+    g.tri(tx, ty, tx + dx, ty + dy, tx + dx * 0.6, ty + dy + 6, C.green);
+    g.tri(tx, ty + 1, tx + dx, ty + dy, tx + dx * 0.5, ty + dy + 2, C.dgreen);
+  }
+  g.circle(tx - 2, ty + 4, 2, C.dbrown);
+  g.circle(tx + 3, ty + 4, 2, C.dbrown);
+}
+
+function sea(g: Gfx, y0: number, y1: number, t: number, cols: string[] = [C.lblue, C.sbBlue, C.blue], foam: string = C.lcyan) {
+  g.bands(0, y0, W, y1, cols);
+  for (let i = 0; i < 26; i++) {
+    const y = y0 + 3 + ((i * 7) % (y1 - y0 - 4));
+    const x = ((rnd(i) * W + t * (6 + (i % 4) * 3)) % (W + 20)) - 10;
+    g.rect(x, y, 4 + (i % 3) * 2, 1, foam);
+  }
+}
+
+function windowFrame(g: Gfx, x: number, y: number, w: number, h: number, frame: string, arch = false) {
+  g.rect(x - 2, y - 2, w + 4, h + 4, frame);
+  if (arch) g.ellipse(x + w / 2, y, w / 2 + 2, 8, frame);
+}
+
+function bookshelf(g: Gfx, x: number, y: number, w: number, h: number, seed: number) {
+  g.rect(x, y, w, h, C.dbrown);
+  g.rect(x + 2, y + 2, w - 4, h - 4, "#3a1c08");
+  const cols = [C.sbRed, C.sbBlue, C.green, C.sbYellow, C.magenta, C.cyan, C.brown, C.lred, C.lblue, C.cream];
+  for (let sy = y + 4, r = 0; sy + 22 < y + h; sy += 26, r++) {
+    let bx = x + 3;
+    let i = 0;
+    while (bx < x + w - 6) {
+      const bw = 3 + Math.floor(rnd(seed + r * 31 + i) * 4);
+      const bh = 15 + Math.floor(rnd(seed + r * 17 + i * 3) * 7);
+      const c = cols[Math.floor(rnd(seed + i * 5 + r) * cols.length)];
+      if (rnd(seed + i + r * 9) > 0.93) {
+        g.poly([[bx, sy + 22], [bx + bw, sy + 22], [bx + bw + 5, sy + 22 - bh + 2], [bx + 5, sy + 22 - bh + 2]], c);
+        bx += bw + 6;
+      } else {
+        g.rect(bx, sy + 22 - bh, bw, bh, c);
+        g.rect(bx, sy + 22 - bh + 3, bw, 1, C.sbYellow);
+        bx += bw + (rnd(seed + i * 11) > 0.85 ? 2 : 0);
+      }
+      i++;
+    }
+    g.rect(x + 2, sy + 22, w - 4, 3, C.brown);
+  }
+}
+
+// ---------- scenes ----------
+export const SCENE_PAINTERS: Record<SceneId, ScenePainter> = {
+  library: {
+    floor: 188,
+    bg(g) {
+      g.dither(0, 0, W, 150, C.dbrown, "#3a1c08");
+      bookshelf(g, 4, 10, 108, 142, 3);
+      bookshelf(g, 208, 10, 108, 142, 9);
+      // Round window with the night sky
+      g.ellipse(160, 58, 36, 40, C.dbrown);
+      g.ellipse(160, 58, 32, 36, C.navy);
+      g.dither(124, 74, 72, 20, C.navy, C.blue);
+      stars(g, 22, 24, 90, 5);
+      g.circle(172, 42, 7, C.cream);
+      g.circle(175, 40, 6, C.navy);
+      g.rect(159, 22, 2, 72, C.dbrown);
+      g.rect(128, 57, 64, 2, C.dbrown);
+      // Sign
+      g.rect(122, 2, 76, 11, C.dbrown);
+      g.rect(123, 3, 74, 9, C.sbRed);
+      g.text("ARCADE LIBRARY", 160, 5, C.sbYellow, 1, "center");
+      // Desk with lamp and open book
+      g.rect(122, 110, 76, 6, C.brown);
+      g.rect(126, 116, 4, 34, C.dbrown);
+      g.rect(190, 116, 4, 34, C.dbrown);
+      g.poly([[140, 109], [158, 106], [158, 109]], C.white);
+      g.poly([[160, 106], [178, 109], [160, 109]], C.cream);
+      g.rect(186, 96, 2, 14, C.dgray);
+      g.tri(180, 96, 194, 96, 187, 88, C.green);
+      // Floor + rug
+      planks(g, 150, 200, C.brown, C.dbrown, "#3a1c08");
+      g.ellipse(160, 180, 110, 14, C.sbYellow);
+      g.ellipse(160, 180, 106, 12, C.sbRed);
+      g.dither(80, 176, 160, 8, C.sbRed, C.red);
+    },
+    anim(g, t) {
+      const f = 0.5 + 0.5 * Math.sin(t * 3);
+      g.dither(178, 96 + 1, 18, 2, C.sbYellow, f > 0.5 ? C.yellow : C.orange);
+      // dust motes in the lamp light
+      for (let i = 0; i < 5; i++) g.px(150 + ((i * 13 + t * 4) % 50), 70 + ((i * 17 + t * 6) % 40), C.sbYellow);
+    },
+  },
+
+  beach: {
+    floor: 188,
+    bg(g) {
+      g.bands(0, 0, W, 86, [C.sbBlue, C.sbSky, "#9cc4ff", "#cfe3ff"]);
+      g.circle(262, 30, 13, C.sbYellow);
+      g.circle(262, 30, 10, C.yellow);
+      cloud(g, 70, 22, 1.2);
+      cloud(g, 190, 36, 0.9);
+      g.rect(0, 118, W, 82, C.sand);
+      g.dither(0, 118, W, 8, C.tan, C.sand);
+      g.dither(0, 150, W, 50, C.sand, C.sbYellow);
+      // Dock going out to sea
+      g.rect(200, 100, 120, 6, C.brown);
+      g.rect(200, 105, 120, 1, C.dbrown);
+      for (let x = 204; x < W; x += 14) g.rect(x, 106, 3, 16, C.dbrown);
+      palm(g, 36, 170, 1.4);
+      // shells & a crab
+      g.rect(120, 172, 3, 2, C.white);
+      g.rect(250, 182, 3, 2, C.lmagenta);
+      g.rect(96, 190, 5, 3, C.sbRed);
+      g.px(95, 189, C.sbRed);
+      g.px(101, 189, C.sbRed);
+    },
+    back(g, t) {
+      sea(g, 86, 118, t);
+    },
+    anim(g, t) {
+      const surf = 118 + Math.round(Math.sin(t * 1.5) * 2);
+      g.dither(0, surf - 2, W, 3, C.white, C.lcyan);
+      // gull
+      const gx = (t * 18) % (W + 40) - 20;
+      g.line(gx - 4, 44, gx, 46 + Math.round(Math.sin(t * 8)), C.white);
+      g.line(gx, 46 + Math.round(Math.sin(t * 8)), gx + 4, 44, C.white);
+    },
+  },
+
+  "ship-deck": {
+    floor: 190,
+    bg(g) {
+      g.bands(0, 0, W, 96, [C.sbBlue, C.sbSky, "#cfe3ff"]);
+      cloud(g, 60, 30, 1);
+      cloud(g, 260, 18, 1.3);
+      // mast, sail, rigging
+      g.rect(156, 0, 6, 128, C.dbrown);
+      g.rect(90, 12, 136, 3, C.dbrown);
+      g.poly([[94, 15], [222, 15], [214, 84], [102, 84]], C.cream);
+      g.dither(94, 70, 128, 14, C.cream, C.lgray);
+      for (let x = 110; x < 214; x += 18) g.line(x, 16, x + (x - 158) / 16, 83, C.lgray);
+      g.rect(96, 84, 124, 2, C.dbrown);
+      g.circle(158, 48, 12, C.sbRed);
+      g.circle(158, 48, 6, C.cream);
+      g.line(10, 112, 150, 2, C.dgray);
+      g.line(310, 112, 166, 2, C.dgray);
+      // rail
+      g.rect(0, 108, W, 5, C.brown);
+      g.rect(0, 113, W, 1, C.dbrown);
+      for (let x = 4; x < W; x += 12) g.rect(x, 114, 4, 18, C.brown);
+      g.rect(0, 130, W, 3, C.dbrown);
+      // deck with perspective seams
+      g.rect(0, 133, W, 67, C.brown);
+      for (let i = -8; i <= 8; i++) g.line(160 + i * 12, 133, 160 + i * 40, 200, C.dbrown);
+      g.dither(0, 133, W, 6, C.dbrown, C.brown);
+      // barrels and a coil of rope
+      for (const bx of [22, 44]) {
+        g.rect(bx - 9, 146, 18, 26, C.brown);
+        g.rect(bx - 9, 150, 18, 2, C.dgray);
+        g.rect(bx - 9, 166, 18, 2, C.dgray);
+        g.rect(bx - 9, 146, 2, 26, C.dbrown);
+      }
+      g.ellipse(292, 176, 14, 5, C.tan);
+      g.ellipse(292, 176, 9, 3, C.brown);
+      g.ellipse(292, 176, 5, 1, C.tan);
+    },
+    back(g, t) {
+      sea(g, 96, 108, t);
+    },
+    anim(g, t) {
+      // flag at the masthead
+      for (let i = 0; i < 12; i++) g.rect(162 + i, 2 + Math.round(Math.sin(t * 6 + i * 0.6) * 1.5), 1, 6, i < 6 ? C.sbRed : C.sbBlue);
+    },
+  },
+
+  "island-jungle": {
+    floor: 188,
+    bg(g) {
+      g.rect(0, 0, W, 200, C.dgreen);
+      g.dither(0, 0, W, 60, C.green, C.dgreen);
+      // light rays
+      for (let i = 0; i < 4; i++) g.poly([[60 + i * 70, 0], [76 + i * 70, 0], [40 + i * 70, 150], [30 + i * 70, 150]], "#1f6a1f");
+      // trunks
+      for (const [x, w] of [[30, 12], [120, 8], [210, 14], [290, 10]] as [number, number][]) {
+        g.rect(x, 0, w, 160, C.dbrown);
+        g.rect(x + 2, 0, 2, 160, C.brown);
+      }
+      // canopy blobs
+      for (let i = 0; i < 18; i++) g.ellipse(rnd(i) * W, rnd(i + 40) * 40, 22 + rnd(i + 2) * 16, 10 + rnd(i + 3) * 6, i % 3 ? C.green : C.dgreen);
+      // vines
+      for (let i = 0; i < 9; i++) {
+        const x = 16 + i * 36;
+        const len = 40 + rnd(i + 7) * 60;
+        g.rect(x, 20, 1, len, C.lgreen);
+        for (let y = 26; y < 20 + len; y += 8) g.rect(x - 2, y, 2, 2, C.green);
+      }
+      // big leaves near the ground
+      g.rect(0, 150, W, 50, "#3a2a10");
+      g.dither(0, 150, W, 50, "#3a2a10", C.dbrown);
+      g.poly([[100, 178], [220, 178], [240, 200], [80, 200]], C.tan);
+      g.dither(90, 180, 140, 20, C.tan, C.brown);
+      for (let i = 0; i < 10; i++) {
+        const x = i * 34 + (i % 2) * 10;
+        const y = 150 + (i % 3) * 6;
+        g.tri(x, y + 18, x + 18, y - 6, x + 22, y + 16, C.green);
+        g.tri(x + 4, y + 18, x - 14, y - 2, x - 10, y + 18, C.lgreen);
+      }
+      g.circle(70, 160, 3, C.sbRed);
+      g.circle(262, 166, 3, C.lmagenta);
+      g.circle(262, 166, 1, C.yellow);
+    },
+    anim(g, t) {
+      const bx = 160 + Math.sin(t * 0.7) * 120;
+      const by = 90 + Math.sin(t * 1.9) * 20;
+      const wing = Math.sin(t * 16) > 0 ? 3 : 1;
+      g.rect(bx - wing, by, wing, 3, C.sbYellow);
+      g.rect(bx + 1, by, wing, 3, C.sbYellow);
+      g.px(bx, by + 1, C.black);
+    },
+  },
+
+  cave: {
+    floor: 188,
+    bg(g) {
+      g.rect(0, 0, W, 200, "#1a1a24");
+      g.dither(0, 0, W, 160, "#1a1a24", C.black);
+      // mouth of the cave at the back
+      g.ellipse(170, 96, 46, 36, C.navy);
+      g.dither(130, 70, 80, 60, C.navy, C.blue);
+      // rock masses
+      g.poly([[0, 0], [90, 0], [70, 40], [40, 140], [0, 160]], C.dgray);
+      g.poly([[320, 0], [230, 0], [250, 50], [276, 150], [320, 160]], C.dgray);
+      g.dither(0, 0, 60, 150, C.dgray, C.stone);
+      g.dither(270, 0, 50, 150, C.dgray, C.stone);
+      // stalactites
+      for (let i = 0; i < 14; i++) {
+        const x = 20 + i * 22 + rnd(i) * 8;
+        g.tri(x - 5, 0, x + 5, 0, x, 14 + rnd(i + 3) * 26, i % 2 ? C.stone : C.dgray);
+      }
+      // floor
+      g.rect(0, 150, W, 50, C.dgray);
+      g.dither(0, 150, W, 50, C.dgray, "#3a3a44");
+      for (let i = 0; i < 6; i++) g.tri(20 + i * 56, 160, 30 + i * 56, 132 + rnd(i) * 10, 40 + i * 56, 160, C.stone);
+      g.ellipse(230, 186, 30, 5, C.blue);
+      g.ellipse(230, 186, 24, 3, C.sbBlue);
+      torch(g, 60, 90);
+      torch(g, 262, 90);
+    },
+    anim(g, t) {
+      flame(g, 60, 86, t);
+      flame(g, 262, 86, t + 1);
+      // glowing crystals
+      const glow = Math.sin(t * 2) > 0 ? C.lcyan : C.cyan;
+      g.tri(100, 150, 106, 128, 110, 150, glow);
+      g.tri(108, 150, 114, 136, 118, 150, C.lmagenta);
+      g.tri(290, 152, 296, 132, 300, 152, glow);
+      // drip
+      const d = (t * 40) % 60;
+      g.px(200, 30 + d, C.lcyan);
+    },
+  },
+
+  "castle-hall": {
+    floor: 190,
+    bg(g) {
+      bricks(g, 0, 0, W, 150, C.dgray, "#3a3a44");
+      g.dither(0, 0, W, 20, C.dgray, "#3a3a44");
+      // arched window
+      windowFrame(g, 134, 30, 52, 70, C.lgray, true);
+      g.rect(134, 30, 52, 70, C.sbBlue);
+      g.ellipse(160, 30, 26, 8, C.sbBlue);
+      g.rect(134, 62, 52, 38, C.sbRed);
+      g.dither(134, 58, 52, 6, C.sbBlue, C.sbRed);
+      g.rect(158, 22, 4, 78, C.lgray);
+      g.rect(134, 64, 52, 3, C.lgray);
+      g.circle(160, 46, 6, C.sbYellow);
+      // banners
+      for (const [x, c] of [[62, C.sbRed], [244, C.sbBlue]] as [number, string][]) {
+        g.rect(x - 16, 14, 32, 2, C.dbrown);
+        g.poly([[x - 14, 16], [x + 14, 16], [x + 14, 90], [x, 80], [x - 14, 90]], c);
+        g.poly([[x, 34], [x + 8, 46], [x, 58], [x - 8, 46]], C.sbYellow);
+      }
+      torch(g, 104, 70);
+      torch(g, 216, 70);
+      // flagstone floor + carpet
+      g.rect(0, 150, W, 50, C.stone);
+      for (let y = 150, r = 0; y < 200; y += 10, r++) {
+        g.rect(0, y, W, 1, C.dgray);
+        for (let x = (r % 2) * 14; x < W; x += 28) g.rect(x, y, 1, 10, C.dgray);
+      }
+      g.poly([[140, 150], [180, 150], [230, 200], [90, 200]], C.sbRed);
+      g.line(140, 150, 90, 200, C.sbYellow);
+      g.line(180, 150, 230, 200, C.sbYellow);
+      g.rect(0, 148, W, 3, "#3a3a44");
+    },
+    anim(g, t) {
+      flame(g, 104, 66, t);
+      flame(g, 216, 66, t + 0.4);
+    },
+  },
+
+  forest: {
+    floor: 188,
+    bg(g) {
+      g.bands(0, 0, W, 110, [C.sbSky, "#9cc4ff", "#cfe3ff"]);
+      // distant trees
+      for (let i = 0; i < 16; i++) pine(g, i * 22 + 6, 118, 44 + rnd(i) * 20, "#2f7a4a", "#1f5a3a");
+      // grass
+      g.rect(0, 118, W, 82, C.green);
+      g.dither(0, 118, W, 30, C.dgreen, C.green);
+      // path
+      g.poly([[140, 118], [176, 118], [250, 200], [70, 200]], C.tan);
+      g.dither(110, 150, 110, 50, C.tan, C.sand);
+      // big trunks and canopy
+      for (const [x, w] of [[20, 20], [270, 24], [90, 10], [226, 10]] as [number, number][]) {
+        g.rect(x, 0, w, 160, C.dbrown);
+        g.rect(x + 3, 0, 3, 160, C.brown);
+        g.ellipse(x + w / 2, 160, w / 2 + 4, 3, C.dbrown);
+      }
+      for (let i = 0; i < 12; i++) g.ellipse(rnd(i + 9) * W, 8 + rnd(i + 19) * 26, 26 + rnd(i) * 14, 12, i % 2 ? C.green : C.dgreen);
+      // bushes and mushrooms
+      for (const x of [50, 300, 200]) {
+        g.ellipse(x, 160, 18, 10, C.dgreen);
+        g.ellipse(x + 4, 157, 12, 7, C.green);
+      }
+      for (const x of [62, 246]) {
+        g.rect(x, 180, 2, 5, C.cream);
+        g.ellipse(x + 1, 179, 4, 2, C.sbRed);
+        g.px(x, 178, C.white);
+      }
+    },
+    anim(g, t) {
+      const lx = 180 + Math.sin(t * 1.3) * 30;
+      const ly = (t * 14) % 150;
+      g.rect(lx, ly, 2, 2, C.orange);
+      for (let i = 0; i < 4; i++) {
+        const on = Math.sin(t * 3 + i * 2) > 0.3;
+        if (on) g.px(40 + i * 70 + Math.sin(t + i) * 8, 130 + Math.cos(t * 1.3 + i) * 10, C.yellow);
+      }
+    },
+  },
+
+  village: {
+    floor: 190,
+    bg(g) {
+      g.bands(0, 0, W, 110, [C.sbSky, "#9cc4ff", "#cfe3ff"]);
+      cloud(g, 240, 22, 1.1);
+      g.ellipse(80, 118, 120, 30, "#2f7a4a");
+      g.ellipse(260, 122, 110, 26, C.green);
+      // houses
+      const houses: [number, number, number, string, string][] = [
+        [10, 70, 60, C.cream, C.sbRed],
+        [84, 58, 52, C.tan, C.brown],
+        [196, 76, 56, C.cream, C.sbBlue],
+        [262, 62, 52, C.tan, C.sbRed],
+      ];
+      for (const [x, y, w, wall, roof] of houses) {
+        const h = 146 - y;
+        g.rect(x, y, w, h, wall);
+        g.dither(x, y, 4, h, wall, C.lgray);
+        g.tri(x - 6, y + 1, x + w + 6, y + 1, x + w / 2, y - 26, roof);
+        g.rect(x + w - 14, y - 22, 6, 12, C.dgray);
+        g.rect(x + w / 2 - 5, y + h - 20, 10, 20, C.dbrown);
+        g.px(x + w / 2 + 3, y + h - 10, C.sbYellow);
+        g.rect(x + 6, y + 10, 10, 9, C.sbYellow);
+        g.rect(x + w - 16, y + 10, 10, 9, C.sbYellow);
+        g.rect(x + 10, y + 10, 1, 9, C.dbrown);
+        g.rect(x + w - 12, y + 10, 1, 9, C.dbrown);
+      }
+      // cobbles
+      g.rect(0, 146, W, 54, C.lgray);
+      for (let y = 148, r = 0; y < 200; y += 6, r++) for (let x = (r % 2) * 5; x < W; x += 10) g.rect(x, y, 8, 4, r % 3 ? C.stone : "#9a9aaa");
+      // well
+      g.rect(150, 128, 26, 18, C.dgray);
+      g.rect(150, 128, 26, 3, C.stone);
+      g.rect(150, 108, 2, 20, C.dbrown);
+      g.rect(174, 108, 2, 20, C.dbrown);
+      g.tri(146, 110, 180, 110, 163, 98, C.brown);
+    },
+    anim(g, t) {
+      for (const [x, y] of [[59, 36], [128, 24], [241, 42], [305, 28]] as [number, number][]) {
+        for (let i = 0; i < 3; i++) {
+          const k = (t * 0.6 + i / 3) % 1;
+          g.circle(x + Math.sin(t + i) * 3 + k * 6, y - k * 24, 2 + k * 3, k > 0.6 ? "#cfe3ff" : C.lgray);
+        }
+      }
+    },
+  },
+
+  "mountain-pass": {
+    floor: 190,
+    bg(g) {
+      g.bands(0, 0, W, 120, [C.sbBlue, C.sbSky, "#cfe3ff"]);
+      g.poly([[0, 120], [60, 40], [120, 110], [180, 30], [250, 100], [300, 50], [320, 70], [320, 120]], C.purple);
+      for (const [x, y] of [[60, 40], [180, 30], [300, 50]] as [number, number][]) g.tri(x - 12, y + 14, x + 12, y + 14, x, y, C.white);
+      g.poly([[0, 140], [40, 80], [100, 130], [160, 70], [230, 130], [280, 90], [320, 120], [320, 150], [0, 150]], C.dgray);
+      g.dither(0, 110, W, 40, C.dgray, C.stone);
+      for (let i = 0; i < 9; i++) pine(g, 10 + i * 38, 150, 26 + rnd(i) * 10, C.dgreen, "#0f3a1f");
+      // rocky path
+      g.rect(0, 150, W, 50, C.brown);
+      g.dither(0, 150, W, 50, C.brown, C.tan);
+      for (let i = 0; i < 12; i++) g.ellipse(rnd(i + 5) * W, 160 + rnd(i + 8) * 36, 5 + rnd(i) * 6, 3, i % 2 ? C.stone : C.dgray);
+      g.poly([[0, 150], [30, 150], [0, 200]], C.dgray);
+      g.poly([[320, 150], [290, 150], [320, 200]], C.dgray);
+    },
+    anim(g, t) {
+      cloud(g, ((t * 6) % 400) - 40, 26, 1);
+      cloud(g, ((t * 4 + 200) % 400) - 40, 50, 0.7);
+      const ex = ((t * 20) % 380) - 30;
+      const ey = 38 + Math.sin(t) * 6;
+      const up = Math.sin(t * 5) > 0;
+      g.line(ex - 5, ey + (up ? -2 : 1), ex, ey, C.dbrown);
+      g.line(ex, ey, ex + 5, ey + (up ? -2 : 1), C.dbrown);
+    },
+  },
+
+  "space-bridge": {
+    floor: 190,
+    bg(g) {
+      g.rect(0, 0, W, 200, "#1c2440");
+      for (let x = 0; x < W; x += 40) g.rect(x, 0, 1, 150, "#2a3560");
+      // viewport
+      g.rect(36, 8, 248, 88, C.lgray);
+      g.rect(40, 12, 240, 80, C.deep);
+      g.rect(40, 12, 240, 1, C.stone);
+      // consoles
+      g.poly([[0, 120], [320, 120], [320, 150], [0, 150]], "#2a3560");
+      g.rect(0, 118, W, 3, C.lgray);
+      for (let x = 12; x < W; x += 60) {
+        g.rect(x, 124, 40, 18, C.deep);
+        for (let i = 0; i < 6; i++) g.rect(x + 3 + i * 6, 138 - Math.floor(rnd(x + i) * 12), 4, 1 + Math.floor(rnd(x + i) * 12), C.cyan);
+      }
+      // floor panels
+      g.rect(0, 150, W, 50, "#2a3560");
+      for (let y = 150; y < 200; y += 10) g.rect(0, y, W, 1, "#1c2440");
+      for (let i = -6; i <= 6; i++) g.line(160 + i * 14, 150, 160 + i * 40, 200, "#1c2440");
+      g.rect(0, 150, W, 2, C.sbSky);
+    },
+    anim(g, t) {
+      g.rect(40, 13, 240, 79, C.deep);
+      for (let i = 0; i < 40; i++) {
+        const k = (rnd(i) + t * 0.15 * (0.5 + rnd(i + 3))) % 1;
+        const ang = rnd(i + 9) * Math.PI * 2;
+        const r = k * 150;
+        const x = 160 + Math.cos(ang) * r;
+        const y = 52 + Math.sin(ang) * r * 0.5;
+        if (x > 40 && x < 279 && y > 13 && y < 91) g.rect(x, y, k > 0.6 ? 2 : 1, 1, k > 0.5 ? C.white : C.lgray);
+      }
+      g.circle(236, 70, 12, C.orange);
+      g.circle(240, 66, 10, C.sbYellow);
+      g.dither(224, 64, 24, 14, C.orange, C.sbRed);
+      for (let x = 12; x < W; x += 60) {
+        for (let i = 0; i < 4; i++) {
+          const on = Math.floor(t * 3 + i + x) % 3 === 0;
+          g.rect(x + 44 + (i % 2) * 5, 126 + Math.floor(i / 2) * 5, 3, 3, on ? [C.sbRed, C.lgreen, C.sbYellow, C.lcyan][i] : C.dgray);
+        }
+      }
+    },
+  },
+
+  "space-corridor": {
+    floor: 190,
+    bg(g) {
+      g.rect(0, 0, W, 200, "#2a3560");
+      g.poly([[0, 0], [110, 50], [110, 130], [0, 190]], "#3a4680");
+      g.poly([[320, 0], [210, 50], [210, 130], [320, 190]], "#3a4680");
+      g.poly([[0, 0], [320, 0], [210, 50], [110, 50]], "#1c2440");
+      g.poly([[0, 200], [320, 200], [210, 130], [110, 130]], C.dgray);
+      for (let i = 0; i < 8; i++) {
+        const k = i / 8;
+        const y = 130 + Math.pow(k, 1.6) * 70;
+        g.line(110 - k * 110, y, 210 + k * 110, y, C.stone);
+      }
+      g.rect(110, 50, 100, 80, C.deep);
+      g.rect(140, 66, 40, 64, C.lgray);
+      g.rect(159, 66, 2, 64, C.dgray);
+      // side doors
+      g.poly([[20, 40], [70, 62], [70, 140], [20, 162]], C.stone);
+      g.poly([[300, 40], [250, 62], [250, 140], [300, 162]], C.stone);
+      g.poly([[26, 48], [64, 65], [64, 137], [26, 154]], C.lgray);
+      g.poly([[294, 48], [256, 65], [256, 137], [294, 154]], C.lgray);
+      // pipes
+      g.line(0, 12, 110, 56, C.lgray);
+      g.line(320, 12, 210, 56, C.lgray);
+    },
+    anim(g, t) {
+      for (let i = 0; i < 5; i++) {
+        const k = i / 5;
+        const on = Math.floor(t * 4 - i) % 5 === 0;
+        g.rect(160 - (50 + k * 100), 44 - k * 40, 100 + k * 200, 2, on ? C.lcyan : C.cyan);
+      }
+      g.rect(48, 96, 4, 4, Math.sin(t * 3) > 0 ? C.sbRed : C.red);
+      g.rect(268, 96, 4, 4, Math.sin(t * 2) > 0 ? C.lgreen : C.green);
+      g.rect(156, 58, 8, 3, Math.sin(t * 5) > 0 ? C.sbYellow : C.brown);
+    },
+  },
+
+  "planet-surface": {
+    floor: 190,
+    bg(g) {
+      g.bands(0, 0, W, 130, [C.deep, C.purple, C.magenta, C.lmagenta]);
+      stars(g, 50, 0, 60, 21);
+      // ringed planet + moons
+      g.circle(80, 44, 22, C.orange);
+      g.dither(58, 40, 44, 26, C.orange, C.sbRed);
+      g.ellipse(80, 48, 40, 5, C.sbYellow);
+      g.ellipse(80, 48, 34, 3, C.purple);
+      g.rect(58, 45, 44, 3, C.orange);
+      g.circle(250, 28, 6, C.lgray);
+      g.circle(280, 50, 3, C.cream);
+      // ground
+      g.poly([[0, 130], [60, 120], [140, 132], [220, 118], [320, 128], [320, 200], [0, 200]], C.brown);
+      g.dither(0, 130, W, 70, C.brown, C.orange);
+      for (let i = 0; i < 7; i++) {
+        const x = 20 + rnd(i + 3) * 280;
+        const y = 150 + rnd(i + 9) * 40;
+        const r = 6 + rnd(i) * 10;
+        g.ellipse(x, y, r, r / 3, C.dbrown);
+        g.ellipse(x, y - 1, r - 2, r / 3 - 1, "#8a3a10");
+      }
+      // rocket
+      g.rect(276, 96, 14, 40, C.lgray);
+      g.tri(276, 96, 290, 96, 283, 80, C.sbRed);
+      g.tri(270, 136, 276, 120, 276, 136, C.sbRed);
+      g.tri(296, 136, 290, 120, 290, 136, C.sbRed);
+      g.circle(283, 108, 3, C.sbSky);
+    },
+    anim(g, t) {
+      for (let i = 0; i < 4; i++) {
+        const x = 30 + i * 60;
+        const sway = Math.round(Math.sin(t * 1.5 + i) * 2);
+        g.line(x, 150, x + sway, 128, C.cyan);
+        g.circle(x + sway, 126, 3, Math.sin(t * 2 + i) > 0 ? C.lcyan : C.cyan);
+      }
+    },
+  },
+
+  "museum-hall": {
+    floor: 190,
+    bg(g) {
+      g.rect(0, 0, W, 150, C.cream);
+      g.dither(0, 0, W, 16, C.tan, C.cream);
+      g.rect(0, 120, W, 30, C.tan);
+      g.rect(0, 120, W, 2, C.brown);
+      // columns
+      for (const x of [18, 286]) {
+        g.rect(x, 12, 18, 138, C.white);
+        g.rect(x + 3, 12, 2, 138, C.lgray);
+        g.rect(x + 10, 12, 2, 138, C.lgray);
+        g.rect(x - 4, 8, 26, 6, C.lgray);
+        g.rect(x - 4, 144, 26, 6, C.lgray);
+      }
+      // paintings
+      const frames: [number, number, number, number][] = [[58, 30, 56, 40], [206, 26, 52, 48]];
+      for (const [x, y, w, h] of frames) {
+        g.rect(x - 4, y - 4, w + 8, h + 8, C.sbYellow);
+        g.rect(x - 2, y - 2, w + 4, h + 4, C.brown);
+      }
+      g.bands(58, 30, 56, 70, [C.sbSky, "#cfe3ff"]);
+      g.poly([[58, 70], [80, 48], [100, 62], [114, 54], [114, 70]], C.green);
+      g.circle(100, 40, 4, C.sbYellow);
+      g.rect(206, 26, 52, 48, C.dbrown);
+      g.ellipse(232, 48, 12, 14, "#f0b890");
+      g.rect(218, 60, 28, 14, C.sbRed);
+      g.rect(226, 38, 12, 4, C.dbrown);
+      // display case on a pedestal
+      g.rect(140, 96, 40, 50, C.lgray);
+      g.rect(142, 98, 36, 4, C.white);
+      g.rect(136, 70, 48, 28, "#bfe8ff");
+      g.dither(136, 70, 48, 28, "#bfe8ff", C.white);
+      g.rect(136, 70, 48, 1, C.dgray);
+      // floor: checkered marble
+      for (let r = 0; r < 5; r++) {
+        const y0 = 150 + r * 10;
+        for (let c = -10; c < 20; c++) {
+          const k = (r + c) % 2;
+          const x0 = 160 + (c - 5) * (16 + r * 4);
+          g.rect(x0, y0, 16 + r * 4, 10, k ? C.white : C.dgray);
+        }
+      }
+      // velvet ropes
+      for (const x of [110, 210]) {
+        g.rect(x, 150, 3, 22, C.sbYellow);
+        g.rect(x - 2, 170, 7, 3, C.sbYellow);
+      }
+      for (let x = 112; x < 211; x++) g.px(x, 154 + Math.round(Math.sin(((x - 112) / 99) * Math.PI) * 6), C.sbRed);
+    },
+    anim(g, t) {
+      g.rect(300, 20, 10, 6, C.dgray);
+      g.rect(296, 22, 4, 2, C.dgray);
+      g.px(303, 22, Math.sin(t * 4) > 0 ? C.sbRed : C.dgray);
+    },
+  },
+
+  "museum-vault": {
+    floor: 190,
+    bg(g) {
+      g.rect(0, 0, W, 150, C.stone);
+      for (let x = 0; x < W; x += 32) {
+        g.rect(x, 0, 1, 150, C.dgray);
+        for (let y = 6; y < 150; y += 20) {
+          g.px(x + 4, y, C.lgray);
+          g.px(x + 27, y, C.lgray);
+        }
+      }
+      // big round vault door (swung open) on the right
+      g.circle(264, 78, 50, C.dgray);
+      g.circle(264, 78, 44, C.lgray);
+      g.circle(264, 78, 36, C.stone);
+      g.circle(264, 78, 8, C.dgray);
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        g.line(264, 78, 264 + Math.cos(a) * 26, 78 + Math.sin(a) * 26, C.dgray);
+      }
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        g.circle(264 + Math.cos(a) * 40, 78 + Math.sin(a) * 40, 2, C.white);
+      }
+      // shelves of gold
+      g.rect(10, 60, 70, 4, C.dgray);
+      g.rect(10, 100, 70, 4, C.dgray);
+      for (let i = 0; i < 5; i++) {
+        g.rect(14 + i * 13, 52, 10, 8, C.sbYellow);
+        g.rect(14 + i * 13, 52, 10, 2, C.yellow);
+      }
+      for (let i = 0; i < 3; i++) g.circle(22 + i * 22, 94, 5, C.sbYellow);
+      // pedestal
+      g.rect(146, 108, 28, 42, C.lgray);
+      g.rect(142, 104, 36, 6, C.white);
+      // floor
+      g.rect(0, 150, W, 50, C.dgray);
+      for (let x = 0; x < W; x += 8) g.rect(x, 150, 1, 50, "#3a3a44");
+      for (let y = 150; y < 200; y += 8) g.rect(0, y, W, 1, "#3a3a44");
+    },
+    anim(g, t) {
+      const s = Math.floor(t * 4) % 4;
+      g.poly([[160, 84], [168, 94], [160, 104], [152, 94]], C.lcyan);
+      g.poly([[160, 88], [164, 94], [160, 100], [156, 94]], C.white);
+      if (s === 0) { g.px(166, 86, C.white); g.px(154, 100, C.white); }
+      const on = Math.sin(t * 1.2) > -0.3;
+      if (on) {
+        g.line(0, 120, 140, 160, C.lred);
+        g.line(0, 160, 140, 118, C.lred);
+        g.line(180, 118, 320, 150, C.lred);
+      }
+    },
+  },
+
+  "city-street": {
+    floor: 186,
+    bg(g) {
+      g.bands(0, 0, W, 120, [C.deep, C.navy, "#1c2460"]);
+      stars(g, 30, 0, 50, 41);
+      g.circle(40, 22, 8, C.cream);
+      let x = 0;
+      let i = 0;
+      while (x < W) {
+        const w = 26 + Math.floor(rnd(i + 2) * 30);
+        const h = 50 + Math.floor(rnd(i + 5) * 80);
+        const top = 150 - h;
+        g.rect(x, top, w - 2, h, i % 2 ? "#1c2440" : "#2a2a4a");
+        for (let wy = top + 6; wy < 140; wy += 10) for (let wx = x + 4; wx < x + w - 8; wx += 8) if (rnd(wx * 3 + wy) > 0.45) g.rect(wx, wy, 4, 5, C.sbYellow);
+        x += w;
+        i++;
+      }
+      // sidewalk + road
+      g.rect(0, 146, W, 44, C.stone);
+      g.dither(0, 146, W, 44, C.stone, C.lgray);
+      for (let x2 = 0; x2 < W; x2 += 32) g.rect(x2, 146, 1, 44, C.dgray);
+      g.rect(0, 190, W, 10, C.dgray);
+      g.rect(0, 189, W, 2, C.lgray);
+      for (let x2 = 10; x2 < W; x2 += 40) g.rect(x2, 196, 20, 2, C.sbYellow);
+      // lamps
+      for (const lx of [70, 250]) {
+        g.rect(lx, 96, 3, 54, C.dgray);
+        g.rect(lx - 4, 92, 11, 4, C.dgray);
+      }
+      g.rect(296, 170, 8, 14, C.sbRed);
+      g.rect(294, 168, 12, 3, C.sbRed);
+      // neon sign
+      g.rect(130, 70, 60, 16, C.deep);
+      g.text("DINER", 160, 76, C.lmagenta, 1, "center");
+    },
+    anim(g, t) {
+      for (const lx of [70, 250]) {
+        g.rect(lx - 3, 96, 9, 3, C.yellow);
+        g.dither(lx - 18, 100, 39, 46, "#2a2a4a", C.sbYellow);
+      }
+      if (Math.sin(t * 3) > -0.8) g.rect(128, 68, 64, 1, C.lmagenta);
+    },
+  },
+
+  lab: {
+    floor: 190,
+    bg(g) {
+      g.rect(0, 0, W, 150, C.white);
+      for (let x = 0; x < W; x += 10) g.rect(x, 0, 1, 150, "#d8e0e8");
+      for (let y = 0; y < 150; y += 10) g.rect(0, y, W, 1, "#d8e0e8");
+      // whiteboard with formulas
+      g.rect(100, 16, 120, 60, C.lgray);
+      g.rect(102, 18, 116, 56, C.white);
+      g.text("E = MC", 112, 26, C.sbBlue);
+      g.text("H2O", 170, 30, C.sbRed);
+      g.line(112, 46, 150, 40, C.green);
+      g.line(150, 40, 170, 60, C.green);
+      g.line(170, 60, 204, 44, C.green);
+      // shelves of beakers
+      g.rect(8, 50, 70, 3, C.dgray);
+      g.rect(242, 50, 70, 3, C.dgray);
+      const beaker = (x: number, y: number, c: string) => {
+        g.rect(x, y - 12, 8, 12, "#cfe3ff");
+        g.rect(x + 1, y - 7, 6, 7, c);
+        g.rect(x + 2, y - 15, 4, 3, "#cfe3ff");
+      };
+      [C.lgreen, C.lmagenta, C.lcyan, C.sbYellow, C.lred].forEach((c, i) => {
+        beaker(12 + i * 13, 50, c);
+        beaker(246 + i * 13, 50, [C.lcyan, C.sbYellow, C.lgreen, C.lred, C.lmagenta][i]);
+      });
+      // machine
+      g.rect(250, 70, 60, 80, C.stone);
+      g.rect(256, 78, 48, 24, C.deep);
+      for (let i = 0; i < 3; i++) g.circle(264 + i * 16, 118, 5, C.lgray);
+      // bench
+      g.rect(10, 120, 120, 6, C.dgray);
+      g.rect(14, 126, 4, 24, C.dgray);
+      g.rect(122, 126, 4, 24, C.dgray);
+      // tiled floor
+      for (let y = 150, r = 0; y < 200; y += 10, r++) for (let x = 0, c = 0; x < W; x += 20, c++) g.rect(x, y, 20, 10, (r + c) % 2 ? C.lgray : "#c8d0d8");
+    },
+    anim(g, t) {
+      // bubbling flasks on the bench
+      g.poly([[30, 120], [44, 120], [40, 104], [34, 104]], C.lgreen);
+      g.poly([[80, 120], [96, 120], [92, 100], [84, 100]], C.lmagenta);
+      for (let i = 0; i < 3; i++) {
+        const k = (t * 0.8 + i / 3) % 1;
+        g.px(37 + Math.sin(t * 4 + i) * 2, 100 - k * 20, C.lgreen);
+        g.px(88 + Math.cos(t * 4 + i) * 2, 96 - k * 20, C.lmagenta);
+      }
+      for (let i = 0; i < 12; i++) g.rect(258 + i * 4, 98 - Math.abs(Math.sin(t * 3 + i)) * 16, 2, 2, C.lgreen);
+      for (let i = 0; i < 3; i++) g.px(264 + i * 16, 118, Math.floor(t * 2 + i) % 2 ? C.sbRed : C.lgreen);
+    },
+  },
+
+  lighthouse: {
+    floor: 190,
+    bg(g) {
+      g.bands(0, 0, W, 112, [C.navy, C.purple, C.magenta, C.orange]);
+      stars(g, 30, 0, 40, 61);
+      // rocks and grass
+      g.poly([[0, 100], [40, 90], [150, 104], [210, 126], [320, 130], [320, 200], [0, 200]], C.dgray);
+      g.poly([[0, 112], [50, 102], [130, 110], [190, 130], [0, 142]], C.stone);
+      g.poly([[20, 116], [60, 110], [110, 116], [60, 126]], C.lgray);
+      g.poly([[0, 140], [320, 150], [320, 200], [0, 200]], C.dgreen);
+      g.dither(0, 140, W, 60, C.dgreen, C.green);
+      // tower
+      g.poly([[70, 36], [104, 36], [112, 140], [62, 140]], C.white);
+      for (let i = 0; i < 4; i++) {
+        const y = 48 + i * 24;
+        const k = (y - 36) / 104;
+        g.poly([[70 - k * 8, y], [104 + k * 8, y], [104 + (k + 0.1) * 8, y + 10], [70 - (k + 0.1) * 8, y + 10]], C.sbRed);
+      }
+      g.rect(64, 30, 46, 6, C.dgray);
+      g.rect(72, 14, 30, 16, C.navy);
+      g.tri(68, 14, 106, 14, 87, 2, C.sbRed);
+      g.rect(82, 118, 10, 22, C.dbrown);
+    },
+    back(g, t) {
+      sea(g, 112, 142, t, [C.blue, C.sbBlue], C.sbSky);
+    },
+    anim(g, t) {
+      const a = t * 1.2;
+      const dir = Math.cos(a);
+      const len = 170 * Math.abs(dir);
+      const x = 87;
+      const y = 22;
+      if (Math.abs(dir) > 0.1) g.poly([[x, y - 2], [x + dir * len, y - 14], [x + dir * len, y + 14], [x, y + 2]], "#fff7a8");
+      g.rect(74, 16, 26, 12, C.yellow);
+      g.rect(86, 16, 2, 12, C.sbYellow);
+    },
+  },
+
+  "stormy-sea": {
+    floor: 190,
+    bg(g) {
+      g.bands(0, 0, W, 110, ["#1a1a24", C.dgray, "#3a3a50"]);
+      for (let i = 0; i < 8; i++) g.ellipse(rnd(i + 70) * W, 10 + rnd(i + 80) * 50, 40, 12, i % 2 ? C.dgray : "#2a2a36");
+      // deck in the foreground
+      g.rect(0, 150, W, 50, C.dbrown);
+      for (let i = -8; i <= 8; i++) g.line(160 + i * 14, 150, 160 + i * 40, 200, "#3a1c08");
+      g.rect(0, 136, W, 4, C.brown);
+      for (let x = 6; x < W; x += 14) g.rect(x, 140, 3, 10, C.brown);
+    },
+    anim(g, t) {
+      // heaving waves behind the rail
+      g.rect(0, 100, W, 36, C.blue);
+      for (let x = 0; x < W; x += 2) {
+        const y = 104 + Math.sin(x / 18 + t * 2) * 8 + Math.sin(x / 7 - t * 3) * 2;
+        g.rect(x, y, 2, 136 - y, C.sbBlue);
+        g.px(x, y, C.white);
+      }
+      g.rect(0, 136, W, 4, C.brown);
+      for (let x = 6; x < W; x += 14) g.rect(x, 140, 3, 10, C.brown);
+      // rain
+      for (let i = 0; i < 50; i++) {
+        const x = (rnd(i) * 360 + t * 60) % 340 - 10;
+        const y = (rnd(i + 5) * 200 + t * 200) % 200;
+        g.line(x, y, x - 2, y + 5, "#8aa0c8");
+      }
+      // lightning
+      const f = (t % 5) / 5;
+      if (f < 0.04) {
+        g.dither(0, 0, W, 100, C.lgray, "#3a3a50");
+        g.line(220, 0, 210, 30, C.white);
+        g.line(210, 30, 226, 44, C.white);
+        g.line(226, 44, 214, 90, C.white);
+      }
+    },
+  },
+
+  school: {
+    floor: 190,
+    bg(g) {
+      g.rect(0, 0, W, 150, "#9ac8a8");
+      g.dither(0, 110, W, 40, "#9ac8a8", "#7aa888");
+      g.rect(0, 108, W, 3, C.brown);
+      // chalkboard
+      g.rect(90, 20, 140, 70, C.brown);
+      g.rect(94, 24, 132, 62, "#1f4a2f");
+      g.text("READ ALL", 104, 32, C.white);
+      g.text("ABOUT IT!", 104, 42, C.sbYellow);
+      g.line(104, 60, 150, 60, C.white);
+      g.text("3 + 4 = 7", 150, 70, C.white);
+      g.rect(94, 86, 132, 3, C.dbrown);
+      g.rect(120, 85, 8, 2, C.white);
+      // windows
+      for (const x of [14, 250]) {
+        g.rect(x, 22, 56, 60, C.white);
+        g.bands(x + 3, 25, 50, 79, [C.sbSky, "#cfe3ff"]);
+        g.ellipse(x + 30, 70, 14, 10, C.green);
+        g.rect(x + 28, 70, 3, 10, C.dbrown);
+        g.rect(x + 27, 22, 2, 60, C.white);
+        g.rect(x, 50, 56, 2, C.white);
+      }
+      // clock + alphabet
+      g.circle(160, 10, 7, C.white);
+      g.circle(160, 10, 6, C.cream);
+      g.line(160, 10, 160, 6, C.black);
+      g.line(160, 10, 163, 10, C.black);
+      g.text("ABCDEFG", 10, 96, C.sbRed);
+      g.text("HIJKLMN", 258, 96, C.sbBlue);
+      // floor + desks
+      planks(g, 150, 200, C.tan, C.brown, C.brown);
+      for (const x of [20, 250]) {
+        g.rect(x, 150, 50, 5, C.brown);
+        g.rect(x + 4, 155, 3, 25, C.dgray);
+        g.rect(x + 43, 155, 3, 25, C.dgray);
+      }
+      g.circle(40, 146, 3, C.sbRed);
+      g.px(40, 142, C.green);
+      g.rect(0, 148, W, 2, C.dbrown);
+    },
+  },
+
+  train: {
+    floor: 190,
+    bg(g) {
+      g.rect(0, 0, W, 150, "#6a1a1a");
+      g.dither(0, 0, W, 150, "#6a1a1a", C.red);
+      g.rect(0, 0, W, 12, C.dbrown);
+      // luggage rack
+      g.rect(0, 20, W, 3, C.sbYellow);
+      g.rect(20, 12, 30, 8, C.brown);
+      g.rect(200, 14, 22, 6, C.sbBlue);
+      // windows (outside drawn in anim)
+      for (let x = 12; x < W; x += 76) g.rect(x - 3, 29, 62, 56, C.dbrown);
+      g.rect(0, 92, W, 4, C.dbrown);
+      // seats
+      for (let x = 4; x < W; x += 76) {
+        g.rect(x, 100, 30, 44, C.sbBlue);
+        g.rect(x, 100, 30, 3, C.lblue);
+        g.rect(x + 36, 100, 30, 44, C.sbBlue);
+        g.rect(x + 36, 100, 30, 3, C.lblue);
+      }
+      // aisle carpet
+      g.rect(0, 150, W, 50, C.dbrown);
+      g.poly([[110, 150], [210, 150], [250, 200], [70, 200]], C.sbRed);
+      g.dither(80, 170, 160, 30, C.sbRed, C.red);
+      g.rect(0, 146, W, 4, C.brown);
+    },
+    anim(g, t) {
+      for (let x = 12; x < W; x += 76) {
+        g.bands(x, 32, 56, 70, [C.sbSky, "#cfe3ff"]);
+        // scrolling hills and poles, clipped to the window
+        for (let px = 0; px < 56; px++) {
+          const wx = px + x + t * 40;
+          const h = 10 + Math.sin(wx / 30) * 6 + Math.sin(wx / 11) * 2;
+          g.rect(x + px, 82 - h, 1, h, px % 2 ? C.green : C.dgreen);
+        }
+        const pole = ((t * 90 + x * 3) % 140) - 20;
+        if (pole > 0 && pole < 54) g.rect(x + pole, 40, 2, 42, C.dbrown);
+        g.rect(x + 27, 32, 2, 50, C.dbrown);
+      }
+      const shake = Math.sin(t * 20) > 0.9 ? 1 : 0;
+      g.rect(0, 146 + shake, W, 1, C.dbrown);
+    },
+  },
+
+  // A frosty cryo bay on a space station: frozen sleep pods, icicles, an icy floor and
+  // drifting cold mist.
+  "cryo-bay": {
+    floor: 190,
+    bg(g) {
+      g.rect(0, 0, W, 150, "#1d2f4a");
+      for (let x = 0; x < W; x += 32) g.rect(x, 16, 1, 134, "#2c4466");
+      g.rect(0, 84, W, 1, "#2c4466");
+      // frost creeping in from the top corners
+      g.poly([[0, 16], [70, 16], [0, 70]], "#3d6488");
+      g.poly([[320, 16], [250, 16], [320, 70]], "#3d6488");
+      g.dither(0, 16, 46, 26, C.lcyan, "#3d6488");
+      g.dither(274, 16, 46, 26, C.lcyan, "#3d6488");
+      // ceiling pipe
+      g.rect(0, 0, W, 10, C.deep);
+      g.rect(0, 10, W, 6, C.lgray);
+      g.rect(0, 10, W, 1, C.white);
+      g.rect(0, 15, W, 1, C.stone);
+      for (let x = 24; x < W; x += 64) g.rect(x, 9, 6, 8, C.stone);
+      // porthole with stars and an icy moon
+      g.circle(160, 40, 21, C.stone);
+      g.circle(160, 40, 18, C.deep);
+      for (let i = 0; i < 16; i++) {
+        const a = rnd(i + 41) * Math.PI * 2;
+        const r = rnd(i + 43) * 16;
+        g.px(160 + Math.cos(a) * r, 40 + Math.sin(a) * r, i % 4 ? C.white : C.sbYellow);
+      }
+      g.circle(168, 46, 7, "#cfe3ff");
+      g.dither(162, 42, 12, 10, "#cfe3ff", C.lcyan);
+      g.text("CRYO BAY", 160, 66, C.lcyan, 1, "center", C.deep);
+      // sleep pods
+      for (const cx of [30, 113, 207, 290]) {
+        g.rect(cx - 19, 142, 38, 8, C.dgray);
+        g.rect(cx - 17, 52, 34, 92, C.stone);
+        g.ellipse(cx, 54, 17, 6, C.stone);
+        g.rect(cx - 13, 58, 26, 72, "#9fd8f0");
+        g.dither(cx - 13, 58, 26, 72, "#9fd8f0", "#dff6ff");
+        g.rect(cx - 10, 62, 4, 40, C.white);
+        g.rect(cx - 13, 130, 26, 2, C.lgray);
+        g.rect(cx - 8, 134, 16, 6, C.deep);
+        // frost on the glass edges
+        g.dither(cx - 13, 58, 26, 6, C.white, "#dff6ff");
+        g.dither(cx - 13, 122, 26, 8, C.white, "#9fd8f0");
+      }
+      // icicles under the pipe
+      for (let i = 0; i < 22; i++) {
+        const x = 6 + i * 14 + Math.floor(rnd(i + 70) * 6);
+        const h = 4 + Math.floor(rnd(i + 90) * 9);
+        g.tri(x, 16, x + 4, 16, x + 2, 16 + h, i % 3 ? C.lcyan : C.white);
+      }
+      // icy floor
+      g.rect(0, 150, W, 50, "#7aa6c4");
+      for (let y = 150, r = 0; y < 200; y += 10, r++) for (let x = 0, c = 0; x < W; x += 32, c++) if ((r + c) % 2) g.rect(x, y, 32, 10, "#8db8d4");
+      g.dither(0, 150, W, 6, C.white, "#7aa6c4");
+      g.rect(0, 148, W, 2, C.lgray);
+      for (let i = 0; i < 9; i++) {
+        const x = 10 + rnd(i + 30) * 290;
+        const y = 158 + rnd(i + 50) * 36;
+        g.line(x, y, x + 14, y - 3, "#dff6ff");
+      }
+    },
+    anim(g, t) {
+      // pod status lights
+      [30, 113, 207, 290].forEach((cx, i) => {
+        const on = Math.floor(t * 2 + i * 0.7) % 3;
+        g.rect(cx - 6, 136, 3, 2, on === 0 ? C.lcyan : C.cyan);
+        g.rect(cx - 1, 136, 3, 2, on === 1 ? C.lgreen : C.green);
+        g.rect(cx + 4, 136, 3, 2, on === 2 ? C.sbYellow : C.brown);
+      });
+      // ice sparkles drifting down from the icicles
+      for (let i = 0; i < 14; i++) {
+        const x = (rnd(i + 5) * W + Math.sin(t + i) * 4 + W) % W;
+        const y = 20 + ((rnd(i + 8) * 130 + t * (8 + rnd(i) * 8)) % 130);
+        g.px(x, y, Math.sin(t * 3 + i) > 0 ? C.white : C.lcyan);
+      }
+      // cold mist rolling along the floor
+      g.ctx.globalAlpha = 0.35;
+      for (let i = 0; i < 6; i++) {
+        const x = ((t * (10 + i * 3) + i * 70) % (W + 80)) - 40;
+        g.ellipse(x, 186 - (i % 3) * 5, 30, 4, C.white);
+      }
+      g.ctx.globalAlpha = 1;
+    },
+  },
+
+  // The great hall of a hidden school of magic: tall bookshelves, a round rose window with an
+  // open book in the glass, two study-group banners (? and !), a long study table, lanterns,
+  // and glowing letters that drift up through the air.
+  "academy-hall": {
+    floor: 190,
+    bg(g) {
+      bricks(g, 0, 0, W, 150, "#3a3060", "#2a2248", 20, 10);
+      g.dither(0, 0, W, 24, "#3a3060", "#1c1638");
+      // vaulted ceiling ribs
+      for (const x of [0, 106, 214, 320]) g.rect(x - 3, 0, 6, 150, "#4c4078");
+      g.poly([[0, 0], [106, 0], [53, 20]], "#1c1638");
+      g.poly([[214, 0], [320, 0], [267, 20]], "#1c1638");
+      // bookshelves on both sides
+      bookshelf(g, 6, 36, 92, 114, 21);
+      bookshelf(g, 222, 36, 92, 114, 27);
+      // rose window with an open book in the glass
+      g.circle(160, 50, 36, "#c8a060");
+      g.circle(160, 50, 33, "#1a2a8a");
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2;
+        g.line(160, 50, 160 + Math.cos(a) * 33, 50 + Math.sin(a) * 33, "#c8a060");
+      }
+      g.circle(160, 50, 20, "#6ea0ff");
+      g.circle(160, 50, 18, "#2456e8");
+      g.poly([[144, 44], [159, 40], [159, 60], [144, 62]], C.cream);
+      g.poly([[161, 40], [176, 44], [176, 62], [161, 60]], C.white);
+      for (let y = 46; y < 58; y += 3) { g.rect(147, y, 9, 1, C.lgray); g.rect(164, y, 9, 1, C.lgray); }
+      g.circle(160, 50, 4, C.sbYellow);
+      g.rect(159, 38, 2, 24, "#c8a060");
+      // study-group banners
+      for (const [x, c, mark] of [[118, "#1f7a3a", "?"], [202, "#aa0000", "!"]] as [number, string, string][]) {
+        g.rect(x - 11, 92, 22, 2, C.dbrown);
+        g.poly([[x - 9, 94], [x + 9, 94], [x + 9, 132], [x, 126], [x - 9, 132]], c);
+        g.rect(x - 9, 94, 18, 2, C.sbYellow);
+        g.text(mark, x - 3, 104, C.sbYellow, 2);
+      }
+      // marble floor + long study table
+      for (let r = 0; r < 5; r++) {
+        const y0 = 150 + r * 10;
+        for (let c = -10; c < 20; c++) {
+          const x0 = 160 + (c - 5) * (16 + r * 4);
+          g.rect(x0, y0, 16 + r * 4, 10, (r + c) % 2 ? "#d8d0f0" : "#5a4e88");
+        }
+      }
+      g.rect(0, 148, W, 3, "#2a2248");
+      g.rect(100, 140, 120, 6, C.brown);
+      g.rect(100, 140, 120, 1, C.tan);
+      g.rect(106, 146, 4, 14, C.dbrown);
+      g.rect(210, 146, 4, 14, C.dbrown);
+      // books and an ink pot on the table
+      g.rect(116, 134, 12, 6, C.sbRed);
+      g.rect(118, 130, 10, 4, C.sbBlue);
+      g.rect(190, 135, 7, 5, C.black);
+      g.rect(192, 133, 3, 2, C.dgray);
+      g.line(196, 134, 202, 124, C.white);
+      // lantern brackets
+      for (const x of [104, 216]) {
+        g.rect(x - 1, 70, 3, 12, C.dbrown);
+        g.rect(x - 4, 82, 9, 10, "#c8a060");
+        g.rect(x - 3, 83, 7, 8, "#ffe9a0");
+      }
+    },
+    anim(g, t) {
+      for (const [i, x] of [104, 216].entries()) {
+        const f = Math.floor(t * 6 + i) % 3;
+        g.rect(x - 2, 84 + (f === 1 ? 1 : 0), 5, 5, f === 2 ? C.orange : C.sbYellow);
+        g.px(x, 85, C.white);
+      }
+      // glowing letters drifting upward
+      const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      for (let i = 0; i < 9; i++) {
+        const cycle = 9 + rnd(i + 3) * 6;
+        const k = ((t + rnd(i + 11) * cycle) % cycle) / cycle;
+        const x = 30 + rnd(i + 7) * 260 + Math.sin(t * 1.3 + i) * 5;
+        const y = 140 - k * 130;
+        const ch = letters[Math.floor(rnd(i + 19) * 26 + Math.floor((t + rnd(i + 11) * cycle) / cycle) * 7) % 26];
+        g.text(ch, x, y, k > 0.8 ? "#8a7ab8" : i % 3 ? C.sbYellow : C.lcyan, 1, "left", "#1c1638");
+      }
+      // the rose window's centre glows
+      if (Math.sin(t * 2) > 0.3) g.circle(160, 50, 2, C.white);
+    },
+  },
+
+  // A secret spy headquarters hidden under a school: a wall-sized map screen with blinking
+  // dots, a radar sweep, rows of monitors, lockers, a round briefing table and a red light.
+  "secret-hq": {
+    floor: 190,
+    bg(g) {
+      g.rect(0, 0, W, 150, "#141a2e");
+      for (let x = 0; x < W; x += 40) g.rect(x, 0, 1, 150, "#20294a");
+      g.rect(0, 0, W, 8, "#0a0e1c");
+      for (let x = 20; x < W; x += 60) g.rect(x, 8, 20, 3, "#cfe3ff");
+      // big map screen
+      g.rect(78, 18, 164, 84, C.dgray);
+      g.rect(81, 21, 158, 78, "#062a2a");
+      for (let x = 81; x < 239; x += 12) g.rect(x, 21, 1, 78, "#0a3d3d");
+      for (let y = 21; y < 99; y += 12) g.rect(81, y, 158, 1, "#0a3d3d");
+      // continents in green
+      g.poly([[92, 34], [128, 30], [138, 44], [122, 58], [104, 70], [96, 52]], "#1f7a3a");
+      g.poly([[118, 70], [132, 66], [136, 86], [126, 94]], "#1f7a3a");
+      g.poly([[150, 30], [190, 28], [214, 40], [200, 54], [170, 50], [156, 44]], "#1f7a3a");
+      g.poly([[160, 56], [180, 58], [184, 80], [168, 88]], "#1f7a3a");
+      g.poly([[206, 72], [226, 70], [230, 84], [212, 86]], "#1f7a3a");
+      g.rect(78, 102, 164, 4, C.lgray);
+      g.text("TOP SECRET", 160, 108, C.sbRed, 1, "center");
+      // radar
+      g.circle(40, 52, 26, C.dgray);
+      g.circle(40, 52, 24, "#062a14");
+      g.circle(40, 52, 16, "#0a3d1c");
+      g.circle(40, 52, 15, "#062a14");
+      g.circle(40, 52, 8, "#0a3d1c");
+      g.circle(40, 52, 7, "#062a14");
+      g.rect(16, 52, 48, 1, "#0a3d1c");
+      g.rect(40, 28, 1, 48, "#0a3d1c");
+      // lockers
+      for (let i = 0; i < 4; i++) {
+        const x = 254 + i * 16;
+        g.rect(x, 30, 15, 118, "#3a4a6a");
+        g.rect(x, 30, 1, 118, "#5a6a8a");
+        for (let y = 36; y < 48; y += 3) g.rect(x + 4, y, 8, 1, "#20294a");
+        g.rect(x + 11, 84, 2, 8, C.lgray);
+      }
+      // monitors on a desk
+      g.rect(0, 112, 76, 6, "#3a4a6a");
+      for (const x of [6, 40]) {
+        g.rect(x, 86, 30, 24, C.dgray);
+        g.rect(x + 2, 88, 26, 20, "#0a1440");
+        g.rect(x + 13, 110, 4, 2, C.dgray);
+      }
+      // floor + round briefing table
+      g.rect(0, 150, W, 50, "#26304e");
+      for (let y = 150; y < 200; y += 10) g.rect(0, y, W, 1, "#1c243c");
+      for (let x = 0; x < W; x += 32) g.rect(x, 150, 1, 50, "#1c243c");
+      g.rect(0, 148, W, 2, "#3a4a6a");
+      g.ellipse(160, 158, 54, 8, "#3a4a6a");
+      g.ellipse(160, 156, 54, 8, "#5a6a8a");
+      g.ellipse(160, 156, 46, 5, "#20294a");
+      g.rect(156, 162, 8, 12, "#3a4a6a");
+    },
+    anim(g, t) {
+      // radar sweep
+      const a = t * 2;
+      g.line(40, 52, 40 + Math.cos(a) * 23, 52 + Math.sin(a) * 23, C.lgreen);
+      g.line(40, 52, 40 + Math.cos(a - 0.15) * 23, 52 + Math.sin(a - 0.15) * 23, C.green);
+      if (Math.cos(a - 0.9) > 0.92) g.rect(50, 44, 2, 2, C.lgreen);
+      // blinking map dots
+      [[110, 46], [176, 40], [126, 80], [216, 78], [196, 48]].forEach(([x, y], i) => {
+        if (Math.floor(t * 2 + i * 0.6) % 2) {
+          g.rect(x - 1, y - 1, 3, 3, i === 0 ? C.sbRed : C.sbYellow);
+        } else g.px(x, y, i === 0 ? C.lred : C.yellow);
+      });
+      // scrolling code on the monitors
+      for (const [m, x] of [6, 40].entries()) {
+        for (let r = 0; r < 5; r++) {
+          const w = 4 + Math.floor(rnd(r + m * 9 + Math.floor(t * 3)) * 18);
+          g.rect(x + 4, 90 + r * 4, w, 1, m ? C.lcyan : C.lgreen);
+        }
+      }
+      // red alert light
+      g.rect(158, 2, 4, 4, Math.floor(t * 1.5) % 2 ? C.sbRed : "#5a0000");
+    },
+  },
+
+  // Ruins of an ancient Greek temple on a sunny hill above the sea: broken white columns,
+  // a pediment, olive trees, rocks and wild grass.
+  "temple-ruins": {
+    floor: 190,
+    bg(g) {
+      g.bands(0, 0, W, 100, ["#2a6ad8", "#4a8ae8", "#6ea0ff", "#a8c8ff"]);
+      g.circle(276, 26, 12, C.yellow);
+      g.circle(276, 26, 10, "#fff6a8");
+      // distant sea and island
+      g.rect(0, 96, W, 22, "#1a4ab8");
+      g.dither(0, 96, W, 3, "#a8c8ff", "#1a4ab8");
+      g.ellipse(40, 98, 34, 6, "#5a7a9a");
+      // hill
+      g.poly([[0, 118], [60, 104], [150, 100], [240, 104], [320, 114], [320, 150], [0, 150]], "#8a9a4a");
+      g.dither(0, 110, W, 40, "#8a9a4a", "#7a8a3a");
+      // temple platform
+      g.rect(82, 120, 156, 8, C.cream);
+      g.rect(76, 128, 168, 8, "#e0d0b0");
+      g.rect(76, 135, 168, 2, C.tan);
+      // pediment and roof beam (right half fallen)
+      g.poly([[90, 52], [160, 30], [200, 42], [200, 52]], C.cream);
+      g.poly([[100, 50], [160, 34], [196, 45], [196, 50]], "#e0d0b0");
+      g.rect(90, 52, 110, 7, C.cream);
+      g.rect(90, 58, 110, 1, C.tan);
+      g.rect(206, 116, 26, 6, C.cream);
+      g.rect(210, 110, 18, 6, "#e0d0b0");
+      // columns (fluted), two broken
+      const cols: [number, number][] = [[96, 59], [124, 59], [152, 59], [180, 59], [208, 92], [228, 102]];
+      for (const [x, top] of cols) {
+        g.rect(x - 7, 116, 16, 4, C.cream);
+        g.rect(x - 5, top, 12, 120 - top, C.white);
+        g.rect(x - 2, top, 1, 120 - top, C.lgray);
+        g.rect(x + 2, top, 1, 120 - top, C.lgray);
+        if (top < 70) g.rect(x - 7, top, 16, 3, C.cream);
+        else g.poly([[x - 5, top], [x - 1, top - 3], [x + 3, top + 1], [x + 7, top - 2], [x + 7, top + 2], [x - 5, top + 2]], C.white);
+      }
+      // olive trees
+      for (const [x, s] of [[30, 1], [292, 1.1]] as [number, number][]) {
+        g.rect(x - 2, 112, 4, 30, "#6a5a4a");
+        g.line(x, 120, x - 8, 108, "#6a5a4a");
+        g.ellipse(x - 6, 98, 16 * s, 9 * s, "#6a8a5a");
+        g.ellipse(x + 8, 102, 13 * s, 8 * s, "#5a7a4a");
+        g.dither(x - 16, 92, 34, 16, "#6a8a5a", "#9ab08a");
+        for (let i = 0; i < 6; i++) g.px(x - 12 + i * 5, 96 + (i % 2) * 6, "#2a3a1a");
+      }
+      // ground: dry earth, stones and grass
+      g.rect(0, 150, W, 50, "#c8a870");
+      g.dither(0, 150, W, 8, "#8a9a4a", "#c8a870");
+      for (let i = 0; i < 14; i++) {
+        const x = rnd(i + 200) * W;
+        const y = 160 + rnd(i + 210) * 36;
+        g.ellipse(x, y, 4 + rnd(i + 220) * 5, 2, i % 3 ? "#a88850" : C.lgray);
+      }
+      for (let i = 0; i < 30; i++) {
+        const x = rnd(i + 300) * W;
+        const y = 152 + rnd(i + 310) * 46;
+        g.line(x, y, x + 1, y - 4, "#6a7a2a");
+      }
+      g.rect(10, 168, 26, 8, C.white);
+      g.rect(12, 168, 2, 8, C.lgray);
+    },
+    anim(g, t) {
+      // drifting clouds
+      for (let i = 0; i < 3; i++) {
+        const x = ((t * (4 + i * 2) + i * 120) % (W + 80)) - 40;
+        g.ellipse(x, 18 + i * 12, 16, 3, C.white);
+        g.ellipse(x + 8, 16 + i * 12, 10, 3, C.white);
+      }
+      // sun glints on the sea
+      for (let i = 0; i < 10; i++) {
+        if (Math.sin(t * 3 + i * 2.1) > 0.4) g.rect(70 + rnd(i + 50) * 240, 100 + rnd(i + 60) * 16, 3, 1, C.white);
+      }
+      // a gull
+      const bx = ((t * 18) % (W + 40)) - 20;
+      const by = 60 + Math.sin(t) * 6;
+      const up = Math.floor(t * 4) % 2;
+      g.line(bx - 4, by + (up ? -2 : 1), bx, by, C.white);
+      g.line(bx, by, bx + 4, by + (up ? -2 : 1), C.white);
+    },
+  },
+
+  // Inside an ancient stone labyrinth: corridors that turn away in every direction, torches,
+  // and a red thread running along the floor into the dark.
+  labyrinth: {
+    floor: 190,
+    bg(g) {
+      g.rect(0, 0, W, 200, "#1a1410");
+      // far end of the corridor: a dark T-junction
+      g.rect(130, 60, 60, 70, "#2a2218");
+      g.rect(130, 60, 60, 4, "#3a3024");
+      g.rect(142, 74, 36, 56, "#0a0806");
+      // side walls in perspective
+      g.poly([[0, 0], [130, 60], [130, 130], [0, 200]], "#6a5a44");
+      g.poly([[320, 0], [190, 60], [190, 130], [320, 200]], "#5a4a38");
+      // stone courses on the walls
+      for (let i = 1; i < 9; i++) {
+        const k = i / 9;
+        g.line(0, k * 200, 130, 60 + k * 70, "#4a3e2e");
+        g.line(320, k * 200, 190, 60 + k * 70, "#3e3426");
+      }
+      for (const x of [26, 58, 90, 116]) {
+        const k = x / 130;
+        g.line(x, k * 60, x, 200 - k * 70, "#4a3e2e");
+        g.line(320 - x, k * 60, 320 - x, 200 - k * 70, "#3e3426");
+      }
+      // side openings (turns)
+      g.poly([[58, 27], [92, 42], [92, 160], [58, 174]], "#0a0806");
+      g.poly([[262, 27], [228, 42], [228, 160], [262, 174]], "#0a0806");
+      g.poly([[58, 27], [62, 29], [62, 172], [58, 174]], "#8a7a5a");
+      g.poly([[262, 27], [258, 29], [258, 172], [262, 174]], "#7a6a4a");
+      // ceiling strip
+      g.poly([[0, 0], [320, 0], [190, 60], [130, 60]], "#120e0a");
+      // a carved key pattern over the far doorway
+      for (let x = 132; x < 188; x += 8) {
+        g.rect(x, 66, 6, 1, C.tan);
+        g.rect(x + 5, 66, 1, 4, C.tan);
+        g.rect(x + 2, 69, 4, 1, C.tan);
+      }
+      // floor
+      g.poly([[0, 200], [130, 130], [190, 130], [320, 200]], "#4a3e2e");
+      for (let i = 1; i < 6; i++) {
+        const y = 130 + i * i * 2.8;
+        const k = (y - 130) / 70;
+        g.line(130 - k * 130, y, 190 + k * 130, y, "#3a3024");
+      }
+      // the thread
+      g.line(160, 131, 150, 150, "#e3262f");
+      g.line(150, 150, 168, 172, "#e3262f");
+      g.line(168, 172, 140, 199, "#e3262f");
+      g.line(161, 131, 151, 150, "#aa0000");
+      // a ball of thread at the front
+      g.circle(132, 194, 5, "#e3262f");
+      g.line(128, 192, 136, 196, "#aa0000");
+      g.line(129, 196, 135, 190, "#aa0000");
+      // torch brackets
+      for (const [x, y] of [[40, 70], [280, 70]] as [number, number][]) {
+        g.rect(x - 1, y, 3, 12, C.dbrown);
+        g.rect(x - 3, y - 1, 7, 2, C.dgray);
+      }
+    },
+    anim(g, t) {
+      flame(g, 40, 66, t, 1.4);
+      flame(g, 280, 66, t + 0.5, 1.4);
+      // torchlight flicker on the walls
+      g.ctx.globalAlpha = 0.12 + 0.05 * Math.sin(t * 9);
+      g.ellipse(40, 80, 30, 34, C.orange);
+      g.ellipse(280, 80, 30, 34, C.orange);
+      g.ctx.globalAlpha = 1;
+      // a shimmer running along the thread
+      const k = (t * 0.6) % 1;
+      const pts: [number, number][] = [[160, 131], [150, 150], [168, 172], [140, 199]];
+      const seg = Math.min(2, Math.floor(k * 3));
+      const f = k * 3 - seg;
+      const [ax, ay] = pts[seg];
+      const [bx, by] = pts[seg + 1];
+      g.rect(ax + (bx - ax) * f - 1, ay + (by - ay) * f - 1, 2, 2, C.sbYellow);
+      // dust in the dark doorway
+      for (let i = 0; i < 4; i++) g.px(146 + ((i * 9 + t * 3) % 30), 80 + ((i * 13 + t * 5) % 44), "#3a3024");
+    },
+  },
+  // Spooky shelf: cozy-spooky, never truly scary.
+  "castle-night": {
+    floor: 190,
+    bg(g) {
+      bricks(g, 0, 0, W, 150, "#2a2440", "#1c1830");
+      g.dither(0, 0, W, 24, "#2a2440", "#1c1830");
+      // big moonlit window
+      windowFrame(g, 128, 22, 64, 78, "#4a4466", true);
+      g.rect(128, 22, 64, 78, "#101a44");
+      g.ellipse(160, 22, 32, 10, "#101a44");
+      stars(g, 12, 14, 96, 77);
+      g.circle(174, 40, 9, C.cream);
+      g.circle(178, 37, 2, "#e8d8a0");
+      g.rect(158, 14, 4, 86, "#4a4466");
+      g.rect(128, 58, 64, 3, "#4a4466");
+      // portraits (a smiling vampire and a bat)
+      for (const [x, c] of [[46, C.purple], [252, "#5a1424"]] as [number, string][]) {
+        g.rect(x - 18, 34, 36, 44, C.sbYellow);
+        g.rect(x - 15, 37, 30, 38, c);
+        g.circle(x, 52, 7, "#e0dcf5");
+        g.rect(x - 7, 44, 14, 4, "#23203a");
+        g.px(x - 3, 52, C.black); g.px(x + 2, 52, C.black);
+        g.rect(x - 2, 56, 4, 1, C.red);
+        g.tri(x - 10, 75, x, 60, x + 10, 75, "#23203a");
+      }
+      // cobwebs in the corners
+      for (const [x, dir] of [[0, 1], [W, -1]] as [number, number][]) {
+        for (let r = 8; r <= 32; r += 8) g.line(x, r, x + dir * r, 0, "#8a86a8");
+        for (let a = 0; a < 3; a++) g.line(x, 0, x + dir * (34 - a * 10), 10 + a * 12, "#8a86a8");
+      }
+      // candelabras
+      for (const x of [96, 224]) {
+        g.rect(x - 1, 92, 3, 56, C.sbYellow);
+        g.rect(x - 12, 92, 25, 2, C.sbYellow);
+        for (const dx of [-12, 0, 12]) g.rect(x + dx - 1, 84, 3, 8, C.cream);
+        g.ellipse(x, 148, 8, 2, C.sbYellow);
+      }
+      // floor + purple carpet
+      g.rect(0, 150, W, 50, "#3a3450");
+      for (let y = 150, r = 0; y < 200; y += 10, r++) {
+        g.rect(0, y, W, 1, "#2a2440");
+        for (let x = (r % 2) * 14; x < W; x += 28) g.rect(x, y, 1, 10, "#2a2440");
+      }
+      g.poly([[140, 150], [180, 150], [230, 200], [90, 200]], "#5a1e6a");
+      g.line(140, 150, 90, 200, C.sbYellow);
+      g.line(180, 150, 230, 200, C.sbYellow);
+      g.rect(0, 148, W, 3, "#1c1830");
+    },
+    anim(g, t) {
+      for (const x of [96, 224]) for (const dx of [-12, 0, 12]) flame(g, x + dx, 82, t + dx * 0.05, 0.6);
+      // little bats flit past the window
+      for (let i = 0; i < 2; i++) {
+        const bx = 132 + ((t * 18 + i * 30) % 56), by = 30 + i * 18 + Math.sin(t * 3 + i) * 4;
+        const up = Math.floor(t * 8 + i) % 2;
+        g.rect(bx, by, 2, 2, "#1a1428");
+        g.rect(bx - 3, by - (up ? 1 : -1), 3, 1, "#1a1428");
+        g.rect(bx + 2, by - (up ? 1 : -1), 3, 1, "#1a1428");
+      }
+    },
+  },
+
+  "pumpkin-patch": {
+    floor: 190,
+    bg(g) {
+      g.bands(0, 0, W, 120, ["#0c1238", "#1a1f52", "#2e2a66", "#4a3470"]);
+      stars(g, 30, 4, 80, 31);
+      g.circle(60, 34, 14, C.cream);
+      g.circle(55, 30, 3, "#e8d8a0"); g.circle(64, 38, 2, "#e8d8a0");
+      // far village with a festival
+      for (let i = 0; i < 9; i++) {
+        const x = 150 + i * 18, h = 14 + rnd(i + 4) * 14;
+        g.rect(x, 112 - h, 14, h, "#1a1630");
+        g.tri(x - 2, 112 - h, x + 7, 104 - h, x + 16, 112 - h, "#1a1630");
+        g.px(x + 4, 106 - h + 10, C.sbYellow); g.px(x + 9, 108 - h + 12, C.orange);
+      }
+      g.rect(140, 110, 180, 3, "#1a1630");
+      // hills and field
+      g.ellipse(80, 126, 120, 18, "#1e3a26");
+      g.ellipse(260, 128, 110, 16, "#173020");
+      g.rect(0, 124, W, 76, "#1e3a26");
+      g.dither(0, 124, W, 26, "#173020", "#1e3a26");
+      // wooden fence
+      for (let x = 0; x < W; x += 18) g.rect(x, 116, 3, 16, "#5a3a22");
+      g.rect(0, 120, W, 2, "#5a3a22"); g.rect(0, 127, W, 2, "#5a3a22");
+      // scarecrow (friendly)
+      g.rect(266, 92, 3, 66, "#5a3a22");
+      g.rect(250, 104, 36, 3, "#5a3a22");
+      g.rect(258, 104, 20, 22, "#7a3a8a");
+      g.circle(267, 96, 7, C.tan);
+      g.tri(257, 92, 267, 78, 277, 92, "#3a2a1a");
+      g.px(264, 95, C.black); g.px(270, 95, C.black);
+      g.rect(264, 99, 7, 1, C.dbrown);
+      // vines and pumpkins
+      for (let i = 0; i < 26; i++) g.line(rnd(i) * W, 150 + rnd(i + 3) * 46, rnd(i) * W + 18, 152 + rnd(i + 5) * 44, "#2f6a2a");
+      const pumpkins: [number, number, number][] = [[28, 168, 9], [72, 184, 12], [118, 160, 7], [206, 176, 10], [300, 166, 8], [240, 192, 6], [150, 194, 8]];
+      for (const [x, y, r] of pumpkins) {
+        g.ellipse(x, y, r + 2, r, C.orange);
+        g.ellipse(x, y, Math.max(2, r - 4), r, "#ffa23a");
+        g.rect(x - 1, y - r - 3, 3, 4, "#3a6a2a");
+      }
+    },
+    anim(g, t) {
+      // jack-o'-lanterns flicker (happy faces)
+      const lit: [number, number, number][] = [[72, 184, 12], [206, 176, 10], [28, 168, 9]];
+      for (const [x, y, r] of lit) {
+        const on = Math.sin(t * 7 + x) > -0.6 ? C.yellow : C.sbYellow;
+        g.tri(x - 6, y - 2, x - 3, y - 6, x - 1, y - 2, on);
+        g.tri(x + 1, y - 2, x + 3, y - 6, x + 6, y - 2, on);
+        g.poly([[x - 6, y + 2], [x + 6, y + 2], [x + 3, y + Math.max(5, r - 4)], [x - 3, y + Math.max(5, r - 4)]], on);
+      }
+      // fireflies
+      for (let i = 0; i < 8; i++) {
+        const fx = (rnd(i + 60) * W + Math.sin(t * 0.7 + i) * 14) % W, fy = 100 + rnd(i + 70) * 70 + Math.cos(t * 0.9 + i) * 8;
+        if (Math.sin(t * 3 + i * 2) > 0) g.px(Math.floor(fx), Math.floor(fy), C.yellow);
+      }
+    },
+  },
+
+  attic: {
+    floor: 190,
+    bg(g) {
+      g.rect(0, 0, W, 200, "#3a2a20");
+      // slanted roof beams
+      g.poly([[0, 0], [130, 0], [0, 90]], "#2a1c14");
+      g.poly([[W, 0], [190, 0], [W, 90]], "#2a1c14");
+      for (let i = 0; i < 6; i++) { g.line(i * 26, 0, 0, i * 18, "#4a3426"); g.line(W - i * 26, 0, W, i * 18, "#4a3426"); }
+      g.rect(150, 0, 20, 140, "#4a3426");
+      // round window with the moon
+      g.circle(160, 46, 24, "#5a4030");
+      g.circle(160, 46, 20, "#101a44");
+      stars(g, 6, 30, 62, 91);
+      g.circle(166, 40, 6, C.cream);
+      g.rect(158, 26, 4, 40, "#5a4030"); g.rect(140, 44, 40, 4, "#5a4030");
+      // wooden floor
+      planks(g, 150, 200, "#6a4a30", "#5a3e28", "#3a2a1c");
+      // trunks, boxes, a dress form and a rocking horse
+      g.rect(18, 120, 64, 34, "#6a3a1a"); g.rect(18, 116, 64, 8, "#7a4a24");
+      g.rect(18, 132, 64, 3, C.sbYellow); g.rect(46, 128, 8, 10, C.sbYellow);
+      for (const [x, y, w, h] of [[230, 110, 40, 40], [262, 128, 38, 24], [244, 92, 26, 20]] as [number, number, number, number][]) {
+        g.rect(x, y, w, h, "#a07a4a");
+        g.rect(x, y + h / 2 - 1, w, 2, "#7a5a32");
+      }
+      g.rect(108, 128, 3, 26, "#2a1c14");
+      g.ellipse(109, 100, 11, 16, "#8a5a8a");
+      g.ellipse(109, 80, 5, 4, "#2a1c14");
+      g.rect(98, 152, 22, 2, "#2a1c14");
+      g.rect(190, 132, 30, 12, "#c87a3a"); g.circle(218, 128, 6, "#c87a3a");
+      g.rect(194, 144, 2, 8, "#5a3a22"); g.rect(214, 144, 2, 8, "#5a3a22");
+      g.ellipse(205, 154, 18, 2, "#5a3a22");
+      // cobwebs
+      for (let r = 8; r <= 24; r += 8) g.line(0, r + 90, r, 90, "#9a8a78");
+    },
+    anim(g, t) {
+      // dust motes in the moonbeam
+      for (let i = 0; i < 10; i++) {
+        const x = 130 + ((rnd(i + 3) * 60 + t * 4) % 60), y = 60 + ((rnd(i + 9) * 90 + t * (3 + (i % 3))) % 90);
+        g.px(Math.floor(x), Math.floor(y), "#cbbfa8");
+      }
+    },
+  },
+
+  // ---------- Robots shelf ----------
+  // A cozy robot workshop: pegboard of tools, a workbench with a half-built robot, spare parts
+  // bins, a hanging lamp, blueprints, and a welding torch that sparks now and then.
+  "robot-workshop": {
+    floor: 190,
+    bg(g) {
+      g.rect(0, 0, W, 150, "#3a4a5a");
+      g.dither(0, 0, W, 20, "#2a3848", "#3a4a5a");
+      // pegboard with tool outlines
+      g.rect(14, 26, 120, 64, "#c89a5a");
+      for (let y = 30; y < 88; y += 6) for (let x = 18; x < 132; x += 6) g.px(x, y, "#8a6a3a");
+      g.rect(24, 34, 3, 22, C.dgray); g.rect(20, 32, 11, 5, C.dgray); // hammer
+      g.rect(42, 36, 2, 24, C.lgray); g.rect(40, 34, 6, 4, C.lgray); g.rect(40, 58, 6, 4, C.lgray); // wrench
+      g.rect(58, 34, 3, 16, C.sbRed); g.rect(59, 50, 1, 10, C.lgray); // screwdriver
+      g.rect(72, 34, 2, 26, C.sbYellow); g.rect(70, 34, 6, 3, C.sbYellow); // ruler
+      g.circle(96, 46, 9, C.dgray); g.circle(96, 46, 5, "#c89a5a"); // tape roll
+      g.rect(112, 34, 4, 20, C.sbBlue); g.rect(110, 54, 8, 6, C.lgray); // pliers-ish
+      for (let i = 0; i < 4; i++) g.rect(22 + i * 26, 70, 18, 12, ["#2456e8", "#e3262f", "#00aa00", "#ffd23f"][i]);
+      // blueprint pinned up
+      g.rect(176, 20, 92, 60, "#1a4aa8");
+      for (let x = 180; x < 266; x += 8) g.rect(x, 22, 1, 56, "#2a5ab8");
+      for (let y = 24; y < 78; y += 8) g.rect(178, y, 88, 1, "#2a5ab8");
+      g.rect(206, 30, 32, 24, C.white); g.rect(208, 32, 28, 20, "#1a4aa8");
+      g.circle(222, 62, 8, C.white); g.circle(222, 62, 6, "#1a4aa8");
+      g.line(206, 30, 196, 24, C.white); g.text("BOT-7", 182, 70, C.white);
+      g.px(178, 21, C.sbRed); g.px(265, 21, C.sbRed);
+      // window with a sunny sky
+      g.rect(286, 24, 28, 40, C.dgray); g.rect(288, 26, 24, 36, C.sbSky);
+      g.rect(299, 26, 2, 36, C.dgray); g.rect(288, 43, 24, 2, C.dgray);
+      // floor
+      g.rect(0, 150, W, 50, "#5a5a6a");
+      g.dither(0, 150, W, 50, "#5a5a6a", "#4a4a5a");
+      for (let x = 0; x < W; x += 40) g.rect(x, 150, 1, 50, "#3a3a4a");
+      g.rect(0, 148, W, 3, "#2a2a3a");
+      // workbench with a half-built robot on it
+      g.rect(156, 112, 150, 6, "#8a5a2a");
+      g.rect(160, 118, 6, 32, "#5a3a1a"); g.rect(296, 118, 6, 32, "#5a3a1a");
+      g.rect(166, 130, 130, 3, "#5a3a1a");
+      g.rect(240, 88, 22, 24, C.lgray); g.rect(244, 92, 14, 8, C.deep);
+      g.rect(246, 80, 10, 8, C.stone); g.rect(250, 74, 2, 6, C.dgray); g.circle(251, 73, 2, C.sbRed);
+      g.rect(262, 96, 12, 4, C.stone); g.rect(272, 100, 4, 6, C.dgray);
+      // parts bins
+      for (let i = 0; i < 3; i++) {
+        g.rect(8 + i * 34, 128, 30, 20, ["#2456e8", "#e3262f", "#ffd23f"][i]);
+        g.rect(14 + i * 34, 134, 18, 4, "#00000055");
+        for (let k = 0; k < 4; k++) g.circle(14 + i * 34 + k * 6, 127, 2, [C.lgray, C.dgray, C.sbYellow, C.stone][k]);
+      }
+    },
+    anim(g, t) {
+      // hanging lamp sways a little
+      const sw = Math.round(Math.sin(t * 1.2) * 2);
+      g.line(160, 0, 160 + sw, 16, C.dgray);
+      g.tri(150 + sw, 24, 170 + sw, 24, 160 + sw, 14, C.dgray);
+      g.rect(156 + sw, 24, 8, 2, C.yellow);
+      // the half-built robot's screen blinks a smiley
+      if (Math.floor(t * 1.5) % 2) { g.px(247, 95, C.lgreen); g.px(254, 95, C.lgreen); g.rect(248, 98, 6, 1, C.lgreen); }
+      // welding sparks at the robot's arm
+      if (Math.floor(t * 3) % 3 === 0) {
+        for (let i = 0; i < 6; i++) {
+          const a = t * 9 + i * 1.1;
+          g.px(276 + Math.cos(a) * (2 + (i % 3) * 2), 104 + Math.sin(a) * (2 + (i % 2) * 3), i % 2 ? C.yellow : C.white);
+        }
+      }
+    },
+  },
+
+  // A busy (and friendly) factory floor: conveyor belts with boxes gliding by, robotic arms that
+  // bob up and down, hazard stripes, warning lights and a big ROBOWORKS sign.
+  "factory-floor": {
+    floor: 192,
+    bg(g) {
+      g.rect(0, 0, W, 150, "#4a5260");
+      // roof trusses and skylights
+      for (let x = 0; x < W; x += 40) { g.line(x, 0, x + 20, 18, "#2a3038"); g.line(x + 40, 0, x + 20, 18, "#2a3038"); }
+      g.rect(0, 18, W, 3, "#2a3038");
+      for (let x = 20; x < W; x += 80) { g.rect(x, 2, 40, 12, "#9ac0e8"); g.dither(x, 2, 40, 12, "#9ac0e8", "#c8e0f8"); }
+      // back wall panels
+      for (let x = 0; x < W; x += 32) g.rect(x, 22, 1, 128, "#3a4250");
+      // sign
+      g.rect(108, 28, 104, 16, C.deep);
+      g.text("ROBOWORKS", 160, 33, C.sbYellow, 1, "center");
+      // big gears on the wall
+      for (const [cx, cy, r] of [[40, 70, 16], [66, 92, 10], [278, 72, 14]] as [number, number, number][]) {
+        g.circle(cx, cy, r, "#6a7280");
+        for (let k = 0; k < 8; k++) { const a = (k / 8) * Math.PI * 2; g.rect(cx + Math.cos(a) * (r + 1) - 2, cy + Math.sin(a) * (r + 1) - 2, 4, 4, "#6a7280"); }
+        g.circle(cx, cy, Math.round(r / 3), "#3a4250");
+      }
+      // back conveyor
+      g.rect(0, 112, W, 10, "#2a2a30");
+      g.rect(0, 122, W, 3, "#1a1a20");
+      for (let x = 6; x < W; x += 24) { g.rect(x, 125, 4, 25, "#3a3a40"); }
+      // floor with hazard stripe edges
+      g.rect(0, 150, W, 50, "#6a6a72");
+      g.dither(0, 150, W, 50, "#6a6a72", "#5e5e66");
+      for (let x = 0; x < W; x += 12) g.poly([[x, 150], [x + 6, 150], [x + 2, 156], [x - 4, 156]], C.sbYellow);
+      g.rect(0, 156, W, 1, "#2a2a30");
+      g.rect(0, 148, W, 2, "#2a2a30");
+    },
+    anim(g, t) {
+      // boxes ride the conveyor
+      for (let i = 0; i < 6; i++) {
+        const x = ((t * 22 + i * 58) % (W + 40)) - 20;
+        g.rect(x, 100, 16, 12, "#c89a5a");
+        g.rect(x, 104, 16, 2, "#8a6a3a");
+        g.rect(x + 6, 100, 4, 12, "#a07a4a");
+      }
+      // belt ticks
+      for (let x = (t * 22) % 8; x < W; x += 8) g.px(x, 116, "#5a5a60");
+      // two robotic arms bob over the belt
+      for (const [ax, ph] of [[96, 0], [226, 1.7]] as [number, number][]) {
+        const dy = Math.round((Math.sin(t * 2 + ph) + 1) * 8);
+        g.rect(ax - 2, 22, 5, 40 + dy, C.sbYellow);
+        g.rect(ax - 6, 60 + dy, 13, 6, "#ff8a2a");
+        g.rect(ax - 6, 66 + dy, 3, 8, C.dgray); g.rect(ax + 4, 66 + dy, 3, 8, C.dgray);
+        g.circle(ax, 22, 4, C.dgray);
+      }
+      // warning lights spin
+      for (const lx of [10, 306]) {
+        g.rect(lx - 3, 46, 7, 6, "#3a3a40");
+        g.circle(lx, 44, 4, Math.floor(t * 4) % 2 ? C.orange : "#aa4a10");
+      }
+    },
+  },
+
+  // A robot competition arena: bleachers full of cheering fans, team banners, a scoreboard with
+  // a ticking clock, spotlights sweeping, and a striped arena floor with a ramp.
+  "robot-arena": {
+    floor: 190,
+    bg(g) {
+      g.rect(0, 0, W, 200, "#141a3a");
+      // bleachers
+      for (let r = 0; r < 6; r++) {
+        const y = 60 + r * 12;
+        g.rect(0, y, W, 12, r % 2 ? "#2a3060" : "#323a70");
+        for (let x = 4 + (r % 2) * 6; x < W; x += 12) {
+          const col = [C.sbRed, C.sbYellow, C.sbSky, C.lgreen, C.lmagenta, C.orange][Math.floor(rnd(x * 1.3 + r * 7) * 6)];
+          g.circle(x, y + 3, 2, C.tan);
+          g.rect(x - 2, y + 5, 5, 6, col);
+        }
+      }
+      // scoreboard
+      g.rect(112, 6, 96, 44, C.dgray);
+      g.rect(116, 10, 88, 36, C.black);
+      g.text("HOME", 122, 13, C.sbSky);
+      g.text("GUEST", 172, 13, C.lred);
+      g.text("TIME", 147, 33, C.sbYellow);
+      // team banners
+      for (const [x, c, s] of [[22, C.sbRed, "GO!"], [62, C.sbBlue, "BOTS"], [252, C.green, "WIN"], [290, C.purple, "GO!"]] as [number, string, string][]) {
+        g.rect(x - 14, 8, 28, 30, c);
+        g.tri(x - 14, 38, x + 14, 38, x, 46, c);
+        g.text(s, x, 20, C.white, 1, "center");
+      }
+      // arena wall and floor
+      g.rect(0, 132, W, 18, "#c8ccd4");
+      for (let x = 0; x < W; x += 40) g.rect(x, 132, 20, 18, "#e3262f");
+      g.rect(0, 150, W, 50, "#3a5a8a");
+      g.dither(0, 150, W, 50, "#3a5a8a", "#345080");
+      for (let x = 0; x < W; x += 32) g.line(x, 150, x - 30, 200, "#4a6a9a");
+      g.rect(0, 166, W, 1, C.white);
+      g.circle(160, 176, 10, "#4a6a9a");
+      g.circle(160, 176, 8, "#3a5a8a");
+      // ramp and a cone
+      g.poly([[262, 170], [314, 170], [314, 154]], C.stone);
+      g.tri(16, 172, 26, 172, 21, 156, C.orange);
+      g.rect(16, 164, 10, 2, C.white);
+    },
+    anim(g, t) {
+      // scoreboard numbers and clock
+      const sec = 30 - (Math.floor(t) % 31);
+      g.rect(122, 22, 30, 9, C.black); g.rect(172, 22, 30, 9, C.black); g.rect(140, 40, 40, 6, C.black);
+      g.text(String(3 + (Math.floor(t / 7) % 5)), 132, 22, C.sbSky, 1);
+      g.text(String(2 + (Math.floor(t / 9) % 5)), 184, 22, C.lred, 1);
+      g.text(`0:${String(sec).padStart(2, "0")}`, 160, 40, C.yellow, 1, "center");
+      // spotlights sweep
+      for (let i = 0; i < 2; i++) {
+        const x = 160 + Math.sin(t * 0.8 + i * 2.5) * 110;
+        g.ctx.globalAlpha = 0.18;
+        g.poly([[i ? 300 : 20, 0], [x - 20, 188], [x + 20, 188]], C.yellow);
+        g.ctx.globalAlpha = 1;
+      }
+      // fans do the wave
+      for (let x = 4; x < W; x += 12) {
+        const up = Math.sin(t * 4 - x * 0.05) > 0.7;
+        if (up) { g.rect(x - 3, 56, 1, 4, C.tan); g.rect(x + 3, 56, 1, 4, C.tan); }
+      }
+    },
+  },
+
+  // A sunny recycling center: colour-coded bins (cans, paper, plastic, glass), a sorting
+  // belt, a tall bale stack, recycling arrows on the wall, and a seagull.
+  "recycling-center": {
+    floor: 190,
+    bg(g) {
+      g.bands(0, 0, W, 90, ["#5a9ae8", "#7ab4f0", "#a8d0f8"]);
+      cloud(g, 60, 22, 1.2);
+      cloud(g, 240, 16, 1);
+      g.circle(290, 20, 10, C.yellow);
+      // building with a big sign and arrows
+      g.rect(0, 50, W, 100, "#b8c4b0");
+      g.rect(0, 50, W, 4, "#8a9a88");
+      for (let x = 0; x < W; x += 20) g.rect(x, 54, 1, 96, "#a8b4a0");
+      g.rect(96, 58, 128, 18, "#2a7a3a");
+      g.text("RECYCLE CENTER", 160, 64, C.white, 1, "center");
+      // recycling triangle of arrows
+      const ax = 160, ay = 100;
+      g.tri(ax, ay - 14, ax - 12, ay + 8, ax + 12, ay + 8, "#2a9a4a");
+      g.tri(ax, ay - 6, ax - 6, ay + 4, ax + 6, ay + 4, "#b8c4b0");
+      g.tri(ax - 16, ay + 2, ax - 8, ay + 2, ax - 12, ay + 10, "#2a9a4a");
+      // big doorway with bales inside
+      g.rect(14, 86, 70, 64, "#3a3a40");
+      for (let r = 0; r < 4; r++) for (let c = 0; c < 3; c++) {
+        g.rect(18 + c * 22, 122 - r * 12 + 16, 20, 11, ["#5a8ac8", "#c8a860", "#8ac87a", "#c87a7a"][(r + c) % 4]);
+        g.rect(18 + c * 22, 126 - r * 12 + 16, 20, 1, "#2a2a30");
+      }
+      // ground
+      g.rect(0, 150, W, 50, "#8a8a80");
+      g.dither(0, 150, W, 50, "#8a8a80", "#7a7a70");
+      g.rect(0, 148, W, 3, "#5a5a50");
+      // bins
+      const bins: [number, string, string][] = [[204, "#2456e8", "CANS"], [238, "#ffd23f", "PAPER"], [272, "#00aa00", "GLASS"], [306, "#e3262f", "CUPS"]];
+      for (const [x, c, label] of bins) {
+        g.rect(x - 14, 122, 28, 28, c);
+        g.rect(x - 16, 118, 32, 5, c);
+        g.rect(x - 16, 118, 32, 1, C.white);
+        g.text(label, x, 130, label === "PAPER" ? C.black : C.white, 1, "center");
+      }
+    },
+    anim(g, t) {
+      // sorting belt with tumbling items
+      g.rect(90, 140, 100, 6, "#2a2a30");
+      for (let i = 0; i < 6; i++) {
+        const x = 92 + ((t * 18 + i * 17) % 96);
+        const k = i % 3;
+        if (k === 0) g.rect(x, 135, 4, 5, C.lgray);
+        else if (k === 1) g.rect(x, 136, 6, 4, C.cream);
+        else g.rect(x, 133, 3, 7, "#8ac8f0");
+      }
+      // a seagull glides
+      const gx = (t * 14) % (W + 40) - 20, gy = 34 + Math.sin(t) * 4;
+      const up = Math.floor(t * 4) % 2;
+      g.rect(gx, gy, 3, 2, C.white);
+      g.line(gx - 5, gy - (up ? 3 : -1), gx, gy, C.white);
+      g.line(gx + 3, gy, gx + 8, gy - (up ? 3 : -1), C.white);
+    },
+  },
+
+  // A city rooftop at night: a skyline with lit windows, a water tower, an antenna with a
+  // blinking red light, a big moon, a blinking billboard and the roof ledge in front.
+  "rooftop-night": {
+    floor: 190,
+    bg(g) {
+      g.bands(0, 0, W, 150, ["#06081c", "#0c1238", "#1a1f52", "#2a2a66"]);
+      stars(g, 40, 2, 80, 53);
+      g.circle(250, 32, 16, C.cream);
+      g.circle(244, 28, 3, "#e8d8a0"); g.circle(256, 38, 2, "#e8d8a0");
+      // far skyline
+      let x = 0;
+      let i = 0;
+      while (x < W) {
+        const w = 18 + Math.floor(rnd(i + 31) * 24);
+        const h = 30 + Math.floor(rnd(i + 37) * 70);
+        g.rect(x, 140 - h, w - 2, h, i % 2 ? "#141a3a" : "#1c2248");
+        for (let wy = 146 - h; wy < 134; wy += 7) for (let wx = x + 3; wx < x + w - 5; wx += 5) if (rnd(wx * 7 + wy * 3) > 0.6) g.rect(wx, wy, 2, 3, rnd(wx + wy) > 0.5 ? C.sbYellow : "#ffe8a0");
+        x += w;
+        i++;
+      }
+      // water tower
+      g.rect(28, 92, 34, 30, "#6a4a2a");
+      for (let k = 0; k < 4; k++) g.rect(28, 96 + k * 7, 34, 1, "#4a3018");
+      g.tri(24, 92, 66, 92, 45, 78, "#4a3018");
+      g.rect(32, 122, 3, 28, "#3a3a40"); g.rect(55, 122, 3, 28, "#3a3a40");
+      g.line(33, 124, 56, 146, "#3a3a40"); g.line(56, 124, 33, 146, "#3a3a40");
+      // antenna mast
+      g.rect(292, 60, 2, 90, C.dgray);
+      g.line(293, 70, 282, 150, C.dgray); g.line(293, 70, 304, 150, C.dgray);
+      // roof
+      g.rect(0, 150, W, 50, "#3a3a48");
+      g.dither(0, 150, W, 50, "#3a3a48", "#32323e");
+      g.rect(0, 146, W, 6, "#5a5a6a");
+      g.rect(0, 146, W, 1, "#8a8a9a");
+      // vents and a skylight
+      g.rect(100, 160, 18, 12, C.stone); g.rect(102, 156, 14, 4, C.dgray);
+      g.rect(206, 162, 40, 10, "#6a8ab8"); g.dither(206, 162, 40, 10, "#6a8ab8", "#8aaad8");
+    },
+    anim(g, t) {
+      if (Math.floor(t * 1.5) % 2) g.circle(293, 58, 2, C.lred);
+      else g.px(293, 58, C.red);
+      // billboard
+      g.rect(128, 66, 64, 26, "#1a1a2a");
+      g.rect(130, 68, 60, 22, Math.floor(t / 2) % 2 ? "#2a0a3a" : "#0a2a3a");
+      g.text(Math.floor(t / 2) % 2 ? "BEEP!" : "BOOP!", 160, 75, Math.floor(t / 2) % 2 ? C.lmagenta : C.lcyan, 1, "center");
+      g.rect(140, 92, 2, 20, C.dgray); g.rect(178, 92, 2, 20, C.dgray);
+      // a few windows switch on and off
+      for (let k = 0; k < 6; k++) {
+        const wx = Math.floor(rnd(k + 300) * W), wy = 70 + Math.floor(rnd(k + 310) * 50);
+        if (Math.sin(t * 0.7 + k * 2) > 0.3) g.rect(wx, wy, 2, 3, C.sbYellow);
+      }
+      // a shooting star now and then
+      const k = (t * 0.25) % 3;
+      if (k < 0.4) { const sx = 40 + k * 300, sy = 12 + k * 40; g.line(sx, sy, sx - 8, sy - 2, C.white); }
+    },
+  },
+
+  // A warm bakery kitchen: a brick oven glowing orange, shelves of bread and cakes, a striped
+  // awning window, a flour-dusted counter with a mixing bowl, and steam from a fresh loaf.
+  bakery: {
+    floor: 190,
+    bg(g) {
+      g.rect(0, 0, W, 150, "#f2d8b0");
+      for (let x = 0; x < W; x += 16) g.rect(x, 0, 8, 150, "#f6e2c0");
+      // brick oven
+      bricks(g, 210, 30, 100, 120, "#b85a3a", "#8a3a22", 14, 7);
+      g.ellipse(260, 30, 50, 14, "#b85a3a");
+      g.rect(228, 80, 64, 50, "#2a1008");
+      g.ellipse(260, 80, 32, 14, "#2a1008");
+      g.rect(206, 130, 108, 6, "#6a3a22");
+      // window with an awning
+      g.rect(30, 30, 80, 56, C.white);
+      g.rect(34, 34, 72, 48, "#8ac8f8");
+      g.rect(69, 34, 2, 48, C.white); g.rect(34, 57, 72, 2, C.white);
+      for (let i = 0; i < 8; i++) g.rect(26 + i * 11, 22, 11, 10, i % 2 ? C.white : C.sbRed);
+      for (let i = 0; i < 8; i++) g.tri(26 + i * 11, 32, 37 + i * 11, 32, 31 + i * 11, 36, i % 2 ? C.white : C.sbRed);
+      // shelves of bread and cakes
+      for (const y of [56, 84]) g.rect(124, y, 76, 3, "#8a5a2a");
+      for (let i = 0; i < 4; i++) {
+        g.ellipse(134 + i * 18, 51, 7, 5, "#d89a4a");
+        g.line(130 + i * 18, 50, 138 + i * 18, 48, "#a86a2a");
+      }
+      for (let i = 0; i < 3; i++) {
+        const cx = 140 + i * 24;
+        g.rect(cx - 8, 70, 16, 14, [C.lmagenta, C.cream, "#8a4a2a"][i]);
+        g.rect(cx - 8, 70, 16, 3, C.white);
+        g.px(cx, 68, C.sbRed);
+      }
+      // floor tiles
+      for (let y = 150, r = 0; y < 200; y += 10, r++) for (let x = 0, c = 0; x < W; x += 20, c++) g.rect(x, y, 20, 10, (r + c) % 2 ? "#e8e0d0" : "#c86a5a");
+      // counter with a mixing bowl and a rolling pin
+      g.rect(0, 118, 120, 8, "#e8e0d0");
+      g.rect(0, 126, 120, 24, "#8a5a2a");
+      for (let x = 10; x < 120; x += 30) g.rect(x, 130, 22, 16, "#7a4a1e");
+      g.ellipse(40, 112, 14, 7, "#5aa0d8");
+      g.rect(26, 105, 29, 3, "#5aa0d8");
+      g.ellipse(40, 106, 12, 2, C.cream);
+      g.rect(70, 112, 30, 4, "#d8a060"); g.rect(66, 113, 4, 2, "#a86a2a"); g.rect(100, 113, 4, 2, "#a86a2a");
+      g.dither(60, 116, 50, 2, C.white, "#e8e0d0");
+    },
+    anim(g, t) {
+      // oven fire
+      for (let i = 0; i < 4; i++) flame(g, 240 + i * 13, 122, t + i * 0.3, 1.2);
+      g.dither(232, 84, 56, 30, "#5a1a08", "rgba(0,0,0,0)");
+      // steam from the bowl
+      for (let i = 0; i < 3; i++) {
+        const k = (t * 0.6 + i / 3) % 1;
+        g.px(36 + i * 4 + Math.sin(t * 3 + i) * 2, 102 - k * 22, k < 0.7 ? C.white : "#f6e2c0");
+      }
+    },
+  },
+
+  // ---- special edition: Math 6 Unit 3 ----
+  mall: {
+    floor: 190,
+    bg(g) {
+      // skylight ceiling
+      g.bands(0, 0, W, 34, ["#bfe4ff", "#8fc8f0"]);
+      for (let x = 0; x < W; x += 40) g.rect(x, 0, 3, 34, C.lgray);
+      g.rect(0, 32, W, 4, C.stone);
+      // upper level shops + railing
+      g.rect(0, 36, W, 46, "#e8dcc8");
+      const signs: [string, string, string][] = [["SALE", C.sbRed, C.white], ["25% OFF", C.sbBlue, C.sbYellow], ["SHOES", C.purple, C.white], ["BOGO", C.green, C.white], ["TECH", C.dgray, C.lcyan]];
+      signs.forEach(([t, bgc, fg], i) => {
+        const x = 6 + i * 63;
+        g.rect(x, 40, 56, 10, bgc);
+        g.text(t, x + 28, 42, fg, 1, "center");
+        g.rect(x + 2, 52, 52, 26, "#cfe8ff");
+        g.dither(x + 2, 52, 52, 26, "#cfe8ff", "#a8d0f0");
+        g.rect(x + 26, 52, 2, 26, C.lgray);
+      });
+      g.rect(0, 80, W, 3, C.lgray);
+      for (let x = 0; x < W; x += 8) g.rect(x, 74, 1, 7, C.lgray);
+      g.rect(0, 83, W, 6, C.stone);
+      // lower level shops
+      g.rect(0, 89, W, 66, "#f2e8d8");
+      const low: [string, string][] = [["PERCENT PALACE", C.sbRed], ["DEAL DEPOT", C.sbBlue], ["CAFE", C.brown]];
+      low.forEach(([t, c], i) => {
+        const x = 8 + i * 106;
+        g.rect(x, 94, 96, 12, c);
+        g.text(t, x + 48, 97, C.white, 1, "center");
+        g.rect(x + 4, 108, 88, 44, "#d8ecff");
+        g.dither(x + 4, 108, 88, 44, "#d8ecff", "#b8dcf8");
+        g.rect(x + 40, 116, 16, 36, "#8fb8d8");
+        // little price tags in the windows
+        g.rect(x + 10, 120, 12, 8, C.sbYellow);
+        g.text("%", x + 16, 121, C.sbRed, 1, "center");
+      });
+      // escalator
+      g.poly([[262, 152], [300, 92], [316, 92], [278, 152]], C.dgray);
+      for (let k = 0; k < 8; k++) g.rect(266 + k * 4.6, 146 - k * 7.4, 12, 1, C.lgray);
+      // floor tiles
+      for (let y = 152, r = 0; y < 200; y += 8, r++) for (let x = -(r % 2) * 10, c = 0; x < W; x += 20, c++) g.rect(x, y, 20, 8, (r + c) % 2 ? "#e0d8c8" : "#c8bca8");
+      // fountain
+      g.ellipse(160, 176, 34, 7, C.stone);
+      g.ellipse(160, 175, 30, 5, C.lblue);
+      g.rect(157, 158, 6, 17, C.lgray);
+      // plants
+      for (const px of [14, 300]) {
+        g.rect(px - 6, 166, 12, 14, C.brown);
+        g.ellipse(px, 160, 10, 8, C.green);
+        g.ellipse(px - 3, 156, 6, 5, C.lgreen);
+      }
+    },
+    anim(g, t) {
+      // fountain spray
+      for (let i = 0; i < 10; i++) {
+        const k = (t * 0.9 + i / 10) % 1;
+        const dir = i % 2 ? 1 : -1;
+        g.px(160 + dir * k * 22, 158 - Math.sin(k * Math.PI) * 14 + k * 16, C.lcyan);
+      }
+      // blinking SALE sign
+      if (Math.sin(t * 4) > 0) g.rect(6, 40, 56, 1, C.yellow);
+      // escalator steps moving
+      const o = (t * 6) % 7.4;
+      for (let k = 0; k < 7; k++) g.rect(266 + (k * 7.4 + o) * 0.62, 146 - (k * 7.4 + o), 10, 1, C.white);
+    },
+  },
+
+  "desert-tower": {
+    floor: 190,
+    bg(g) {
+      g.bands(0, 0, W, 130, ["#2a3a8a", "#5a6ac8", "#f0a060", "#ffd890"]);
+      g.circle(262, 96, 16, "#fff2b0");
+      // far city
+      let x = 0;
+      let i = 0;
+      while (x < W) {
+        const w = 14 + Math.floor(rnd(i + 9) * 20);
+        const h = 16 + Math.floor(rnd(i + 3) * 34);
+        g.rect(x, 136 - h, w - 2, h, i % 2 ? "#8a6a8a" : "#7a5a7a");
+        for (let wy = 140 - h; wy < 132; wy += 6) for (let wx = x + 3; wx < x + w - 5; wx += 5) if (rnd(wx + wy * 7) > 0.6) g.px(wx, wy, C.sbYellow);
+        x += w;
+        i++;
+      }
+      // the giant tower: stepped needle
+      const cx = 118;
+      const tiers: [number, number][] = [[22, 136], [17, 104], [13, 76], [9, 52], [6, 34], [3, 18]];
+      for (let k = 0; k < tiers.length; k++) {
+        const [hw, top] = tiers[k];
+        const bottom = k === 0 ? 150 : tiers[k - 1][1];
+        g.rect(cx - hw, top, hw * 2, bottom - top, k % 2 ? "#c8d4e8" : "#dce6f4");
+        g.rect(cx - hw, top, 3, bottom - top, "#ffffff");
+        g.rect(cx + hw - 3, top, 3, bottom - top, "#9aa8c0");
+        for (let y = top + 3; y < bottom - 2; y += 4) g.rect(cx - hw + 4, y, hw * 2 - 8, 1, "#8aa0c8");
+      }
+      g.rect(cx - 1, 2, 2, 16, C.lgray);
+      // dunes and road
+      g.poly([[0, 150], [60, 138], [130, 150], [210, 136], [W, 150], [W, 200], [0, 200]], C.sand);
+      g.dither(0, 160, W, 40, C.sand, C.tan);
+      g.rect(0, 178, W, 22, "#b89060");
+      for (let x2 = 6; x2 < W; x2 += 30) g.rect(x2, 188, 14, 2, C.cream);
+      // palms
+      palm(g, 26, 182, 0.4);
+      palm(g, 292, 182, -0.4);
+    },
+    anim(g, t) {
+      // blinking beacon on the spire
+      if (Math.sin(t * 3) > 0.2) g.rect(117, 1, 3, 2, C.sbRed);
+      // heat shimmer over the sand
+      for (let i = 0; i < 14; i++) {
+        const y = 156 + (i % 5) * 4;
+        const x = (i * 37 + t * 14) % W;
+        g.rect(x, y + Math.sin(t * 5 + i) * 1.5, 8, 1, C.cream);
+      }
+      // a glass elevator crawling up the tower
+      const k = (t * 0.08) % 1;
+      g.rect(132, 146 - k * 110, 4, 5, C.lcyan);
+    },
+  },
+};

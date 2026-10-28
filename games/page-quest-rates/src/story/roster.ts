@@ -1,0 +1,193 @@
+/*
+ * The fixed rosters from the Page Quest story format (PAGE_QUEST.md): scenes the engine
+ * draws, characters it has sprites for, moods, genres, bands and gate anchors.
+ * Pure data (no DOM), shared by the game, the Writer's Desk and the node checks.
+ */
+
+export const SCENES = [
+  "library", "beach", "ship-deck", "island-jungle", "cave", "castle-hall", "forest", "village",
+  "mountain-pass", "space-bridge", "space-corridor", "planet-surface", "museum-hall", "museum-vault",
+  "city-street", "lab", "lighthouse", "stormy-sea", "school", "train", "cryo-bay",
+  "academy-hall", "secret-hq", "temple-ruins", "labyrinth",
+  "castle-night", "pumpkin-patch", "attic",
+  "robot-workshop", "factory-floor", "robot-arena", "recycling-center", "rooftop-night", "bakery",
+  "mall", "desert-tower",
+] as const;
+export type SceneId = (typeof SCENES)[number];
+
+export const SCENE_LABEL: Record<SceneId, string> = {
+  library: "Arcade Library",
+  beach: "Beach",
+  "ship-deck": "Ship deck",
+  "island-jungle": "Island jungle",
+  cave: "Cave",
+  "castle-hall": "Castle hall",
+  forest: "Forest",
+  village: "Village",
+  "mountain-pass": "Mountain pass",
+  "space-bridge": "Starship bridge",
+  "space-corridor": "Starship corridor",
+  "planet-surface": "Planet surface",
+  "museum-hall": "Museum hall",
+  "museum-vault": "Museum vault",
+  "city-street": "City street",
+  lab: "Lab",
+  lighthouse: "Lighthouse",
+  "stormy-sea": "Stormy sea",
+  school: "School",
+  train: "Train",
+  "cryo-bay": "Cryo bay",
+  "academy-hall": "Academy hall",
+  "secret-hq": "Secret HQ",
+  "temple-ruins": "Temple ruins",
+  labyrinth: "Labyrinth",
+  "castle-night": "Castle at night",
+  "pumpkin-patch": "Pumpkin patch",
+  attic: "Attic",
+  "robot-workshop": "Robot workshop",
+  "factory-floor": "Factory floor",
+  "robot-arena": "Robot arena",
+  "recycling-center": "Recycling center",
+  "rooftop-night": "City rooftop at night",
+  bakery: "Bakery",
+  mall: "Shopping mall",
+  "desert-tower": "Giant tower in a desert city",
+};
+
+export const CHARACTERS = [
+  { id: "hero", name: "Hero", who: "the player (the arcade hero)" },
+  { id: "quill", name: "Quill", who: "the owl librarian sidekick" },
+  { id: "kid", name: "Kid", who: "a kid about the player's age" },
+  { id: "captain", name: "Captain", who: "a ship captain" },
+  { id: "parrot", name: "Parrot", who: "a talkative parrot" },
+  { id: "robot", name: "Robot", who: "a friendly boxy robot" },
+  { id: "scientist", name: "Scientist", who: "a scientist in a lab coat" },
+  { id: "detective", name: "Detective", who: "a detective in a trench coat" },
+  { id: "guard", name: "Guard", who: "a guard / security officer" },
+  { id: "keeper", name: "Keeper", who: "an old lighthouse/museum keeper" },
+  { id: "ghost", name: "Ghost", who: "a friendly-ish ghost" },
+  { id: "dragon", name: "Dragon", who: "a small dragon" },
+  { id: "knight", name: "Knight", who: "a knight in armor" },
+  { id: "mayor", name: "Mayor", who: "a town mayor" },
+  { id: "cat", name: "Cat", who: "a cat" },
+  { id: "stranger", name: "Stranger", who: "a hooded mysterious figure" },
+  { id: "alien", name: "Alien", who: "a friendly alien" },
+  { id: "zombie", name: "Zombie", who: "a goofy, green-tinged space zombie (kid-friendly, curable)" },
+  { id: "astronaut", name: "Astronaut", who: "an astronaut in a spacesuit and helmet" },
+  { id: "mentor", name: "Mentor", who: "a robed teacher of magic with a lantern staff" },
+  { id: "agent", name: "Agent", who: "a spy instructor in a dark suit with an earpiece" },
+  { id: "sphinx", name: "Sphinx", who: "a riddle-loving sphinx (lion body, wings, a woman's head)" },
+  { id: "griffin", name: "Griffin", who: "a griffin (eagle head and wings, lion body)" },
+  { id: "minotaur", name: "Minotaur", who: "a gentle young minotaur (bull head, small horns)" },
+  { id: "vampire", name: "Vampire", who: "a friendly cartoon vampire in a cape (tiny fangs, never bites)" },
+  { id: "bat", name: "Bat", who: "a small, chatty bat" },
+  { id: "werewolf", name: "Werewolf", who: "a fluffy, goofy werewolf (more puppy than scary)" },
+  { id: "helperbot", name: "Helperbot", who: "a round orange helper robot with a screen face and one wheel" },
+  { id: "retrobot", name: "Retrobot", who: "a tall, boxy retro tin robot with coil antennas and claw hands" },
+  { id: "drone", name: "Drone", who: "a tiny flying quadcopter robot with a screen face" },
+  { id: "rover", name: "Rover", who: "a six-wheeled rover robot with a camera head and a solar wing" },
+  { id: "fixbot", name: "Fixbot", who: "a spider-legged repair robot with a wrench arm" },
+  { id: "mech", name: "Mech", who: "a big, friendly construction mech in a hard hat" },
+  { id: "robodog", name: "Robodog", who: "a robot pet dog with an antenna tail that wags" },
+] as const;
+export type CharId = (typeof CHARACTERS)[number]["id"];
+export const CHAR_IDS = CHARACTERS.map((c) => c.id) as CharId[];
+
+export function charName(id: CharId): string {
+  return CHARACTERS.find((c) => c.id === id)?.name ?? id;
+}
+
+/** Display name (as written in dialogue lines, e.g. "Captain") → character id. */
+export function charByName(name: string): CharId | null {
+  const n = name.trim().toLowerCase();
+  return CHARACTERS.find((c) => c.name.toLowerCase() === n)?.id ?? null;
+}
+
+/** `frozen` (any character): icy blue tint, ice crystals, eyes closed, no idle bob. */
+export const MOODS = ["normal", "happy", "sad", "angry", "scared", "surprised", "thinking", "frozen"] as const;
+export type Mood = (typeof MOODS)[number];
+
+/**
+ * Words that are not in the mood list but that writers reach for (the format's own example
+ * uses `captain:worried`). They are accepted with a warning and shown as the mapped mood.
+ */
+export const MOOD_ALIASES: Record<string, Mood> = {
+  worried: "scared",
+  nervous: "scared",
+  afraid: "scared",
+  frightened: "scared",
+  upset: "sad",
+  unhappy: "sad",
+  mad: "angry",
+  furious: "angry",
+  cross: "angry",
+  shocked: "surprised",
+  amazed: "surprised",
+  confused: "thinking",
+  curious: "thinking",
+  puzzled: "thinking",
+  excited: "happy",
+  glad: "happy",
+  proud: "happy",
+  calm: "normal",
+  neutral: "normal",
+  icy: "frozen",
+  iced: "frozen",
+};
+
+export const GENRES = ["mystery", "adventure", "space", "fantasy", "spooky", "robots"] as const;
+export type Genre = (typeof GENRES)[number];
+
+export const BANDS = ["4-5", "6-8", "9-12"] as const;
+export type Band = (typeof BANDS)[number];
+
+export const ENDING_TYPES = ["win", "lose", "secret"] as const;
+export type EndingType = (typeof ENDING_TYPES)[number];
+
+/** Gate anchors: a standard without the grade. */
+export const ANCHORS: Record<string, string> = {
+  "RL.1": "Cite text evidence",
+  "RL.2": "Theme & summary",
+  "RL.3": "Characters, setting & plot",
+  "RL.4": "Word meaning & tone",
+  "RL.5": "Story structure & order",
+  "RL.6": "Point of view",
+  "RL.7": "Story across media",
+  "RL.8": "Reasoning in a text",
+  "RL.9": "Compare stories",
+  "RI.1": "Cite evidence (nonfiction)",
+  "RI.2": "Main idea & summary",
+  "RI.3": "Events, ideas & steps",
+  "RI.4": "Word meaning (nonfiction)",
+  "RI.5": "Text structure",
+  "RI.6": "Author's purpose & view",
+  "RI.7": "Charts, maps & media",
+  "RI.8": "Claims & evidence",
+  "RI.9": "Compare sources",
+  "L.1": "Grammar & usage",
+  "L.2": "Capitals, punctuation & spelling",
+  "L.3": "Word choice & style",
+  "L.4": "Word meaning from clues",
+  "L.5": "Figurative language",
+  "L.6": "Academic vocabulary",
+  "W.1": "Opinion & argument",
+  "W.2": "Informative writing",
+  "W.3": "Narrative writing",
+  "RF.3": "Phonics & word analysis",
+  "RF.4": "Reading fluency",
+};
+
+export function isAnchor(a: string): boolean {
+  return a in ANCHORS;
+}
+
+export function bandOfGrade(grade: number): Band | null {
+  if (grade >= 4 && grade <= 5) return "4-5";
+  if (grade >= 6 && grade <= 8) return "6-8";
+  if (grade >= 9 && grade <= 12) return "9-12";
+  return null;
+}
+
+export const BAND_GRADES: Record<Band, [number, number]> = { "4-5": [4, 5], "6-8": [6, 8], "9-12": [9, 12] };
+
+export const ID_RE = /^[a-z0-9-]+$/;
