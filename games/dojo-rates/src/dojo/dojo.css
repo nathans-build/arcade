@@ -1,0 +1,366 @@
+/* Dojo Tower: Rates & Percents — arcade presentation layer (from Dojo Tower: SpiderBen10 red & blue on deep space) */
+
+.dt-root {
+  --dt-bg: #0a0f2e;
+  --dt-deep: #050818;
+  --dt-red: #e3262f;
+  --dt-blue: #2456e8;
+  --dt-cyan: #6ea0ff;
+  --dt-yellow: #ffd23f;
+  --dt-green: #5fff8a;
+  --dt-white: #f2f4ff;
+  --dt-dim: #6a78b8;
+  height: 100vh;
+  height: 100dvh;
+  box-sizing: border-box;
+  background: var(--dt-bg);
+  color: var(--dt-white);
+  font-family: "VT323", ui-monospace, monospace;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 16px 12px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  overflow: hidden;
+}
+
+.dt-pixel { font-family: "Press Start 2P", ui-monospace, monospace; letter-spacing: 0.02em; }
+.dt-root .y { color: var(--dt-yellow); }
+.dt-root .c { color: var(--dt-cyan); }
+.dt-root .g { color: var(--dt-green); }
+.dt-root .r { color: #ff8a8a; }
+.dt-root .dim { color: var(--dt-dim); }
+
+.dt-cabinet {
+  width: 100%; max-width: 960px;
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+}
+.dt-toolbar, .dt-hud, .dt-quiz, .dt-controls { flex: none; }
+
+/* The stage takes whatever height is left; the 16:10 screen scales to fit it both ways. */
+.dt-stage {
+  flex: 1; min-height: 120px;
+  display: flex; align-items: flex-start; justify-content: center;
+}
+
+.dt-hud {
+  display: grid;
+  grid-template-columns: repeat(6, auto);
+  justify-content: space-between;
+  gap: 4px 12px;
+  font-size: clamp(8px, 1.6vw, 12px);
+  padding: 6px 2px;
+  text-transform: uppercase;
+}
+.dt-hud .lbl { color: var(--dt-dim); margin-right: 6px; }
+.dt-hud .val { color: var(--dt-white); }
+.dt-hud .lives { color: var(--dt-red); letter-spacing: 2px; font-family: ui-monospace, monospace; }
+.dt-hud .ready { color: var(--dt-yellow); }
+.dt-starhud .val { white-space: nowrap; color: #9ae8ff; }
+.dt-starhud .val.ready { color: var(--dt-yellow); }
+.dt-burstbar { display: inline-block; vertical-align: middle; width: 4.5em; height: 0.6em; margin-left: 4px; background: #1c2450; border: 1px solid var(--dt-yellow); }
+.dt-burstbar i { display: block; height: 100%; background: var(--dt-yellow); transition: width 0.1s linear; }
+
+.dt-screen {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 320 / 200;
+  box-sizing: border-box;
+  border: 3px solid #1c2a78;
+  box-shadow: 0 0 0 2px #000, 0 0 40px rgba(227, 38, 47, 0.25);
+  overflow: hidden;
+  background: var(--dt-bg);
+}
+.dt-screen canvas {
+  width: 100%; height: 100%; display: block;
+  image-rendering: pixelated; image-rendering: crisp-edges;
+}
+/* CRT scanlines */
+.dt-screen::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0) 0 2px, rgba(0, 0, 0, 0.16) 2px 3px);
+}
+
+.dt-overlay {
+  position: absolute; inset: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  padding: 3%;
+  background: rgba(5, 8, 24, 0.8);
+  overflow-y: auto;
+}
+.dt-overlay.title { background: rgba(10, 15, 46, 0.55); }
+.dt-panel {
+  width: 100%; max-width: 780px; max-height: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  border: 3px solid var(--dt-cyan);
+  background: #070c30;
+  padding: clamp(10px, 2.5vw, 22px);
+  box-shadow: 6px 6px 0 #000;
+}
+.dt-panel.title { border-color: var(--dt-red); }
+.dt-panel.won { border-color: var(--dt-yellow); }
+
+.dt-title {
+  font-size: clamp(20px, 5vw, 44px);
+  color: var(--dt-yellow);
+  text-shadow: 3px 3px 0 var(--dt-red), 6px 6px 0 var(--dt-blue);
+  text-align: center; line-height: 1.2;
+}
+.dt-sub { text-align: center; color: var(--dt-cyan); font-size: clamp(7px, 1.4vw, 12px); margin-top: 10px; line-height: 1.5; }
+.dt-h { font-size: clamp(9px, 1.8vw, 14px); color: var(--dt-cyan); margin-bottom: 8px; line-height: 1.4; }
+
+.dt-grades { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 10px 0 8px; }
+.dt-grade {
+  font-size: clamp(9px, 1.4vw, 12px);
+  min-width: 36px; padding: 9px 4px;
+  background: #0c1450; color: var(--dt-white); cursor: pointer;
+  border: 2px solid var(--dt-dim); box-shadow: 3px 3px 0 #000;
+}
+.dt-grade:hover, .dt-grade:focus-visible { border-color: var(--dt-cyan); outline: none; }
+.dt-grade.on { background: var(--dt-red); border-color: var(--dt-yellow); color: #fff; }
+.dt-grade.on:focus-visible { outline: 2px dashed var(--dt-cyan); outline-offset: 2px; }
+
+/* Subject row (like the other arcade games) and, for one subject, its topic row */
+.dt-subjects { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 4px 0 8px; }
+.dt-subject {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  flex: 1 1 108px; max-width: 170px; min-height: 48px; padding: 8px 6px; cursor: pointer;
+  font-family: "VT323", ui-monospace, monospace; color: var(--dt-white);
+  background: #0c1450; border: 2px solid var(--dt-dim); box-shadow: 3px 3px 0 #000;
+}
+.dt-subject .dt-pixel { font-size: clamp(8px, 1.3vw, 11px); line-height: 1.3; }
+.dt-subject small { font-size: clamp(14px, 1.8vw, 17px); color: #b8c0f0; line-height: 1; text-align: center; }
+.dt-subject.on { background: var(--dt-blue); border-color: var(--dt-yellow); }
+.dt-subject.on small { color: #fff; }
+.dt-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 6px 0; }
+.dt-chip {
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 40px; max-width: 100%; padding: 4px 10px; cursor: pointer;
+  font-family: "VT323", ui-monospace, monospace; font-size: clamp(17px, 2.1vw, 20px); line-height: 1;
+  color: var(--dt-white); background: #0c1450; border: 2px solid var(--dt-dim); box-shadow: 3px 3px 0 #000;
+  overflow-wrap: anywhere;
+}
+.dt-chip.all { text-transform: uppercase; letter-spacing: 0.04em; }
+.dt-focusline { text-align: center; margin-top: 6px; }
+.dt-chip.on { background: var(--dt-blue); border: 2px solid var(--dt-yellow); color: #fff; }
+.dt-chip:disabled { cursor: not-allowed; color: #59639a; border-color: #2a3470; background: #090f38; box-shadow: none; }
+.dt-chip small { font-size: 0.75em; color: #8a94c8; margin-top: 2px; }
+.dt-subject:hover, .dt-subject:focus-visible, .dt-chip:hover:not(:disabled), .dt-chip:focus-visible { border-color: var(--dt-cyan); outline: none; }
+.dt-subject.on:focus-visible, .dt-chip.on:focus-visible { outline: 2px dashed var(--dt-cyan); outline-offset: 2px; }
+.dt-focusnote { text-align: center; color: var(--dt-yellow); margin: 2px 0 4px; }
+.dt-reportmode { margin-top: 4px; }
+
+/* Tower floor list on the title screen: ten floors, two compact columns (one on phones), scrolls inside */
+.dt-floorshead { margin-bottom: 4px; }
+.dt-floors {
+  list-style: none; margin: 0 0 4px; padding: 0;
+  display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: column; grid-template-rows: repeat(5, auto);
+  border: 2px solid #1f2d7a; background: #0a1240;
+  max-height: 11.5em; overflow-y: auto; overscroll-behavior: contain;
+}
+.dt-floorrow {
+  display: grid; grid-template-columns: 30px 1fr; gap: 0 8px; align-items: baseline;
+  padding: 3px 8px; border-top: 1px solid #1c2450; font-size: clamp(15px, 1.9vw, 18px); line-height: 1.05; min-width: 0;
+}
+.dt-floorrow:nth-child(6) { border-top: 0; }
+.dt-floorrow:nth-child(n + 6) { border-left: 1px solid #1c2450; }
+.dt-floorrow:first-child { border-top: 0; }
+.dt-floorrow .n { font-size: 9px; color: var(--dt-yellow); grid-row: 1 / span 2; }
+.dt-floorrow .boss { color: #ff8a8a; font-size: 1.05em; }
+.dt-floorrow .hall { color: var(--dt-white); font-size: 0.85em; grid-column: 2; overflow-wrap: anywhere; }
+.dt-floorrow .hall .dim { color: var(--dt-cyan); }
+@media (max-width: 640px) {
+  .dt-floors { grid-template-columns: 1fr; grid-auto-flow: row; grid-template-rows: none; max-height: 10.5em; }
+  .dt-floorrow:nth-child(6) { border-top: 1px solid #1c2450; }
+  .dt-floorrow:nth-child(n + 6) { border-left: 0; }
+}
+.dt-beaten, .dt-continue { margin-top: 6px; }
+.dt-continue { color: var(--dt-yellow); }
+
+/* Question panel (floor masters and scrolls), under the game screen */
+.dt-quiz {
+  background: #0c1440; border: 2px solid var(--dt-blue); border-left: 6px solid var(--dt-red);
+  padding: 6px 10px 8px; margin: 6px 2px 0;
+  font-size: clamp(18px, 2.4vw, 24px); line-height: 1.05;
+  max-height: 48vh; overflow-y: auto;
+}
+.dt-quiz.scroll { border-left-color: var(--dt-yellow); }
+.dt-quiz.correct { border-color: var(--dt-green); }
+.dt-quiz.wrong { border-color: var(--dt-red); }
+.dt-quiz .head { font-size: clamp(7px, 1.1vw, 10px); color: #ff8a8a; display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+.dt-quiz.scroll .head { color: var(--dt-yellow); }
+.dt-quiz .head .std { color: var(--dt-dim); white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+.dt-quiz .passage { font-size: 0.85em; color: #cfd6ff; border-left: 4px solid var(--dt-dim); padding: 2px 8px; margin: 4px 0; }
+.dt-quiz .prompt { margin: 2px 0 6px; color: var(--dt-white); }
+.dt-quiz .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 8px; }
+.dt-quiz .opt {
+  display: flex; gap: 8px; align-items: baseline;
+  font: inherit; color: #d6dcff; text-align: left; cursor: pointer;
+  background: #111c5a; border: 2px solid #1f2d7a; padding: 5px 8px;
+  min-height: 40px; box-shadow: 3px 3px 0 #000;
+}
+.dt-quiz .opt b { font-family: "Press Start 2P", monospace; font-size: 0.5em; font-weight: normal; color: var(--dt-yellow); }
+.dt-quiz .opt:hover:not(:disabled) { border-color: var(--dt-yellow); }
+.dt-quiz .opt:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #000; }
+.dt-quiz .opt:disabled { cursor: default; }
+.dt-quiz .opt.ans { border-color: var(--dt-green); color: var(--dt-green); background: #0d3a22; }
+.dt-quiz .opt.wrong { border-color: var(--dt-red); color: #ffb0b4; background: #3a0d12; }
+.dt-quiz .hint { font-size: 0.75em; margin-top: 5px; }
+.dt-quiz .feedback { margin-top: 6px; }
+.dt-quiz .verdict { font-size: clamp(8px, 1.4vw, 12px); margin-bottom: 4px; line-height: 1.4; }
+.dt-quiz .verdict.ok { color: var(--dt-green); }
+.dt-quiz .verdict.no { color: var(--dt-red); }
+.dt-quiz .why { color: #e6eaff; }
+.dt-quiz .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+.dt-quiz .row .dim { font-size: 0.8em; }
+@media (max-width: 420px) { .dt-quiz .opts { grid-template-columns: 1fr; } }
+
+.dt-speak {
+  font-size: 16px; line-height: 1; padding: 2px 6px; cursor: pointer;
+  background: #0c1450; border: 2px solid var(--dt-dim); color: var(--dt-cyan);
+}
+
+.dt-cta {
+  font-family: "Press Start 2P", monospace; font-size: clamp(9px, 1.6vw, 13px);
+  color: var(--dt-deep); background: var(--dt-yellow); border: 0; padding: 12px 16px;
+  box-shadow: 4px 4px 0 var(--dt-red); cursor: pointer; text-transform: uppercase;
+}
+.dt-cta.big { font-size: clamp(11px, 2vw, 16px); padding: 14px 20px; }
+.dt-cta:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--dt-red); }
+.dt-cta.ghost { background: transparent; color: var(--dt-cyan); box-shadow: none; border: 2px solid var(--dt-cyan); }
+
+/* Touch pad */
+.dt-controls { display: none; margin-top: 8px; gap: 8px; justify-content: space-between; align-items: center; }
+.dt-controls.show { display: flex; }
+.dt-pad { display: flex; gap: 6px; align-items: center; }
+.dt-col { display: flex; flex-direction: column; gap: 6px; }
+.dt-touch {
+  width: 58px; height: 50px; border-radius: 10px;
+  background: #0c1450; color: var(--dt-white); border: 2px solid var(--dt-dim);
+  touch-action: none; font-family: ui-monospace, monospace; font-size: 26px; padding: 0;
+}
+.dt-touch.word { font-family: "Press Start 2P", monospace; font-size: 9px; width: 70px; height: 70px; border-radius: 50%; }
+.dt-touch.punch { border-color: var(--dt-red); color: #ffb0b4; }
+.dt-touch.kick { border-color: var(--dt-cyan); color: var(--dt-cyan); }
+.dt-touch.thunder { width: 44px; height: 44px; font-size: 20px; color: var(--dt-dim); }
+.dt-touch.thunder.ready { color: var(--dt-yellow); border-color: var(--dt-yellow); background: #2a2a10; }
+.dt-touch.star { width: 44px; height: 44px; font-size: 20px; color: var(--dt-dim); }
+.dt-touch.star.ready { color: #fff; border-color: var(--dt-yellow); background: #1c5a6a; }
+.dt-touch:active { background: #1c2a90; }
+
+.dt-help { font-size: clamp(16px, 2.2vw, 20px); color: #b8c0f0; line-height: 1.15; }
+.dt-help.big { font-size: 22px; }
+.dt-help kbd { font-family: "Press Start 2P", monospace; font-size: 0.5em; color: var(--dt-yellow); border: 1px solid var(--dt-dim); padding: 2px 4px; white-space: nowrap; }
+
+.dt-tablewrap { overflow-x: auto; }
+.dt-report-table { width: 100%; border-collapse: collapse; font-size: clamp(16px, 2.2vw, 20px); margin-top: 8px; }
+.dt-report-table th { font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--dt-dim); text-align: left; padding: 4px; }
+.dt-report-table td { padding: 3px 4px; border-top: 1px solid #1c2450; }
+.dt-dot { display: inline-block; width: 8px; height: 8px; margin-right: 6px; background: var(--dt-yellow); }
+.dt-dot.science { background: var(--dt-green); }
+.dt-dot.ela { background: var(--dt-cyan); }
+.dt-dot.social { background: #ff8a8a; }
+
+.dt-toolbar { position: relative; z-index: 10; display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 960px; margin-bottom: 4px; gap: 8px; }
+.dt-tools { display: flex; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
+.dt-toolbar a, .dt-toolbar button {
+  font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--dt-dim);
+  background: none; border: 0; cursor: pointer; text-decoration: none; padding: 6px 0;
+}
+.dt-toolbar a:hover, .dt-toolbar button:hover { color: var(--dt-cyan); }
+
+/* Early readers (K-2): bigger text */
+.dt-root.early .dt-quiz { font-size: clamp(22px, 3vw, 30px); }
+.dt-root.early .dt-quiz .opt { min-height: 48px; }
+
+/* The toolbar (ARCADE link, MUSIC, SFX, READ ALOUD) has z-index 10, above every overlay, so it stays tappable
+   on the title, pause and game-over screens. Where an overlay covers the whole viewport (small screens,
+   below) it keeps this much room at the top for the toolbar; more where the toolbar wraps. */
+.dt-root { --dt-tb-room: 40px; }
+@media (max-width: 385px) { .dt-root { --dt-tb-room: 68px; } }
+
+@media (max-width: 700px), (max-height: 640px) {
+  /* Small screens: the game screen is too short for text panels, so they take the viewport */
+  .dt-overlay { position: fixed; padding: 12px; padding-top: var(--dt-tb-room); align-items: flex-start; }
+  .dt-panel { max-height: none; }
+}
+
+/* Portrait phones and tablets: keep the question panel right under the screen, pads at the bottom */
+@media (orientation: portrait) and (max-width: 900px) {
+  .dt-stage { flex: 0 1 auto; }
+  .dt-controls { margin-top: auto; padding-top: 8px; }
+}
+
+/* Short landscape screens (phones): touch pads move to the sides of the game screen */
+@media (max-height: 500px) and (orientation: landscape) {
+  .dt-root { padding: 4px 8px 6px; }
+  .dt-cabinet.touch-on { padding: 0 150px; box-sizing: border-box; max-width: none; }
+  .dt-controls.show {
+    position: fixed; left: 8px; right: 8px; bottom: 10px; margin: 0; z-index: 1;
+    pointer-events: none;
+  }
+  .dt-controls.show .dt-pad { pointer-events: auto; }
+  .dt-controls.show .dt-pad.act { flex-wrap: wrap; width: 144px; justify-content: flex-end; }
+  .dt-hud { padding: 2px; }
+  .dt-quiz { max-height: 60vh; padding: 3px 8px 5px; font-size: 17px; }
+  .dt-quiz .opt { min-height: 30px; padding: 2px 6px; }
+}
+@media (max-width: 520px) {
+  .dt-root { padding: 6px 8px 10px; }
+  .dt-hud { grid-template-columns: repeat(3, auto); }
+  .dt-toolbar a, .dt-toolbar button { font-size: 7px; }
+  .dt-tools { gap: 10px; }
+  .dt-touch { width: 50px; height: 46px; }
+  .dt-touch.word { width: 62px; height: 62px; font-size: 8px; }
+}
+@media (max-width: 370px) {
+  .dt-touch { width: 46px; }
+  .dt-touch.word { width: 58px; height: 58px; }
+}
+
+/* ---------------------------------------------------------------- Rates & Percents additions */
+.dt-title2 { font-size: clamp(13px, 3.2vw, 26px); margin-top: 6px; color: var(--dt-cyan); text-shadow: 2px 2px 0 var(--dt-blue); }
+.dt-edition { color: var(--dt-yellow); }
+.dt-practice .dt-subject { flex: 1 1 96px; min-height: 52px; }
+.dt-practice .dt-subject.full { flex-basis: 100%; max-width: 360px; }
+.dt-floors.compact { grid-template-columns: 1fr; grid-auto-flow: row; grid-template-rows: none; max-height: 12em; }
+.dt-floors.compact .dt-floorrow { border-left: 0 !important; border-top: 1px solid #1c2450; }
+.dt-floors.compact .dt-floorrow:first-child { border-top: 0; }
+
+.dt-quiz.combo { border-left-color: var(--dt-yellow); }
+.dt-quiz .head .std { white-space: normal; }
+.dt-tagname { color: var(--dt-cyan); }
+.dt-story { font-size: 0.85em; color: #fff3c4; background: #1a1640; border-left: 4px solid var(--dt-yellow); padding: 3px 8px; margin: 2px 0 4px; }
+.dt-work { margin: 2px 0 6px; padding-left: 1.4em; font-size: 0.8em; color: var(--dt-dim); }
+.dt-work li.done { color: var(--dt-green); }
+.dt-work li.now { color: var(--dt-yellow); }
+.dt-hints { font-size: 0.85em; color: #e6eaff; background: #142060; border: 2px dashed var(--dt-yellow); padding: 3px 8px; margin: 2px 0 6px; }
+.dt-mistake { color: #ffd0d3; background: #3a0d12; border-left: 4px solid var(--dt-red); padding: 2px 8px; margin-bottom: 4px; }
+.dt-qfoot { margin: 0 0 6px; }
+.dt-hintbtn {
+  font-size: 10px; min-height: 40px; min-width: 88px; padding: 6px 12px; cursor: pointer;
+  color: var(--dt-deep); background: var(--dt-yellow); border: 0; box-shadow: 3px 3px 0 var(--dt-red);
+}
+.dt-hintbtn:disabled { background: #2a3470; color: #8a94c8; box-shadow: none; cursor: default; }
+
+/* The textbook pictures under the question */
+.dt-model { display: block; width: 100%; max-width: 460px; margin: 2px auto 6px; }
+.dt-model line { stroke: #cfd6ff; stroke-width: 1.5; }
+.dt-model text { fill: #e6eaff; font-family: "VT323", ui-monospace, monospace; font-size: 13px; text-anchor: middle; }
+.dt-model text.unk { fill: var(--dt-yellow); font-weight: bold; }
+.dt-model rect { fill: #111c5a; stroke: #cfd6ff; stroke-width: 1.2; }
+.dt-model rect.on { fill: #2456e8; }
+.dt-modelwrap { overflow-x: auto; }
+.dt-model.table { width: auto; border-collapse: collapse; font-size: 0.85em; }
+.dt-model.table th, .dt-model.table td { border: 1px solid #3a4aa0; padding: 1px 10px; text-align: center; }
+.dt-model.table th { color: var(--dt-dim); font-weight: normal; }
+.dt-model.table td.unk { color: var(--dt-yellow); }
+
+.dt-exports { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; font-size: clamp(16px, 2.2vw, 20px); }
+.dt-cta.small { padding: 10px 12px; min-height: 40px; font-size: 10px; }
+.dt-cta:disabled { opacity: 0.45; cursor: default; }
+.dt-redo { background: var(--dt-green); }
