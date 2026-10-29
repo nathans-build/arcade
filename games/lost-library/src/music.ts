@@ -3,7 +3,7 @@
  * (see src/kit/README.md). Steps are 8th notes; "|" marks the bars.
  */
 import type { Jingle, Song } from "@/kit/audio";
-import type { AreaId } from "@/library/world";
+import type { QuestDef } from "@/library/quest";
 
 /** Bramblebury Square: a cozy F-major waltz (3/4, so 6 steps a bar). */
 export const TOWN_SONG: Song = {
@@ -234,10 +234,9 @@ export const FAINT: Jingle = {
 export const SONGS: Record<string, Song> = { town: TOWN_SONG, ...WING_SONGS, guardian: GUARDIAN_SONG, readingRoom: READING_ROOM_SONG };
 export const JINGLES: Record<string, Jingle> = { bookFound: BOOK_FOUND, wingRestored: WING_RESTORED, faint: FAINT };
 
-/** The music for where the player is (a guardian quiz has its own). */
-export function songFor(area: AreaId, guardian: boolean): Song {
+/** The music for where the player is in a quest (a guardian quiz has its own). */
+export function songFor(q: QuestDef, area: string, guardian: boolean): Song {
   if (guardian) return GUARDIAN_SONG;
-  if (area === "hub") return TOWN_SONG;
-  if (area === "reading") return READING_ROOM_SONG;
-  return WING_SONGS[area];
+  const key = area === q.hub ? q.music.hub : area === q.final ? q.music.final : q.music.wings[area];
+  return SONGS[key] ?? TOWN_SONG;
 }

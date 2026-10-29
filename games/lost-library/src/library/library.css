@@ -305,3 +305,37 @@
   .ll-dpad { grid-template-columns: repeat(3, 42px); }
   .ll-acts { grid-template-columns: repeat(2, 56px); }
 }
+
+/* Choose your quest: one card per quest (live preview, title, progress, CONTINUE / NEW) */
+.ll-quests { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin: 4px 0 10px; }
+.ll-quest { display: flex; flex-direction: column; background: #241a4a; border: 2px solid var(--ll-dim); box-shadow: 3px 3px 0 #000; }
+.ll-quest.on { border-color: var(--ll-yellow); background: #2e2160; }
+.ll-questpick {
+  display: flex; flex-direction: column; gap: 4px; align-items: stretch; text-align: left; padding: 6px; cursor: pointer;
+  background: none; border: 0; color: var(--ll-white); font-family: "VT323", ui-monospace, monospace; min-height: 48px;
+}
+.ll-questpick:focus-visible { outline: 2px dashed var(--ll-cyan); outline-offset: -4px; }
+.ll-qpreview { width: 100%; aspect-ratio: 320 / 200; image-rendering: pixelated; image-rendering: crisp-edges; border: 2px solid #000; background: var(--ll-deep); }
+.ll-qnum { font-size: 7px; color: var(--ll-dim); }
+.ll-qtitle { font-size: clamp(8px, 1.3vw, 10px); color: var(--ll-yellow); line-height: 1.4; }
+.ll-qline { font-size: 16px; color: #c8bff0; line-height: 1; }
+.ll-qprog { font-size: 16px; line-height: 1; }
+.ll-qbtns { display: flex; gap: 8px; padding: 0 6px 8px; flex-wrap: wrap; }
+.ll-qbtns .ll-cta { flex: 1 1 auto; min-height: 36px; }
+.ll-qstory { text-align: left; }
+.ll-quest.sea .ll-qtitle { color: #9ad0ff; }
+.ll-quest.clock .ll-qtitle { color: #ffd23f; }
+.ll-quest.volcano .ll-qtitle { color: #ff8a3d; }
+.ll-quest.museum .ll-qtitle { color: #8affc1; }
+/* Treasure shelves for the new quests: pearls, gears, star shards and medals are round */
+.ll-shelf.sea, .ll-shelf.clock, .ll-shelf.volcano, .ll-shelf.museum { align-items: center; }
+.ll-shelf.sea { background: #0c3a5a; border-color: #1a5a7a; }
+.ll-shelf.clock { background: #3a2a10; border-color: #8a6a2a; }
+.ll-shelf.volcano { background: #2a1818; border-color: #5a2a1a; }
+.ll-shelf.museum { background: #4a2a5a; border-color: #8a5aa8; }
+.ll-shelf.sea .ll-spine, .ll-shelf.clock .ll-spine, .ll-shelf.volcano .ll-spine, .ll-shelf.museum .ll-spine { width: 30px; height: 30px; border-radius: 50%; }
+.ll-shelf.volcano .ll-spine { border-radius: 2px; transform: rotate(45deg); width: 24px; height: 24px; margin: 4px; }
+.ll-bookcover.sea, .ll-bookcover.clock, .ll-bookcover.museum { border-radius: 50%; width: 64px; height: 64px; }
+.ll-bookcover.volcano { transform: rotate(45deg); width: 50px; height: 50px; margin: 10px; }
+@media (max-width: 520px) { .ll-quests { grid-template-columns: 1fr 1fr; gap: 6px; } .ll-qline { display: none; } }
+@media (max-width: 340px) { .ll-quests { grid-template-columns: 1fr; } }
