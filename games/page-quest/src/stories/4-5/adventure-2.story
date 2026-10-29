@@ -138,6 +138,14 @@ clue: Tavi's whistle is three notes, low, high, high. He copied it from Mango's 
 - Mango flies home all by himself on the first day.
 - Dr. Ama takes Mango to live at the Bird Station.
 hint: Listen to Quill's review. Where are you going, and why?
+next: quiz-ch2
+
+=== quiz-ch2
+scene: ship-deck
+cast: hero, quill:happy
+Quill hops in front of you and holds up one wing.
+Quill: Wait just a moment! The next part of the story is coming. First, try one of my quick challenges.
+? QUIZ : Sharp minds win the day. Try this one!
 next: ch2
 
 # ============================================================
@@ -302,6 +310,14 @@ Tavi hugs Mango gently, and Mango nibbles his ear.
 - Mango flew away and joined the howler monkeys.
 - Tavi decided not to take Mango home after all.
 hint: Listen to Quill's review. What did you get past, and where are you now?
+next: quiz-ch3
+
+=== quiz-ch3
+scene: ship-deck
+cast: hero, quill:happy
+The page goes quiet, like the whole book is holding its breath. Quill puffs out her feathers.
+Quill: Hoo hoo! It's time for a quick challenge. Take your time and think it through.
+? QUIZ : One quick challenge, then back to the story!
 next: ch3
 
 # ============================================================

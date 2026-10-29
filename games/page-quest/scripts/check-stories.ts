@@ -36,6 +36,32 @@ const ROBOT_BOOK_NAMES: Record<string, string[]> = {
   "9-12/robots.story": ["Halyard", "Petrel", "Noor", "Halvorsen", "Augusta", "Treloar", "Bertrand", "Szabo", "Hamish", "Quarrie", "Sunniva", "Brekke"],
   "9-12/robots-2.story": ["Tess", "Ifeoma", "Barrow", "Ferraro", "Okonjo", "Delphine", "Kask", "Jun", "Takahara"],
 };
+/*
+ * Shark adventures (ADVENTURE shelf, one per band): their main names must be unique too, and each
+ * book needs a shark, an ocean scene, story gates, 2-3 QUIZ gates and reachable win + secret endings.
+ */
+const SHARK_BOOK_NAMES: Record<string, string[]> = {
+  "4-5/adventure-sharks.story": ["Speckle", "Lani", "Kahale", "Benny", "Seaglass", "Turtle Rock", "Little Comet"],
+  "6-8/adventure-sharks.story": ["Clementine", "Yara", "Holloway", "Dolores", "Quint", "Rafi", "Wavecrest", "Saltby", "Dorado"],
+  "9-12/adventure-sharks.story": ["Mireille", "Okoro", "Haakon", "Wendt", "Matteo", "Lindqvist", "Emeka", "Sorensen", "Kealoha", "Corvina", "Meridian", "Ardent Star"],
+};
+const SHARKS = ["whaleshark", "hammerhead", "greatwhite"];
+const OCEAN_SCENES = ["reef", "research-boat", "deep-sea"];
+
+/** Page ids reachable from the start page. */
+function reachable(s: { start: string; pages: Parameters<typeof exits>[0][] }): Set<string> {
+  const byId = new Map(s.pages.map((p) => [p.id, p]));
+  const seen = new Set<string>();
+  const queue = [s.start];
+  while (queue.length) {
+    const id = queue.shift()!;
+    if (seen.has(id) || !byId.has(id)) continue;
+    seen.add(id);
+    queue.push(...exits(byId.get(id)!));
+  }
+  return seen;
+}
+
 const ROBOT_TYPES = ["helperbot", "retrobot", "drone", "rover", "fixbot", "mech", "robodog"];
 const ROBOT_SCENES = ["robot-workshop", "factory-floor", "robot-arena", "recycling-center", "rooftop-night", "bakery"];
 const robotErr = (rel: string, msg: string) => {
@@ -56,7 +82,7 @@ for (const file of files) {
   const s = r.story;
   const st = r.stats;
   const folder = rel.split(path.sep)[0];
-  console.log(`\n${rel}: "${s.title}" (${s.genre}, band ${s.band}) — ${st.pages} pages, endings win ${st.endings.win} / lose ${st.endings.lose} / secret ${st.endings.secret}, gates ${st.gates.mc} choice + ${st.gates.order} order, ${st.checkpoints} checkpoints`);
+  console.log(`\n${rel}: "${s.title}" (${s.genre}, band ${s.band}) — ${st.pages} pages, endings win ${st.endings.win} / lose ${st.endings.lose} / secret ${st.endings.secret}, gates ${st.gates.mc} choice + ${st.gates.order} order + ${st.gates.quiz} QUIZ, ${st.checkpoints} checkpoints`);
   const fk = st.readability.grade;
   let level = `  reading level: Flesch–Kincaid grade ${fk.toFixed(1)} (${st.readability.words} words)`;
   if ((BANDS as readonly string[]).includes(s.band)) {
@@ -71,7 +97,39 @@ for (const file of files) {
   for (const i of r.issues) console.log(`  ${formatIssue(i)}${i.page ? ` [${i.page}]` : ""}`);
   errors += r.errors.length;
   warnings += r.warnings.length;
+  // Every shelf book has 2-3 QUIZ gates (subject questions from the player's subject); the HOW TO PLAY book has one.
+  const wantQuiz = folder === "sample" ? [1, 1] : [2, 3];
+  if (st.gates.quiz < wantQuiz[0] || st.gates.quiz > wantQuiz[1]) {
+    console.log(`  ERROR: ${st.gates.quiz} QUIZ gates; want ${wantQuiz[0] === wantQuiz[1] ? wantQuiz[0] : `${wantQuiz[0]}–${wantQuiz[1]}`}.`);
+    errors++;
+  }
   if (folder !== "sample") shelf.set(`${s.genre}/${s.band}`, [...(shelf.get(`${s.genre}/${s.band}`) ?? []), rel]);
+
+  // ---- Extra checks for the shark adventures ----
+  const relKey = rel.split(path.sep).join("/");
+  if (SHARK_BOOK_NAMES[relKey]) {
+    const sharkErr = (msg: string) => robotErr(rel, `(shark book) ${msg}`);
+    const [lo, hi] = BAND_GRADES[s.band as Band];
+    if (s.genre !== "adventure") sharkErr("should be on the ADVENTURE shelf.");
+    if (fk < lo - 2 || fk > hi + 1) sharkErr(`reading level ${fk.toFixed(1)} does not fit band ${s.band}.`);
+    if (st.pages < 20 || st.pages > 34) sharkErr(`${st.pages} pages (want about 20-30).`);
+    if (st.gates.mc + st.gates.order < 8) sharkErr(`only ${st.gates.mc + st.gates.order} story gates (want 8+).`);
+    if (st.gates.quiz < 2 || st.gates.quiz > 3) sharkErr(`${st.gates.quiz} QUIZ gates (want 2-3).`);
+    if (st.checkpoints < 3) sharkErr("needs a checkpoint at the start of each chapter.");
+    if (st.endings.win < 1 || st.endings.secret < 1) sharkErr("needs a win and a secret ending.");
+    if (s.band === "4-5" ? st.endings.lose !== 0 : st.endings.lose < 1) sharkErr(`band ${s.band} lose endings: ${st.endings.lose}.`);
+    const cast = new Set(s.pages.flatMap((p) => p.cast.map((c) => c.id)));
+    if (!SHARKS.some((c) => cast.has(c))) sharkErr("no shark in the cast.");
+    if (!s.pages.some((p) => OCEAN_SCENES.includes(p.scene))) sharkErr("uses none of the ocean scenes.");
+    const seen = reachable(s);
+    for (const p of s.pages) if (p.end && !seen.has(p.id)) sharkErr(`ending ${p.id} can't be reached.`);
+    for (const p of s.pages) {
+      const g = p.gate;
+      if (!g || g.kind === "quiz") continue;
+      if (g.anchor.startsWith("RF.")) sharkErr(`page ${p.id}: use a reading/language anchor.`);
+      if (g.kind === "mc" && (g.answers.length !== 4 || new Set(g.answers.map((a) => a.text.toLowerCase())).size !== 4)) sharkErr(`page ${p.id}: multiple-choice gates need 4 different answers.`);
+    }
+  }
 
   // ---- Extra checks for the Robots shelf ----
   if (s.genre === "robots") {
@@ -86,7 +144,7 @@ for (const file of files) {
     if (st.reachable !== st.pages) robotErr(rel, "some pages are unreachable.");
     for (const p of s.pages) {
       const g = p.gate;
-      if (!g) continue;
+      if (!g || g.kind === "quiz") continue;
       if (!(g.anchor in ANCHORS) || g.anchor.startsWith("RF.")) robotErr(rel, `page ${p.id}: anchor ${g.anchor} is not a reading/language standard.`);
       if (!g.hint.trim() || g.hint.length < 20) robotErr(rel, `page ${p.id}: gate needs an explaining hint.`);
       if (g.kind === "mc") {
@@ -114,7 +172,7 @@ for (const file of files) {
 
 // ---- No character name is shared between a robot book and any other book ----
 const texts = new Map(files.map((f) => [path.relative(root, f).split(path.sep).join("/"), fs.readFileSync(f, "utf8")]));
-for (const [book, names] of Object.entries(ROBOT_BOOK_NAMES)) {
+for (const [book, names] of Object.entries({ ...ROBOT_BOOK_NAMES, ...SHARK_BOOK_NAMES })) {
   if (!texts.has(book)) robotErr(book, "listed in ROBOT_BOOK_NAMES but the file is missing.");
   for (const name of names) {
     const re = new RegExp(`\\b${name}\\b`);
@@ -126,6 +184,9 @@ const robotBands = BANDS.map((b) => [...texts.entries()].filter(([, t]) => /^gen
 BANDS.forEach((b, i) => {
   if (robotBands[i] < 2) robotErr(`robots/${b}`, `only ${robotBands[i]} robot book(s); want 2 per band.`);
 });
+const sharkBands = BANDS.filter((b) => texts.has(`${b}/adventure-sharks.story`));
+if (sharkBands.length !== BANDS.length) robotErr("adventure-sharks", `shark adventures for ${sharkBands.join(", ")} only; want one per band.`);
+console.log(`\nShark adventures: ${sharkBands.length} books (${sharkBands.join(", ")}), names checked against every other book.`);
 console.log(`\nRobots shelf: ${robotBands.reduce((a, b) => a + b, 0)} books (${BANDS.map((b, i) => `${b}: ${robotBands[i]}`).join(", ")}), names checked against every other book.`);
 
 const missing = GENRES.flatMap((g) => BANDS.map((b) => `${g}/${b}`)).filter((k) => !shelf.has(k));

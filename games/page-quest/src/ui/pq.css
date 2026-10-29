@@ -336,3 +336,21 @@
   .pq-root { --pq-text: 19px; }
   .pq-toolbar a, .pq-toolbar button { padding: 2px 0; }
 }
+
+/* ---- Subjects: the library's subject row, QUIZ gates and subject tags ---- */
+.pq-subjects { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 6px 0 0; }
+.pq-subjects .lbl { font-size: 8px; color: var(--pq-dim); margin-right: 2px; }
+.pq-subject { font-size: 8px; padding: 6px 8px; cursor: pointer; background: #111c5a; color: var(--pq-dim); border: 2px solid #26336e; box-shadow: 2px 2px 0 #000; }
+.pq-subject:hover, .pq-subject:focus-visible { border-color: var(--pq-cyan); outline: none; }
+.pq-subject.on { color: #fff; background: #1d6a3a; border-color: var(--pq-green); }
+.pq-subjects .note { font-size: 15px; line-height: 1.1; color: var(--pq-dim); flex-basis: 100%; }
+.pq-tag.subj.math { color: #ffb84a; }
+.pq-tag.subj.science { color: var(--pq-green); }
+.pq-tag.subj.ela { color: var(--pq-cyan); }
+.pq-tag.subj.social { color: var(--pq-pink); }
+.pq-gate.quiz { border-style: solid; border-color: #6a4aa8; background: #120c38; }
+.pq-gate.quiz.solved { border-color: var(--pq-green); }
+.pq-gate.quiz.reveal { border-color: var(--pq-yellow); }
+.pq-quizlead { display: flex; gap: 8px; align-items: center; color: var(--pq-yellow); margin: 2px 0 4px; }
+.pq-quizlead b { font-size: 0.4em; margin-right: 4px; }
+@media (max-width: 480px) { .pq-subject { padding: 6px 5px; } }

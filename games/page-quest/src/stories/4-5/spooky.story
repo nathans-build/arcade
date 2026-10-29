@@ -135,6 +135,14 @@ Step by step, and sneeze by sneeze, you climb toward the attic door.
 - Pip the bat knits a striped scarf for his cousin.
 - Grandma Ottilie paints a portrait of the whole Fangsworth family.
 hint: Think about the biggest events: the lost lantern, the clues by the table, and where you are going at the end.
+next: quiz-ch2
+
+=== quiz-ch2
+scene: castle-night
+cast: hero, quill:happy
+Quill hops in front of you and holds up one wing.
+Quill: Wait just a moment! The next part of the story is coming. First, try one of my quick challenges.
+? QUIZ : Sharp minds win the day. Try this one!
 next: ch2
 
 # ============================================================
@@ -248,6 +256,14 @@ So you hurry down the stairs, out the castle door, and along the dark lane to th
 - Pip takes a mud bath and then knits a new scarf.
 - You clean the attic and put every box back in the trunk.
 hint: Think about the two big things you found in the attic and where the clues told you to go next.
+next: quiz-ch3
+
+=== quiz-ch3
+scene: attic
+cast: hero, quill:happy
+The page goes quiet, like the whole book is holding its breath. Quill puffs out her feathers.
+Quill: Hoo hoo! It's time for a quick challenge. Take your time and think it through.
+? QUIZ : One quick challenge, then back to the story!
 next: ch3
 
 # ============================================================

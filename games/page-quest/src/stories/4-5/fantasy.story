@@ -154,6 +154,14 @@ Ari grabs your hand, and together you step through the frame.
 - Quill gives a long tour of every room in the City Museum.
 - A tour guide loses her map and asks everyone for help.
 hint: Think about the biggest events: the jar, the cloud, and where you go at the end.
+next: quiz-ch2
+
+=== quiz-ch2
+scene: museum-hall
+cast: hero, quill:happy
+The page goes quiet, like the whole book is holding its breath. Quill puffs out her feathers.
+Quill: Hoo hoo! It's time for a quick challenge. Take your time and think it through.
+? QUIZ : One quick challenge, then back to the story!
 next: ch2
 
 # ============================================================
@@ -322,6 +330,14 @@ clue: Goldwing says the Muddle flew toward the Sphinx's cliff and the labyrinth.
 - A griffin steals the golden apples and flies away with them.
 - Ari decides to go home because the forest is too scary.
 hint: Think about the three myths you heard in this chapter, and what you did after each one.
+next: quiz-ch3
+
+=== quiz-ch3
+scene: mountain-pass
+cast: hero, quill:happy
+Quill flutters down and lands on your shoulder. She gives you a big owl wink.
+Quill: Hoo! You are reading like a champion. Let's warm up your brain before the story goes on.
+? QUIZ : Before we go on, a quick challenge!
 next: ch3
 
 # ============================================================

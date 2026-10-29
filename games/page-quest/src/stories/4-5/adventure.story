@@ -169,6 +169,14 @@ Dragon: It's so tall. But I'm still here, aren't I?
 - The Mayor climbs the mountain alone while you stay home.
 - You decide to wait until spring to fix the ember.
 hint: Listen to Quill's review of what has happened so far.
+next: quiz-ch2
+
+=== quiz-ch2
+scene: mountain-pass
+cast: hero, quill:happy
+The page goes quiet, like the whole book is holding its breath. Quill puffs out her feathers.
+Quill: Hoo hoo! It's time for a quick challenge. Take your time and think it through.
+? QUIZ : One quick challenge, then back to the story!
 next: ch2
 
 # ============================================================
@@ -300,6 +308,14 @@ Sizzle marches ahead, leading the way for the very first time.
 - Sizzle flew away and left you alone on the mountain.
 - The Hearth Ember went out completely in the cave.
 hint: Think about where you are now and how Sizzle is acting. She is leading the way!
+next: quiz-ch3
+
+=== quiz-ch3
+scene: mountain-pass
+cast: hero, quill:happy
+Quill flutters down and lands on your shoulder. She gives you a big owl wink.
+Quill: Hoo! You are reading like a champion. Let's warm up your brain before the story goes on.
+? QUIZ : Before we go on, a quick challenge!
 next: ch3
 
 # ============================================================

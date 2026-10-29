@@ -198,6 +198,14 @@ Quill: And because the mole is still inside the program, they could attempt some
 - Mr. Ambrose invents a pen that helps students cheat on tests.
 - Principal Hollis discovers the secret school and closes it down.
 hint: An objective summary tells the most important events without opinions. What did you discover, and what went wrong?
+next: quiz-ch2
+
+=== quiz-ch2
+scene: school
+cast: hero, quill:happy
+For a moment the story goes still, as if the book itself were waiting. Quill blinks her big amber eyes.
+Quill: Sharp minds solve hard problems. Let's see how you handle this one.
+? QUIZ : One quick challenge, then back to the story!
 next: ch2
 
 # ============================================================
@@ -376,6 +384,14 @@ Quill: And tomorrow at four, someone plans to meet at the clock tower with a sto
 - Mr. Fenwick confesses that he stole the Nightjar List.
 - You learn to play the recorder well enough to join the band.
 hint: Think about the note, the cipher, and the clues you found about Fenwick, Ambrose and Brandt.
+next: quiz-ch3
+
+=== quiz-ch3
+scene: school
+cast: hero, quill:happy
+Quill swoops down and settles on your shoulder, her feathers ruffled from the trip.
+Quill: Hoo! You've made it this far by reading carefully. Before the next part begins, let's keep your mind sharp.
+? QUIZ : Before we go on, a quick challenge!
 next: ch3
 
 # ============================================================

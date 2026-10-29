@@ -4,7 +4,8 @@ import { makeBook, type Book } from "@/books";
 import { checkStory } from "@/story/validate";
 import { LIMITS } from "@/story/validate";
 import { ANCHORS, BANDS, BAND_GRADES, CHARACTERS, GENRES, MOODS, SCENES, SCENE_LABEL, bandOfGrade, type Band } from "@/story/roster";
-import type { CastMember } from "@/story/types";
+import type { CastMember, GateKind } from "@/story/types";
+import { DEFAULT_QUIZ_LEAD } from "@/story/parse";
 import { blankPage, draftFromText, draftId, draftToText, newDraft, type Draft, type DraftPage, type EndKind } from "@/writer/draft";
 import { MiniScene } from "./Library";
 
@@ -255,7 +256,7 @@ export function WriterDesk({
                 <li key={i}>
                   <button className={i === pIdx ? "on" : ""} onClick={() => setPageIdx(i)}>
                     <span>{p.id === draft.header.start ? "★ " : ""}{p.id || "(no id)"}</span>
-                    <span className={`k k-${p.kind}`}>{p.kind === "choices" ? `${p.choices.length} choice${p.choices.length === 1 ? "" : "s"}` : p.kind === "gate" ? "gate" : `end: ${p.end.type}`}</span>
+                    <span className={`k k-${p.kind}`}>{p.kind === "choices" ? `${p.choices.length} choice${p.choices.length === 1 ? "" : "s"}` : p.kind === "gate" ? (p.gate.kind === "quiz" ? "quiz" : "gate") : `end: ${p.end.type}`}</span>
                     {errs > 0 && <span className="no">●{errs}</span>}
                   </button>
                 </li>
@@ -334,19 +335,22 @@ export function WriterDesk({
             <div className="pq-edgate">
               <div className="row">
                 <label>Type
-                  <select value={page.gate.kind} onChange={(e) => setPage({ gate: { ...page.gate, kind: e.target.value as "mc" | "order" } })}>
+                  <select value={page.gate.kind} onChange={(e) => setPage({ gate: { ...page.gate, kind: e.target.value as GateKind } })}>
                     <option value="mc">multiple choice</option>
                     <option value="order">put in order</option>
+                    <option value="quiz">quick challenge (player's subject)</option>
                   </select>
                 </label>
-                <label>Standard
+                {page.gate.kind !== "quiz" && <label>Standard
                   <select value={page.gate.anchor} onChange={(e) => setPage({ gate: { ...page.gate, anchor: e.target.value } })}>
                     {Object.entries(ANCHORS).map(([a, s]) => <option key={a} value={a}>{a} · {s}</option>)}
                   </select>
-                </label>
+                </label>}
               </div>
-              <label>Question<input value={page.gate.question} onChange={(e) => setPage({ gate: { ...page.gate, question: e.target.value } })} /></label>
-              {page.gate.kind === "mc" ? (
+              <label>{page.gate.kind === "quiz" ? "Quill's lead-in" : "Question"}<input value={page.gate.question} placeholder={page.gate.kind === "quiz" ? DEFAULT_QUIZ_LEAD : undefined} onChange={(e) => setPage({ gate: { ...page.gate, question: e.target.value } })} /></label>
+              {page.gate.kind === "quiz" ? (
+                <div className="dim small">The question comes from the subject the reader picked in the library (MIXED, READING, MATH, SCIENCE or SOCIAL STUDIES), at the reader's grade. Quill explains it with the question's own explanation.</div>
+              ) : page.gate.kind === "mc" ? (
                 <>
                   {page.gate.answers.map((a, i) => (
                     <div key={i} className="row">
@@ -371,7 +375,7 @@ export function WriterDesk({
                   <div className="dim small">Write the items in the RIGHT order; the game shuffles them.</div>
                 </>
               )}
-              <label>Quill's hint<input value={page.gate.hint} onChange={(e) => setPage({ gate: { ...page.gate, hint: e.target.value } })} /></label>
+              {page.gate.kind !== "quiz" && <label>Quill's hint<input value={page.gate.hint} onChange={(e) => setPage({ gate: { ...page.gate, hint: e.target.value } })} /></label>}
               <label>Next page{targetSelect(page.gate.next, linkNext, "Next page")}</label>
             </div>
           )}

@@ -11,6 +11,7 @@ export const SCENES = [
   "academy-hall", "secret-hq", "temple-ruins", "labyrinth",
   "castle-night", "pumpkin-patch", "attic",
   "robot-workshop", "factory-floor", "robot-arena", "recycling-center", "rooftop-night", "bakery",
+  "reef", "research-boat", "deep-sea",
 ] as const;
 export type SceneId = (typeof SCENES)[number];
 
@@ -49,6 +50,9 @@ export const SCENE_LABEL: Record<SceneId, string> = {
   "recycling-center": "Recycling center",
   "rooftop-night": "City rooftop at night",
   bakery: "Bakery",
+  reef: "Underwater reef",
+  "research-boat": "Research boat deck",
+  "deep-sea": "Deep sea",
 };
 
 export const CHARACTERS = [
@@ -86,6 +90,10 @@ export const CHARACTERS = [
   { id: "fixbot", name: "Fixbot", who: "a spider-legged repair robot with a wrench arm" },
   { id: "mech", name: "Mech", who: "a big, friendly construction mech in a hard hat" },
   { id: "robodog", name: "Robodog", who: "a robot pet dog with an antenna tail that wags" },
+  { id: "whaleshark", name: "Whaleshark", who: "a gentle whale shark (the biggest fish in the sea) with white spots" },
+  { id: "hammerhead", name: "Hammerhead", who: "a hammerhead shark with a wide, flat head" },
+  { id: "greatwhite", name: "Greatwhite", who: "a great white shark (grey back, white belly; calm, never gory)" },
+  { id: "biologist", name: "Biologist", who: "a marine biologist in a wetsuit with a dive mask on her head" },
 ] as const;
 export type CharId = (typeof CHARACTERS)[number]["id"];
 export const CHAR_IDS = CHARACTERS.map((c) => c.id) as CharId[];

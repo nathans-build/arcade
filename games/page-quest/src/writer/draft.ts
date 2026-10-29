@@ -6,12 +6,13 @@
  */
 import { parseStory } from "@/story/parse";
 import { blocksToText, serializeHeader, serializePage } from "@/story/serialize";
-import type { CastMember, Gate, Page, Story, StoryHeader } from "@/story/types";
+import type { CastMember, Gate, GateKind, Page, Story, StoryHeader } from "@/story/types";
 
 export type EndKind = "choices" | "gate" | "end";
 
 export interface DraftGate {
-  kind: "mc" | "order";
+  /** "quiz" = a subject gate (`? QUIZ : lead-in`): the question comes from the player's subject. */
+  kind: GateKind;
   anchor: string;
   question: string;
   answers: { text: string; correct: boolean }[];

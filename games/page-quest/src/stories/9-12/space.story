@@ -192,6 +192,14 @@ Robot: I would like to become better at stating things plainly, which is harder 
 - Poor TALLY made a foolish mistake that nearly doomed the entire ship.
 - Wise Dr. Sol is right, and Chief Ranek is a coward to be ignored.
 hint: An objective summary reports what happened and what is known, without taking sides.
+next: quiz-s-ch2
+
+=== quiz-s-ch2
+scene: space-corridor
+cast: hero, quill:happy
+Quill glides down and settles on your shoulder, folding her wings with the air of a professor before an exam.
+Quill: You've read this far with real care. Before the story continues, let's make sure the rest of your mind is just as sharp.
+? QUIZ : Before we go on, a quick challenge!
 next: s-ch2
 
 # ============================================================
@@ -400,7 +408,7 @@ Quill: Think back over this chapter, and consider Ranek, Dr. Sol, TALLY, the Mor
 - Robots should never be trusted to translate important messages.
 - Leaders should make decisions quickly, without discussion.
 hint: Quill says every choice "depended on how carefully they listened."
-next: s-ch3
+next: quiz-s-ch3
 
 # --- secret path (answer in the founder's words) ---
 
@@ -443,6 +451,14 @@ When the ship finally sails on toward Haven, a small group of colonists remains 
 
 Quill: The founder wrote a sentence for a meeting she would never live to see, and you found it and delivered it. Some messages require two hundred years to reach the right reader.
 end: secret Come In
+
+=== quiz-s-ch3
+scene: space-bridge
+cast: hero, quill:happy
+You take a moment to gather your thoughts. Quill draws a small, neatly lettered card from beneath one wing.
+Quill: The best explorers are never experts in only one thing. Consider this a brief detour before we press on.
+? QUIZ : Quick challenge before the next chapter!
+next: s-ch3
 
 # ============================================================
 # CHAPTER THREE: THE ASSEMBLY
