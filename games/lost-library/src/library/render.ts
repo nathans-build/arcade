@@ -358,6 +358,16 @@ function gap(c: Ctx, g: Game, px: number, py: number, tx: number, ty: number) {
   }
   if (g.tile(tx, ty - 1) !== "_") rect(c, rim, px, py, T, 3);
   if (g.q.theme === "sea" && hash(tx, ty, 2) % 3 === 0) rect(c, "#1a4a6a", px + (hash(tx, ty, 6) % 12) + 2, py + 6 + (hash(ty, tx, 6) % 8), 2, 2);
+  if (g.q.theme === "clock" && hash(tx, ty, 2) % 4 === 0) {
+    const gx = px + 4 + (hash(tx, ty, 6) % 8);
+    const gy = py + 6 + (hash(ty, tx, 6) % 6);
+    c.strokeStyle = "#2a2a3a";
+    c.lineWidth = 1;
+    c.beginPath();
+    c.arc(gx, gy, 3, 0, Math.PI * 2);
+    c.stroke();
+    for (let i = 0; i < 4; i++) rect(c, "#2a2a3a", gx + Math.cos((i * Math.PI) / 2) * 4 - 0.5, gy + Math.sin((i * Math.PI) / 2) * 4 - 0.5, 1, 1);
+  }
 }
 
 function water(c: Ctx, theme: Theme, px: number, py: number, tx: number, ty: number) {

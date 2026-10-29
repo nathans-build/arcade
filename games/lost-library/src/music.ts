@@ -332,7 +332,107 @@ export const SEA_SONGS: Record<string, Song> = {
   },
 };
 
-export const SONGS: Record<string, Song> = { town: TOWN_SONG, ...WING_SONGS, guardian: GUARDIAN_SONG, readingRoom: READING_ROOM_SONG, ...SEA_SONGS };
+/* ----------------------------------------------------------- Quest 3: The Clockwork Castle */
+
+/** Tickhollow Courtyard: a bouncy wind-up march in C major, staccato like ticking gears. */
+export const CLOCK_HUB_SONG: Song = {
+  title: "Tickhollow March",
+  bpm: 112,
+  stepsPerBeat: 2,
+  voices: {
+    lead: { duty: 0.25, volume: 0.15, gate: 0.6 },
+    harmony: { duty: 0.125, volume: 0.06, gate: 0.4 },
+    bass: { volume: 0.44, gate: 0.5 },
+    drums: { volume: 0.26 },
+  },
+  patterns: {
+    a1: "C5 . E5 . G5 . E5 .", a2: "D5 . G5 . B4 - - .", a3: "C5 . A4 . E5 . C5 .", a4: "F5 - - . A5 - - .",
+    a5: "G5 . E5 . C5 . E5 .", a6: "D5 . B4 . G4 . B4 .", a7: "A4 . C5 . F5 . E5 .", a8: "C5 - - - . . . .",
+    b1: "E5 . . E5 D5 . C5 .", b2: "A4 . C5 . F5 - - .", b3: "G5 . . G5 F5 . D5 .", b4: "E5 - - . G5 - - .",
+    b5: "F5 . A5 . F5 . D5 .", b6: "B4 . D5 . G5 - - .", b7: "E5 . G5 . C6 . G5 .", b8: "D5 - - - B4 . . .",
+    C: "C3 . G2 . C3 . G2 .", G: "G2 . D3 . G2 . D3 .", Am: "A2 . E2 . A2 . E2 .", F: "F2 . C3 . F2 . C3 .", Dm: "D3 . A2 . D3 . A2 .",
+    march: "k h s h k h s h",
+  },
+  sections: {
+    A: {
+      lead: "@a1 @a2 @a3 @a4 @a5 @a6 @a7 @a8",
+      harmony: "C4+47 . C4+47 . -*4 G3+47 . G3+47 . -*4 A3+37 . A3+37 . -*4 F3+47 . F3+47 . -*4 C4+47 . C4+47 . -*4 G3+47 . G3+47 . -*4 F3+47 . F3+47 . -*4 C4+47 . C4+47 . -*4",
+      bass: "@C @G @Am @F @C @G @F @C",
+      drums: "@march",
+    },
+    B: {
+      lead: "@b1 @b2 @b3 @b4 @b5 @b6 @b7 @b8",
+      harmony: "A3+37 -*7 F3+47 -*7 G3+47 -*7 C4+47 -*7 D4+37 -*7 G3+47 -*7 C4+47 -*7 G3+47 -*7",
+      bass: "@Am @F @G @C @Dm @G @C @G",
+      drums: "@march",
+    },
+  },
+  order: ["A", "B"],
+};
+
+/** The castle wings: a curious tick-tock tune in A minor (hats tick on every step). */
+export const CLOCK_WING_SONG: Song = {
+  title: "Gears and Springs",
+  bpm: 104,
+  stepsPerBeat: 2,
+  voices: {
+    lead: { duty: 0.25, volume: 0.14, gate: 0.7, vibrato: { depth: 10, rate: 5, delay: 0.3 } },
+    harmony: { duty: 0.125, volume: 0.05 },
+    bass: { volume: 0.4, gate: 0.6 },
+    drums: { volume: 0.2 },
+  },
+  patterns: {
+    p1: "A4 . C5 . E5 . A5 .", p2: "G5 . E5 . C5 . E5 .", p3: "F5 . A5 . C6 - - .", p4: "B5 . G5 . D5 - - .",
+    p5: "E5 . A5 . E5 . C5 .", p6: "B4 . C5 . D5 . E5 .", p7: "G#4 . B4 . E5 - - .", p8: "D5 - - - B4 . . .",
+    q1: "D5 . F5 . A5 . F5 .", q2: "G5 . B5 . D6 - - .", q3: "C6 . G5 . E5 . C5 .", q4: "A4 - - . E5 - - .",
+    q5: "F5 . D5 . A4 . D5 .", q6: "E5 . G#5 . B5 - - .", q7: "A5 . E5 . C5 . E5 .", q8: "A4 - - - . . . .",
+    Am: "A2 . A2 . E2 . E2 .", F: "F2 . F2 . C3 . C3 .", G: "G2 . G2 . D3 . D3 .", E: "E2 . E2 . B2 . B2 .", Dm: "D3 . D3 . A2 . A2 .", C: "C3 . C3 . G2 . G2 .",
+    tick: "k h h h s h h h",
+  },
+  sections: {
+    A: {
+      lead: "@p1 @p2 @p3 @p4 @p5 @p6 @p7 @p8",
+      harmony: "A3+37 -*7 A3+37 -*7 F3+47 -*7 G3+47 -*7 A3+37 -*7 A3+37 -*7 E3+47 -*7 E3+47 -*7",
+      bass: "@Am @Am @F @G @Am @Am @E @E",
+      drums: "@tick",
+    },
+    B: {
+      lead: "@q1 @q2 @q3 @q4 @q5 @q6 @q7 @q8",
+      harmony: "D4+37 -*7 G3+47 -*7 C4+47 -*7 A3+37 -*7 D4+37 -*7 E3+47 -*7 A3+37 -*7 A3+37 -*7",
+      bass: "@Dm @G @C @Am @Dm @E @Am @Am",
+      drums: "@tick",
+    },
+  },
+  order: ["A", "B"],
+};
+
+export const CLOCK_SONGS: Record<string, Song> = {
+  clockHub: CLOCK_HUB_SONG,
+  clockGears: { ...CLOCK_WING_SONG, title: "Gears and Springs: Gear Works" },
+  clockPend: {
+    ...CLOCK_WING_SONG,
+    title: "Gears and Springs: Pendulum Hall",
+    transpose: -3,
+    bpm: 96,
+    voices: { ...CLOCK_WING_SONG.voices, lead: { duty: 0.5, volume: 0.14, gate: 0.85, vibrato: { depth: 14, rate: 4, delay: 0.3 } } },
+  },
+  clockToys: {
+    ...CLOCK_WING_SONG,
+    title: "Gears and Springs: Toy Workshop",
+    transpose: 2,
+    bpm: 112,
+    voices: { ...CLOCK_WING_SONG.voices, lead: { duty: 0.125, volume: 0.15, gate: 0.55 } },
+  },
+  clockTower: {
+    ...CLOCK_HUB_SONG,
+    title: "Tickhollow March: The Great Clock",
+    transpose: 5,
+    bpm: 120,
+    voices: { ...CLOCK_HUB_SONG.voices, lead: { duty: 0.5, volume: 0.16, gate: 0.75, vibrato: { depth: 12, rate: 5, delay: 0.3 } }, drums: { volume: 0.34 } },
+  },
+};
+
+export const SONGS: Record<string, Song> = { town: TOWN_SONG, ...WING_SONGS, guardian: GUARDIAN_SONG, readingRoom: READING_ROOM_SONG, ...SEA_SONGS, ...CLOCK_SONGS };
 export const JINGLES: Record<string, Jingle> = { bookFound: BOOK_FOUND, wingRestored: WING_RESTORED, faint: FAINT };
 
 /** The music for where the player is in a quest (a guardian quiz has its own). */
