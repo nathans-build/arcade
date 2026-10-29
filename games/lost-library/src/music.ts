@@ -231,7 +231,108 @@ export const FAINT: Jingle = {
   order: ["J"],
 };
 
-export const SONGS: Record<string, Song> = { town: TOWN_SONG, ...WING_SONGS, guardian: GUARDIAN_SONG, readingRoom: READING_ROOM_SONG };
+/* ----------------------------------------------------------- Quest 2: The Sunken Lighthouse */
+
+/** Saltwhistle Cove: a rolling 6/8 tune in G major, like waves on the sand (6 steps a bar). */
+export const SEA_HUB_SONG: Song = {
+  title: "Saltwhistle Shanty",
+  bpm: 76,
+  stepsPerBeat: 3,
+  voices: {
+    lead: { duty: 0.5, volume: 0.15, vibrato: { depth: 12, rate: 5, delay: 0.25 } },
+    harmony: { duty: 0.125, volume: 0.06, gate: 0.6 },
+    bass: { volume: 0.44, gate: 0.7 },
+    drums: { volume: 0.22 },
+  },
+  patterns: {
+    a1: "D5 - B4 G4 - B4", a2: "D5 - - E5 - D5", a3: "E5 - C5 G4 - C5", a4: "A4 - - - . F#4",
+    a5: "G4 - B4 D5 - G5", a6: "E5 - D5 B4 - G4", a7: "A4 - C5 B4 - A4", a8: "G4 - - - . .",
+    b1: "G5 - E5 C5 - E5", b2: "D5 - B4 G4 - B4", b3: "C5 - A4 E5 - C5", b4: "D5 - - F#5 - -",
+    b5: "E5 - G5 E5 - C5", b6: "D5 - B4 D5 - G5", b7: "F#5 - E5 D5 - A4", b8: "G4 - - - . .",
+    G: "G2 - . D3 - .", C: "C3 - . G2 - .", D: "D3 - . A2 - .", Em: "E2 - . B2 - .", Am: "A2 - . E3 - .",
+    hG: "G3+47 - - - - -", hC: "C4+47 - - - - -", hD: "D4+47 - - - - -", hEm: "E3+37 - - - - -", hAm: "A3+37 - - - - -",
+    roll: "k . h s . h",
+  },
+  sections: {
+    A: {
+      lead: "@a1 @a2 @a3 @a4 @a5 @a6 @a7 @a8",
+      harmony: "@hG @hG @hC @hD @hG @hEm @hC @hG",
+      bass: "@G @G @C @D @G @Em @C @G",
+      drums: "@roll",
+    },
+    B: {
+      lead: "@b1 @b2 @b3 @b4 @b5 @b6 @b7 @b8",
+      harmony: "@hC @hG @hAm @hD @hC @hG @hD @hG",
+      bass: "@C @G @Am @D @C @G @D @G",
+      drums: "@roll",
+    },
+  },
+  order: ["A", "B", "A", "B"],
+};
+
+/** The sunken halls: drifting and curious in D minor, never scary. */
+export const SEA_WING_SONG: Song = {
+  title: "Under the Waves",
+  bpm: 92,
+  stepsPerBeat: 2,
+  voices: {
+    lead: { duty: 0.25, volume: 0.14, vibrato: { depth: 16, rate: 4, delay: 0.3 } },
+    harmony: { duty: 0.125, volume: 0.05 },
+    bass: { volume: 0.42 },
+    drums: { volume: 0.18 },
+  },
+  patterns: {
+    p1: "D5 - F5 - A5 - - -", p2: "G5 - F5 - E5 - D5 -", p3: "F5 - - - D5 - Bb4 -", p4: "C5 - E5 - G5 - - -",
+    p5: "A5 - G5 - F5 - A5 -", p6: "D6 - - - A5 - - -", p7: "Bb5 - A5 - G5 - F5 -", p8: "E5 - - - C#5 - . .",
+    q1: "D5 - - F5 - - Bb5 -", q2: "G5 - - E5 - - C5 -", q3: "F5 - E5 - D5 - A4 -", q4: "D5 - - - - - . .",
+    q5: "G4 - Bb4 - D5 - G5 -", q6: "E5 - - - C5 - E5 -", q7: "F5 - A5 - C6 - A5 -", q8: "A5 - - - C#5 - - -",
+    Dm: "D2 - - - A2 - - -", Bb: "Bb1 - - - F2 - - -", C: "C2 - - - G2 - - -", Gm: "G1 - - - D2 - - -", A: "A1 - - - E2 - - -", F: "F2 - - - C3 - - -",
+    drift: "k . . h . . h .",
+  },
+  sections: {
+    A: {
+      lead: "@p1 @p2 @p3 @p4 @p5 @p6 @p7 @p8",
+      harmony: "D4+37 -*7 D4+37 -*7 Bb3+47 -*7 C4+47 -*7 D4+37 -*7 D4+37 -*7 G3+37 -*7 A3+47 -*7",
+      bass: "@Dm @Dm @Bb @C @Dm @Dm @Gm @A",
+      drums: "@drift",
+    },
+    B: {
+      lead: "@q1 @q2 @q3 @q4 @q5 @q6 @q7 @q8",
+      harmony: "Bb3+47 -*7 C4+47 -*7 D4+37 -*7 D4+37 -*7 G3+37 -*7 C4+47 -*7 F3+47 -*7 A3+47 -*7",
+      bass: "@Bb @C @Dm @Dm @Gm @C @F @A",
+      drums: "@drift",
+    },
+  },
+  order: ["A", "B"],
+};
+
+export const SEA_SONGS: Record<string, Song> = {
+  seaHub: SEA_HUB_SONG,
+  seaCoral: { ...SEA_WING_SONG, title: "Under the Waves: Coral Gardens" },
+  seaTide: {
+    ...SEA_WING_SONG,
+    title: "Under the Waves: Tide Halls",
+    transpose: 2,
+    bpm: 96,
+    voices: { ...SEA_WING_SONG.voices, lead: { duty: 0.5, volume: 0.14, vibrato: { depth: 12, rate: 5, delay: 0.25 } } },
+  },
+  seaWreck: {
+    ...SEA_WING_SONG,
+    title: "Under the Waves: Shipwreck Archive",
+    transpose: -2,
+    bpm: 88,
+    voices: { ...SEA_WING_SONG.voices, lead: { duty: 0.125, volume: 0.15, vibrato: { depth: 18, rate: 3.5, delay: 0.35 } }, harmony: { duty: 0.25, volume: 0.05 } },
+  },
+  seaLamp: {
+    ...SEA_HUB_SONG,
+    title: "Saltwhistle Shanty: The Lamp Shines",
+    transpose: 2,
+    bpm: 84,
+    voices: { ...SEA_HUB_SONG.voices, lead: { duty: 0.25, volume: 0.17, vibrato: { depth: 14, rate: 5.5, delay: 0.3 } }, drums: { volume: 0.32 } },
+  },
+};
+
+export const SONGS: Record<string, Song> = { town: TOWN_SONG, ...WING_SONGS, guardian: GUARDIAN_SONG, readingRoom: READING_ROOM_SONG, ...SEA_SONGS };
 export const JINGLES: Record<string, Jingle> = { bookFound: BOOK_FOUND, wingRestored: WING_RESTORED, faint: FAINT };
 
 /** The music for where the player is in a quest (a guardian quiz has its own). */

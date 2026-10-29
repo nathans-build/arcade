@@ -4,8 +4,9 @@
  */
 import type { QuestDef } from "../quest";
 import { LIBRARY } from "../world";
+import { LIGHTHOUSE } from "./lighthouse";
 
-export const QUESTS: QuestDef[] = [LIBRARY];
+export const QUESTS: QuestDef[] = [LIBRARY, LIGHTHOUSE];
 
 export function questById(id: string | null | undefined): QuestDef | null {
   return QUESTS.find((q) => q.id === id) ?? null;

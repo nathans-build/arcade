@@ -785,6 +785,8 @@ export class Game {
     this.sfx("lever");
     for (const [x, y] of Game.tilesOf(this.room, "wu")) if ((x + y) % 3 === 0) this.fx.push({ kind: "sparkle", x, y, t: 0 });
     this.msg(this.tideHigh() ? "CLUNK! The tide rises. The water is deep, and the floating docks bob up to the top." : "CLUNK! The tide drains away. You can walk on the wet sand now, but the floating docks sink into their pits.");
+    const under = this.tile(this.s.at.x, this.s.at.y);
+    if ((under === "w" && this.shield <= 0) || under === "_") this.floatBack("Splash! The water moved under your feet, and a gentle wave carried you back to the doorway.");
   }
 
   folioHint(): string {

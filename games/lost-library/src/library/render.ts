@@ -357,6 +357,7 @@ function gap(c: Ctx, g: Game, px: number, py: number, tx: number, ty: number) {
     return;
   }
   if (g.tile(tx, ty - 1) !== "_") rect(c, rim, px, py, T, 3);
+  if (g.q.theme === "sea" && hash(tx, ty, 2) % 3 === 0) rect(c, "#1a4a6a", px + (hash(tx, ty, 6) % 12) + 2, py + 6 + (hash(ty, tx, 6) % 8), 2, 2);
 }
 
 function water(c: Ctx, theme: Theme, px: number, py: number, tx: number, ty: number) {
@@ -786,6 +787,7 @@ function drawStatic(c: Ctx, g: Game) {
       }
     }
   }
+  if (room.sealed && theme !== "library") drawLandmark(c, g, room);
 }
 
 const CONVEYOR_TILES = "<>AV";
@@ -817,17 +819,89 @@ function conveyorBase(c: Ctx, theme: Theme, px: number, py: number, t: string) {
 /** Moving chevrons on a conveyor (belt, current or updraft). */
 function conveyorArrows(c: Ctx, theme: Theme, px: number, py: number, t: string, time: number) {
   const [dx, dy] = CONVEYOR_DIR[t];
-  const col = theme === "sea" ? "#9ad0ff" : theme === "volcano" ? "rgba(240,240,250,0.8)" : "#ffd23f";
-  const off = Math.floor((time * 16) % 8);
-  for (let k = 0; k < 2; k++) {
-    const s = k * 8 + off - 4;
-    const cx = px + 8 + dx * s;
-    const cy = py + 8 + dy * s;
-    if (cx < px + 1 || cx > px + 15 || cy < py + 1 || cy > py + 15) continue;
-    // a little chevron pointing the way
-    rect(c, col, cx - (dy ? 3 : 0) - (dx > 0 ? 1 : 0), cy - (dx ? 3 : 0) - (dy > 0 ? 1 : 0), dy ? 2 : 1, dx ? 2 : 1);
-    rect(c, col, cx - (dy ? 1 : 0), cy - (dx ? 1 : 0), dy ? 2 : 2, dx ? 2 : 2);
-    rect(c, col, cx + (dy ? 1 : 0) - (dx > 0 ? 1 : 0), cy + (dx ? 1 : 0) - (dy > 0 ? 1 : 0), dy ? 2 : 1, dx ? 2 : 1);
+  const col = theme === "sea" ? "#bfe8ff" : theme === "volcano" ? "rgba(240,240,250,0.9)" : "#ffd23f";
+  const off = Math.floor((time * 12) % 8);
+  c.save();
+  c.beginPath();
+  c.rect(px, py, T, T);
+  c.clip();
+  for (let k = -1; k < 2; k++) {
+    // a ">" chevron, 3 deep and 7 wide, pointing along (dx, dy)
+    const along = k * 8 + off + 2;
+    for (let i = -3; i <= 3; i++) {
+      const depth = 2 - Math.abs(i) * 0.67;
+      const a = along + Math.round(depth);
+      const x = dx ? (dx > 0 ? px + a : px + T - 1 - a) : px + 8 + i;
+      const y = dy ? (dy > 0 ? py + a : py + T - 1 - a) : py + 8 + i;
+      rect(c, col, x - (dx ? 1 : 0), y - (dy ? 1 : 0), dx ? 2 : 1, dy ? 2 : 1);
+    }
+  }
+  c.restore();
+}
+
+/** The quest's landmark on the hub's sealed gate building: a lighthouse, a clock tower, a dome, a museum front. */
+function drawLandmark(c: Ctx, g: Game, room: RoomDef) {
+  const ws = Game.tilesOf(room, "W");
+  const ps = Game.tilesOf(room, "P");
+  if (!ws.length || !ps.length) return;
+  const pRow = Math.min(...ps.map(([, y]) => y));
+  const top = ws.filter(([, y]) => y < pRow);
+  if (!top.length) return;
+  const x0 = Math.min(...top.map(([x]) => x)) * T;
+  const x1 = (Math.max(...top.map(([x]) => x)) + 1) * T;
+  const y0 = Math.min(...top.map(([, y]) => y)) * T + TOP;
+  const y1 = (Math.max(...top.map(([, y]) => y)) + 1) * T + TOP;
+  const cx = (x0 + x1) / 2;
+  const lit = g.allRestored();
+  const theme = g.q.theme;
+  if (theme === "sea") {
+    // a striped lighthouse tower with its lamp room
+    const w = Math.min(40, x1 - x0 - 8);
+    for (let y = y0 + 10; y < y1; y += 6) rect(c, ((y - y0) / 6) % 2 < 1 ? "#f2f4ff" : "#e3262f", cx - w / 2, y, w, Math.min(6, y1 - y));
+    rect(c, "#3a3a4a", cx - w / 2 - 3, y0 + 8, w + 6, 3);
+    rect(c, "#1a1030", cx - 8, y0, 16, 9);
+    rect(c, lit ? "#fff6c0" : "#5a5a3a", cx - 6, y0 + 2, 12, 6);
+    rect(c, "#3a3a4a", cx - 9, y0 - 2, 18, 2);
+  } else if (theme === "clock") {
+    const r = Math.min(14, (y1 - y0) / 2 - 1);
+    c.fillStyle = "#3a2a10";
+    c.beginPath();
+    c.arc(cx, (y0 + y1) / 2, r + 2, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = lit ? "#fff6c0" : "#f2ead0";
+    c.beginPath();
+    c.arc(cx, (y0 + y1) / 2, r, 0, Math.PI * 2);
+    c.fill();
+    for (let i = 0; i < 12; i++) rect(c, "#1a1030", cx + Math.cos((i * Math.PI) / 6) * (r - 2) - 1, (y0 + y1) / 2 + Math.sin((i * Math.PI) / 6) * (r - 2) - 1, 2, 2);
+    c.strokeStyle = "#1a1030";
+    c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(cx, (y0 + y1) / 2);
+    c.lineTo(cx, (y0 + y1) / 2 - r + 4);
+    c.moveTo(cx, (y0 + y1) / 2);
+    c.lineTo(cx + r - 6, (y0 + y1) / 2);
+    c.stroke();
+  } else if (theme === "volcano") {
+    // the observatory dome with its telescope slot
+    const r = Math.min((x1 - x0) / 2 - 2, y1 - y0);
+    c.fillStyle = "#c0c8d8";
+    c.beginPath();
+    c.arc(cx, y1, r, Math.PI, 0);
+    c.fill();
+    rect(c, "#1a1030", cx - 3, y1 - r + 2, 6, r - 2);
+    rect(c, lit ? "#ffd23f" : "#3a3a5a", cx - 2, y1 - r + 4, 4, 4);
+    rect(c, "#8a90a8", cx - r, y1 - 2, r * 2, 2);
+  } else if (theme === "museum") {
+    // a museum front: a triangle roof and columns
+    c.fillStyle = "#f2ead0";
+    c.beginPath();
+    c.moveTo(x0, y0 + 14);
+    c.lineTo(cx, y0);
+    c.lineTo(x1, y0 + 14);
+    c.fill();
+    rect(c, "#d8c8a8", x0, y0 + 14, x1 - x0, 3);
+    for (let x = x0 + 4; x < x1 - 4; x += 10) rect(c, "#f2ead0", x, y0 + 17, 5, y1 - y0 - 17);
+    rect(c, lit ? "#ffd23f" : "#b05cff", cx - 3, y0 + 6, 6, 5);
   }
 }
 

@@ -401,6 +401,8 @@ export function drawHelper(c: Ctx, theme: string, px: number, py: number, time: 
   const blink = Math.sin(time * 1.3) > 0.95;
   if (theme === "sea") {
     // Dot the whale shark peeking out of the water, smiling
+    rect(c, "#1a6aa8", px, py, 16, 16);
+    rect(c, "#3a8fcf", px + 2 + Math.round(Math.sin(time * 2) * 2), py + 2, 4, 1);
     rect(c, "#1f5fbf", px, py + 10, 16, 6);
     oval(c, "#2a4a8a", px + 8, py + 9, 8, 6);
     for (const [dx, dy] of [[3, 6], [7, 4], [11, 6], [5, 9], [12, 9], [9, 7]]) rect(c, "#f2f4ff", px + dx, py + dy, 1, 1);
