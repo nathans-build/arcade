@@ -71,6 +71,15 @@ First, walk past the tall palm tree. Next, cross the rope bridge. Last, dig besi
 2 Cross the rope bridge.
 3 Dig beside the big red rock.
 hint: Look for the time words: first, next and last.
+next: challenge
+
+=== challenge
+scene: island-jungle
+cast: hero, quill:happy, parrot
+Quill hops onto a branch and holds up a little card.
+Quill: Some pages have a quick challenge. It comes from the subject you picked in the library: math, science, reading, social studies, or all of them mixed.
+Quill: Pick an answer. If you miss, I will explain it, and you can try again.
+? QUIZ : Here is your first quick challenge!
 next: rock
 
 === rock

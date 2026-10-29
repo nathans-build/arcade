@@ -194,6 +194,14 @@ Sabine studies the horizon, where the sky has acquired a faint metallic sheen. W
 - Dr. Saye is the most brilliant scientist in the Sorrel Islands.
 - Sabine foolishly insists on joining a voyage she can't handle.
 hint: An objective summary reports events without judging people. Which choice contains no opinion words?
+next: quiz-ch2
+
+=== quiz-ch2
+scene: ship-deck
+cast: hero, quill:happy
+You take a moment to gather your thoughts. Quill draws a small, neatly lettered card from beneath one wing.
+Quill: The best explorers are never experts in only one thing. Consider this a brief detour before we press on.
+? QUIZ : Quick challenge before the next chapter!
 next: ch2
 
 # ============================================================
@@ -431,6 +439,14 @@ Kid: Vesper Cay. We actually, genuinely made it.
 - Sabine ruined the voyage by arguing with the captain.
 - The mysterious steamer generously guided the Marisol to safety.
 hint: Quill's summary lists events without praising or blaming anyone. Which answer does the same?
+next: quiz-ch3
+
+=== quiz-ch3
+scene: ship-deck
+cast: hero, quill:happy
+Before you can turn the page, Quill raises one wing, unhurried and deliberate.
+Quill: The story will keep. A quick challenge first; think it through rather than guessing.
+? QUIZ : Sharp minds win the day. Try this one!
 next: ch3
 
 # ============================================================

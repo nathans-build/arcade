@@ -29,7 +29,12 @@ export function serializePage(p: Omit<Page, "blocks" | "line">, body: string): s
   for (const c of p.clues) if (c.trim()) out.push(`clue: ${c.trim()}`);
   const b = body.replace(/\s+$/, "").replace(/^\s*\n/, "");
   if (b) out.push(b);
-  if (p.gate) {
+  if (p.gate?.kind === "quiz") {
+    const g = p.gate;
+    out.push(`? QUIZ${g.question ? ` : ${g.question}` : ""}`);
+    if (g.hint) out.push(`hint: ${g.hint}`);
+    out.push(`next: ${g.next}`);
+  } else if (p.gate) {
     const g = p.gate;
     out.push(`? ${g.anchor}${g.kind === "order" ? " order" : ""} : ${g.question}`);
     if (g.kind === "mc") for (const a of g.answers) out.push(`${a.correct ? "+" : "-"} ${a.text}`);

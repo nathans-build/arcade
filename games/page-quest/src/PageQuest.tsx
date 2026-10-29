@@ -22,6 +22,7 @@ import { GradePicker, Library } from "@/ui/Library";
 import { Reader, type ReaderStart } from "@/ui/Reader";
 import { WriterDesk } from "@/ui/WriterDesk";
 import { isTyping } from "@/game";
+import { initialSubject, saveSubject, type PqSubject } from "@/play/subjects";
 import { exposeMusicDebug, type Song } from "@/kit/audio";
 import { JINGLES, LIBRARY_SONG, SONGS, songForGenre } from "@/music";
 import "@/ui/pq.css";
@@ -57,6 +58,15 @@ export default function PageQuest() {
   const [layout, setLayout] = useState<{ mode: "stack" | "side"; cw: number }>({ mode: "stack", cw: 640 });
   const [touch, setTouch] = useState(false);
   const [libKey, setLibKey] = useState(0);
+  // Subject for QUIZ gates and transmissions: ?topic= / ?subject= from the arcade menu win for this visit, then the saved choice.
+  const [subjectInit] = useState(() => initialSubject(window.location.search));
+  const [subject, setSubject] = useState<PqSubject>(subjectInit.subject);
+  const [subjectFromMenu, setSubjectFromMenu] = useState(subjectInit.fromMenu);
+  const chooseSubject = useCallback((s: PqSubject) => {
+    setSubject(s);
+    setSubjectFromMenu(false);
+    saveSubject(s);
+  }, []);
 
   const g = gradeNumber(grade);
   const tooYoung = g < 4;
@@ -250,6 +260,9 @@ export default function PageQuest() {
                 books={SHELF_BOOKS}
                 draftBooks={draftBooks}
                 view={viewRef.current}
+                subject={subject}
+                subjectFromMenu={subjectFromMenu}
+                onSubject={chooseSubject}
                 onGrade={chooseGrade}
                 onOpen={(b, start) => openBook(b, start)}
                 onWriter={(draftId) => {
@@ -264,6 +277,7 @@ export default function PageQuest() {
                 start={reading.start}
                 playtest={reading.playtest}
                 grade={grade}
+                subject={subject}
                 view={viewRef.current}
                 audio={audio}
                 readAloud={readAloud}

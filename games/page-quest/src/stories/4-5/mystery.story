@@ -152,6 +152,14 @@ You nod slowly. There are still many questions, but now you know where to start 
 - The guard broke the glass case and took the bell home.
 - The bell was found safe and sound in the museum garden.
 hint: Listen to Quill's review. Which answer includes the most important clues?
+next: quiz-ch2
+
+=== quiz-ch2
+scene: museum-hall
+cast: hero, quill:happy
+Quill hops in front of you and holds up one wing.
+Quill: Wait just a moment! The next part of the story is coming. First, try one of my quick challenges.
+? QUIZ : Sharp minds win the day. Try this one!
 next: ch2
 
 # ============================================================
@@ -321,6 +329,14 @@ Quill: A good detective follows the clues instead of guessing, so let's go!
 - Mr. Pell took the bell and left town on a train.
 - The bell was found hidden in the museum storeroom.
 hint: Quill says every trail leads to the same place. Which answer names that place?
+next: quiz-ch3
+
+=== quiz-ch3
+scene: city-street
+cast: hero, quill:happy
+The page goes quiet, like the whole book is holding its breath. Quill puffs out her feathers.
+Quill: Hoo hoo! It's time for a quick challenge. Take your time and think it through.
+? QUIZ : One quick challenge, then back to the story!
 next: ch3
 
 # ============================================================

@@ -82,6 +82,8 @@ export interface SpriteDef {
   float?: boolean;
   /** Emote bubbles always shown (no readable face). */
   noFace?: boolean;
+  /** Draw at this whole-number multiple of the normal pixel size (big animals: the sharks). */
+  scale?: number;
 }
 
 const pad = (rows: string[], n = 24) => [...Array(Math.max(0, n - rows.length)).fill("................"), ...rows];
@@ -1280,5 +1282,145 @@ export const SPRITES: Record<CharId, SpriteDef> = {
     ]),
     colors: { l: "#cfd3dc", q: "#14202c" },
     face: { ex: [5, 8], ey: 14, eye: "H", skin: "q", mx: 6, my: 15, mc: "H", brow: "H" },
+  },
+  // ---- Ocean (shark adventures). Sharks are drawn side-on, facing right, swimming (float);
+  // the tail swishes between two frames. Friendly faces, no teeth.
+
+  // A whale shark: the biggest fish in the sea. Blue-grey back with white spots, pale belly,
+  // a wide flat head with the mouth right at the front.
+  whaleshark: {
+    rows: [
+      "................",
+      ".......xx.......",
+      "......xxx.......",
+      "x....xxxxxxxx...",
+      "xx..xxWxxxWxxxx.",
+      "xxxxxxxxxWxxxxxx",
+      "xxxxxWxxxxxxWxxx",
+      "xx.xxxxxWxxxxxxx",
+      "x...EEEEEEEEEEEx",
+      ".....EEEEEEEEEE.",
+      "......x.....x...",
+    ],
+    alt: [
+      "................",
+      ".......xx.......",
+      "......xxx.......",
+      ".....xxxxxxxx...",
+      "x...xxWxxxWxxxx.",
+      "xx.xxxxxxWxxxxxx",
+      "xxxxxWxxxxxxWxxx",
+      "xxxxxxxxWxxxxxxx",
+      "xx..EEEEEEEEEEEx",
+      "x....EEEEEEEEEE.",
+      ".......x.....x..",
+    ],
+    colors: { x: "#46668a", E: "#d8e2ea" },
+    face: { ex: [13], ey: 5, skin: "x", mx: 13, my: 7, mc: "K" },
+    lift: 34,
+    float: true,
+    scale: 3,
+  },
+
+  // A hammerhead: bronze-grey, a tall dorsal fin and the wide "hammer" head (seen at an angle,
+  // an eye at each end of it).
+  hammerhead: {
+    rows: [
+      "................",
+      ".......u.....uu.",
+      ".......u.....uK.",
+      "......uu.....uu.",
+      "u....uuuuuuuuuu.",
+      "uu..uuuuuuuuuuuu",
+      "uuuuuuuuuuuuuuuu",
+      "uu.uEEEEEEEEEuu.",
+      "u.....u...u..uu.",
+      ".............uK.",
+      ".............uu.",
+    ],
+    alt: [
+      "................",
+      ".......u.....uu.",
+      ".......u.....uK.",
+      "......uu.....uu.",
+      ".....uuuuuuuuuu.",
+      "u...uuuuuuuuuuuu",
+      "uu.uuuuuuuuuuuuu",
+      "uuuuEEEEEEEEEuu.",
+      "uu....u...u..uu.",
+      "u............uK.",
+      ".............uu.",
+    ],
+    colors: { u: "#7c7a68", E: "#e8e4d8" },
+    face: { ex: [14], ey: 2, skin: "u", mx: 11, my: 7, mc: "K" },
+    lift: 40,
+    float: true,
+    scale: 2,
+  },
+
+  // A great white: slate-grey back and a white belly (countershading), pointed snout, a calm smile.
+  greatwhite: {
+    rows: [
+      "................",
+      "......v.........",
+      ".....vv.........",
+      "v...vvvv........",
+      "vv.vvvvvvvvvv...",
+      "vvvvvvvvvvvvvvv.",
+      "vvvvvvvvvvvvvvvv",
+      "vv.vWWWWWWWWWWW.",
+      "v...WWWWWWWWWW..",
+      ".......v...v....",
+    ],
+    alt: [
+      "................",
+      "......v.........",
+      ".....vv.........",
+      "....vvvv........",
+      "v..vvvvvvvvvv...",
+      "vv.vvvvvvvvvvvv.",
+      "vvvvvvvvvvvvvvvv",
+      "vvvvWWWWWWWWWWW.",
+      "vv..WWWWWWWWWW..",
+      "v......v...v....",
+    ],
+    colors: { v: "#66788a" },
+    face: { ex: [12], ey: 5, skin: "v", mx: 12, my: 6, mc: "g" },
+    lift: 40,
+    float: true,
+    scale: 2,
+  },
+
+  // A marine biologist: a teal wetsuit with an orange zip stripe, a dive mask pushed up on her
+  // head, a ponytail and yellow fins.
+  biologist: {
+    rows: [
+      "................",
+      "................",
+      "....nnnnnn......",
+      "...nLLLLLLn.....",
+      "...nLccccLnn....",
+      "...nSSSSSSnnn...",
+      "...nSSSSSSn.n...",
+      "...nSSSSSSn..n..",
+      "....SSSSSS......",
+      ".....SSSS.......",
+      "....kkOkkk......",
+      "...kkkOkkkk.....",
+      "..kkkkOkkkkk....",
+      "..kkkkOkkkkk....",
+      "..kkkkOkkkkk....",
+      "..SkkkOkkkkS....",
+      "...kkkOkkkk.....",
+      "...kkkkkkkk.....",
+      "....kkkkkk......",
+      "....kk..kk......",
+      "....kk..kk......",
+      "....kk..kk......",
+      "...YYY..YYY.....",
+      "..YYYY..YYYY....",
+    ],
+    colors: { k: "#0e6a6a", O: "#ff8a2a" },
+    face: { ex: [5, 8], ey: 6, skin: "S", mx: 6, my: 8 },
   },
 };

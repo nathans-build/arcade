@@ -190,6 +190,14 @@ Quill: I left it out because we do not actually know it yet.
 - Mr. Dunmore is a grumpy custodian who hates all robots.
 - Rook is the best robot in the state and deserves to win.
 hint: An objective summary sticks to facts and leaves out opinions and guesses. Listen to what Quill says "we actually know."
+next: quiz-ch2
+
+=== quiz-ch2
+scene: school
+cast: hero, quill:happy
+Before you can turn the page, Quill lifts one wing like a crossing guard.
+Quill: Hold on! The story will wait for us. First, one of my quick challenges.
+? QUIZ : Sharp minds win the day. Try this one!
 next: ch2
 
 # ============================================================
@@ -380,6 +388,14 @@ Quill: Careful. A name is not a case until the evidence agrees with it.
 - Mr. Dunmore is clearly the thief because his boots were wet.
 - Newton the parrot is the smartest witness in the school.
 hint: An objective summary lists the key facts without opinions. Look at the three facts Quill names.
+next: quiz-ch3
+
+=== quiz-ch3
+scene: lab
+cast: hero, quill:happy
+For a moment the story goes still, as if the book itself were waiting. Quill blinks her big amber eyes.
+Quill: Sharp minds solve hard problems. Let's see how you handle this one.
+? QUIZ : One quick challenge, then back to the story!
 next: ch3
 
 # ============================================================

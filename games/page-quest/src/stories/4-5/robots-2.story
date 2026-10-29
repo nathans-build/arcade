@@ -153,6 +153,14 @@ Kid: Then I'll have to be very, very careful about what I say.
 - Sprocket hits the road so hard that he breaks it.
 - Quill buys a juice box and wins the talent show.
 hint: Think about Sprocket's big problem with words, and about where everyone is going at the end of the chapter.
+next: quiz-ch2
+
+=== quiz-ch2
+scene: city-street
+cast: hero, quill:happy
+You stop for a moment to catch your breath. Quill pulls a tiny card out from under her wing.
+Quill: Good explorers keep all their skills sharp, not just their reading skills. Ready?
+? QUIZ : Quick challenge before the next chapter!
 next: ch2
 
 # ============================================================
@@ -288,6 +296,14 @@ On the way, you think about everything that has happened since this morning.
 4 Hoist got the ball down from the paper bales.
 5 Sprocket brought Hoist a pair of socks.
 hint: Think back to the start of the morning on the city street, and then to the recycling center.
+next: quiz-ch3
+
+=== quiz-ch3
+scene: city-street
+cast: hero, quill:happy
+Quill hops in front of you and holds up one wing.
+Quill: Wait just a moment! The next part of the story is coming. First, try one of my quick challenges.
+? QUIZ : Sharp minds win the day. Try this one!
 next: ch3
 
 # ============================================================

@@ -177,6 +177,14 @@ You think back over the day. A rockslide blocked the road, and the medicine wago
 - The dragon attacked Brindlewick and stole all of the medicine.
 - The group decides it is much too dangerous and goes home.
 hint: An objective summary tells the main events without opinions. Which choice matches what actually happened?
+next: quiz-chapter2
+
+=== quiz-chapter2
+scene: mountain-pass
+cast: hero, quill:happy
+Quill swoops down and settles on your shoulder, her feathers ruffled from the trip.
+Quill: Hoo! You've made it this far by reading carefully. Before the next part begins, let's keep your mind sharp.
+? QUIZ : Before we go on, a quick challenge!
 next: chapter2
 
 # ============================================================
@@ -380,6 +388,14 @@ You pull your blanket closer and watch the smoke rings disappear into the darkne
 - Knights should always blow their horns in the mountains.
 - It is best to avoid talking to anyone who looks different.
 hint: Think about how the village, the driver, and Sir Plum saw Cinder, and how she turned out to be.
+next: quiz-chapter3
+
+=== quiz-chapter3
+scene: cave
+cast: hero, quill:happy
+You pause to collect your thoughts. Quill produces a small card from beneath her wing with a flourish.
+Quill: A real adventurer trains every skill, not just one. Here's a quick challenge before we continue.
+? QUIZ : Quick challenge before the next chapter!
 next: chapter3
 
 # ============================================================

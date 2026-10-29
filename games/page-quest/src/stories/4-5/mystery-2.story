@@ -141,6 +141,14 @@ Kid: Something long and red? Do you think it was my scarf?
 - Waffles went home and ate all of her tuna.
 - Lulu found Waffles asleep on the porch swing.
 hint: Listen to Quill's review. Where did the clues lead, and is Waffles still missing?
+next: quiz-ch2
+
+=== quiz-ch2
+scene: village
+cast: hero, quill:happy
+You stop for a moment to catch your breath. Quill pulls a tiny card out from under her wing.
+Quill: Good explorers keep all their skills sharp, not just their reading skills. Ready?
+? QUIZ : Quick challenge before the next chapter!
 next: ch2
 
 # ============================================================
@@ -290,6 +298,14 @@ Down the street, you hear a familiar grumble, and a ring of keys jingles closer 
 - Waffles turned into a fox and ran into the woods.
 - Officer Tran took Waffles home to her own house.
 hint: Quill says every trail leads to the same place. Where is Waffles, and why can't she get out?
+next: quiz-ch3
+
+=== quiz-ch3
+scene: school
+cast: hero, quill:happy
+Quill hops in front of you and holds up one wing.
+Quill: Wait just a moment! The next part of the story is coming. First, try one of my quick challenges.
+? QUIZ : Sharp minds win the day. Try this one!
 next: ch3
 
 # ============================================================

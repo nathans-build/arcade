@@ -107,6 +107,14 @@ Quill: Hoo. Four days remain until Friday. The question, intern, is not whether 
 - Tess is promoted to vice president after preventing an accident.
 - Dr. Barrow wins her argument, and the update is cancelled at once.
 hint: An objective summary covers the main characters and the central problem without opinions.
+next: quiz-ch2
+
+=== quiz-ch2
+scene: factory-floor
+cast: hero, quill:happy
+Quill glides down and settles on your shoulder, folding her wings with the air of a professor before an exam.
+Quill: You've read this far with real care. Before the story continues, let's make sure the rest of your mind is just as sharp.
+? QUIZ : Before we go on, a quick challenge!
 next: ch2
 
 # ============================================================
@@ -301,6 +309,14 @@ Helperbot: Whatever happens tomorrow, I would like you to know that you did the 
 - Tess escapes from the factory and moves to a rooftop in the city.
 - Dr. Barrow cancels the update without asking anyone's permission.
 hint: Think about the conversations about identity and the evidence the team gathered.
+next: quiz-ch3
+
+=== quiz-ch3
+scene: rooftop-night
+cast: hero, quill:happy
+You take a moment to gather your thoughts. Quill draws a small, neatly lettered card from beneath one wing.
+Quill: The best explorers are never experts in only one thing. Consider this a brief detour before we press on.
+? QUIZ : Quick challenge before the next chapter!
 next: ch3
 
 # ============================================================

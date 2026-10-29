@@ -10,6 +10,10 @@ const PAGE_RE = /^={3,}\s*(.*?)\s*=*\s*$/;
 const KEY_RE = /^([A-Za-z][A-Za-z-]*)\s*:\s*(.*)$/;
 const CHOICE_RE = /^>\s*(.*?)\s*(?:->|→)\s*(\S*)\s*$/;
 const GATE_RE = /^\?\s*([A-Za-z]+\.[0-9A-Za-z.-]+)\s*(order)?\s*:\s*(.*)$/i;
+/** Subject gate: "? QUIZ : Before we go on, a quick challenge!" (the lead-in is optional). */
+const QUIZ_RE = /^\?\s*quiz\b\s*(?::\s*(.*))?$/i;
+/** Quill's lead-in when a QUIZ gate doesn't write one. */
+export const DEFAULT_QUIZ_LEAD = "Before we go on, a quick challenge!";
 const ORDER_ITEM_RE = /^(\d+)[.)]?\s+(.+)$/;
 
 function emptyPage(id: string, line: number): Page {
@@ -99,13 +103,15 @@ export function parseStory(text: string): { story: Story; issues: Issue[] } {
       const g: Gate = gate;
       if (line.startsWith("+") || (line.startsWith("-") && !line.startsWith("->"))) {
         const t = line.slice(1).trim();
-        if (g.kind === "order") err(ln, `An order gate lists numbered items ("1 ..."), not "${line[0]}" answers.`);
+        if (g.kind === "quiz") err(ln, "A QUIZ gate has no written answers: its question comes from the player's subject at play time. Remove the +/- lines, or write a story gate (? RL.3 : ...).");
+        else if (g.kind === "order") err(ln, `An order gate lists numbered items ("1 ..."), not "${line[0]}" answers.`);
         else g.answers.push({ text: t, correct: line[0] === "+", line: ln });
         return;
       }
       const om = ORDER_ITEM_RE.exec(line);
       if (om) {
-        if (g.kind === "mc") err(ln, 'Numbered items are for order gates. Write "? RL.5 order : question" to make an order gate, or use "+"/"-" answers.');
+        if (g.kind === "quiz") err(ln, "A QUIZ gate has no order items: its question comes from the player's subject at play time.");
+        else if (g.kind === "mc") err(ln, 'Numbered items are for order gates. Write "? RL.5 order : question" to make an order gate, or use "+"/"-" answers.');
         else {
           if (Number(om[1]) !== g.items.length + 1) warn(ln, `Order item numbered ${om[1]}, expected ${g.items.length + 1}. Items are used in the order they are written.`);
           g.items.push({ text: om[2].trim(), line: ln });
@@ -142,9 +148,17 @@ export function parseStory(text: string): { story: Story; issues: Issue[] } {
 
     // ---- Gate question ----
     if (line.startsWith("?")) {
+      const qm = QUIZ_RE.exec(line);
+      if (qm) {
+        terminator(ln, "gate");
+        flush();
+        gate = { kind: "quiz", anchor: "QUIZ", question: (qm[1] ?? "").trim(), answers: [], items: [], hint: "", next: "", line: ln, hintLine: 0, nextLine: 0 };
+        if (!p.gate) p.gate = gate;
+        return;
+      }
       const gm = GATE_RE.exec(line);
       if (!gm) {
-        err(ln, 'A gate question looks like "? RL.3 : Why did...?" or "? RL.5 order : Put ... in order."');
+        err(ln, 'A gate question looks like "? RL.3 : Why did...?", "? RL.5 order : Put ... in order." or "? QUIZ : lead-in".');
         return;
       }
       terminator(ln, "gate");

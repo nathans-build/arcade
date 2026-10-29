@@ -204,6 +204,14 @@ You think it through carefully. The lights went out in the museum, and only the 
 - The stranger is clearly guilty, since she ran away in the rain.
 - Biscuit the cat is adorable and belongs in the exhibit.
 hint: An objective summary gives the main events without opinions. Which choice has no opinions or guesses in it?
+next: quiz-chapter2
+
+=== quiz-chapter2
+scene: museum-hall
+cast: hero, quill:happy
+For a moment the story goes still, as if the book itself were waiting. Quill blinks her big amber eyes.
+Quill: Sharp minds solve hard problems. Let's see how you handle this one.
+? QUIZ : One quick challenge, then back to the story!
 next: chapter2
 
 # ============================================================
@@ -438,6 +446,14 @@ You nod thoughtfully, because the first impressions shouted the loudest, but the
 - People who smile a lot are usually criminals.
 - It is never a good idea to take an old elevator.
 hint: Quill compares Grimsby's quick guess with the quiet clues. What lesson connects them?
+next: quiz-chapter3
+
+=== quiz-chapter3
+scene: lab
+cast: hero, quill:happy
+Quill swoops down and settles on your shoulder, her feathers ruffled from the trip.
+Quill: Hoo! You've made it this far by reading carefully. Before the next part begins, let's keep your mind sharp.
+? QUIZ : Before we go on, a quick challenge!
 next: chapter3
 
 # ============================================================
