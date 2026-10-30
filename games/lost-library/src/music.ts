@@ -432,7 +432,107 @@ export const CLOCK_SONGS: Record<string, Song> = {
   },
 };
 
-export const SONGS: Record<string, Song> = { town: TOWN_SONG, ...WING_SONGS, guardian: GUARDIAN_SONG, readingRoom: READING_ROOM_SONG, ...SEA_SONGS, ...CLOCK_SONGS };
+/* ------------------------------------------------------ Quest 4: The Volcano Observatory */
+
+/** Ashfall Trail: a steady, hopeful climb in D (mixolydian, with a bright C chord). */
+export const VOLC_HUB_SONG: Song = {
+  title: "Emberpeak Trail",
+  bpm: 100,
+  stepsPerBeat: 2,
+  voices: {
+    lead: { duty: 0.5, volume: 0.15, vibrato: { depth: 12, rate: 5, delay: 0.3 } },
+    harmony: { duty: 0.125, volume: 0.06 },
+    bass: { volume: 0.45, gate: 0.7 },
+    drums: { volume: 0.26 },
+  },
+  patterns: {
+    a1: "D5 - F#5 - A5 - - .", a2: "G5 - E5 - C5 - - .", a3: "D5 - G5 - B5 - A5 -", a4: "F#5 - - - D5 - . .",
+    a5: "A5 - F#5 - D5 - F#5 -", a6: "E5 - C5 - G4 - C5 -", a7: "B4 - D5 - G5 - F#5 -", a8: "E5 - - - . . . .",
+    b1: "B5 - - - G5 - D5 -", b2: "C#6 - - - A5 - E5 -", b3: "D6 - - - A5 - F#5 -", b4: "F#5 - - - D5 - B4 -",
+    b5: "G5 - B5 - G5 - D5 -", b6: "A5 - C#6 - A5 - E5 -", b7: "F#5 - A5 - D6 - C#6 -", b8: "D6 - - - - - . .",
+    D: "D2 - D3 - A2 - D3 -", C: "C2 - C3 - G2 - C3 -", G: "G1 - G2 - D2 - G2 -", A: "A1 - A2 - E2 - A2 -", Bm: "B1 - B2 - F#2 - B2 -",
+    climb: "k . h . s . h k",
+  },
+  sections: {
+    A: {
+      lead: "@a1 @a2 @a3 @a4 @a5 @a6 @a7 @a8",
+      harmony: "D4+47 -*7 C4+47 -*7 G3+47 -*7 D4+47 -*7 D4+47 -*7 C4+47 -*7 G3+47 -*7 A3+47 -*7",
+      bass: "@D @C @G @D @D @C @G @A",
+      drums: "@climb",
+    },
+    B: {
+      lead: "@b1 @b2 @b3 @b4 @b5 @b6 @b7 @b8",
+      harmony: "G3+47 -*7 A3+47 -*7 D4+47 -*7 B3+37 -*7 G3+47 -*7 A3+47 -*7 D4+47 -*7 D4+47 -*7",
+      bass: "@G @A @D @Bm @G @A @D @D",
+      drums: "@climb",
+    },
+  },
+  order: ["A", "B"],
+};
+
+/** Inside the mountain: low and rumbly in B minor, but warm. */
+export const VOLC_WING_SONG: Song = {
+  title: "Rumbling Deep",
+  bpm: 88,
+  stepsPerBeat: 2,
+  voices: {
+    lead: { duty: 0.25, volume: 0.14, vibrato: { depth: 14, rate: 4.5, delay: 0.35 } },
+    harmony: { duty: 0.125, volume: 0.05 },
+    bass: { volume: 0.46 },
+    drums: { volume: 0.22 },
+  },
+  patterns: {
+    p1: "B4 - - D5 - - F#5 -", p2: "E5 - D5 - C#5 - B4 -", p3: "D5 - - B4 - - G4 -", p4: "A4 - C#5 - E5 - - -",
+    p5: "F#5 - - - B5 - - -", p6: "A5 - G5 - F#5 - D5 -", p7: "G5 - - E5 - - B4 -", p8: "A#4 - - - C#5 - - -",
+    q1: "G5 - - - D5 - B4 -", q2: "A4 - C#5 - E5 - A5 -", q3: "F#5 - - - D5 - B4 -", q4: "B4 - - - - - . .",
+    q5: "E5 - G5 - B5 - - -", q6: "A#5 - - - F#5 - - -", q7: "D5 - F#5 - B5 - A5 -", q8: "B5 - - - - - . .",
+    Bm: "B1 - - - F#2 - - -", G: "G1 - - - D2 - - -", A: "A1 - - - E2 - - -", Em: "E2 - - - B1 - - -", Fs: "F#2 - - - C#2 - - -",
+    rumble: "k . . . k . h .",
+  },
+  sections: {
+    A: {
+      lead: "@p1 @p2 @p3 @p4 @p5 @p6 @p7 @p8",
+      harmony: "B3+37 -*7 B3+37 -*7 G3+47 -*7 A3+47 -*7 B3+37 -*7 B3+37 -*7 E3+37 -*7 F#3+47 -*7",
+      bass: "@Bm @Bm @G @A @Bm @Bm @Em @Fs",
+      drums: "@rumble",
+    },
+    B: {
+      lead: "@q1 @q2 @q3 @q4 @q5 @q6 @q7 @q8",
+      harmony: "G3+47 -*7 A3+47 -*7 B3+37 -*7 B3+37 -*7 E3+37 -*7 F#3+47 -*7 B3+37 -*7 B3+37 -*7",
+      bass: "@G @A @Bm @Bm @Em @Fs @Bm @Bm",
+      drums: "@rumble",
+    },
+  },
+  order: ["A", "B"],
+};
+
+export const VOLC_SONGS: Record<string, Song> = {
+  volcHub: VOLC_HUB_SONG,
+  volcMagma: { ...VOLC_WING_SONG, title: "Rumbling Deep: Magma Labs" },
+  volcSteam: {
+    ...VOLC_WING_SONG,
+    title: "Rumbling Deep: Steam Tunnels",
+    transpose: 3,
+    bpm: 92,
+    voices: { ...VOLC_WING_SONG.voices, lead: { duty: 0.125, volume: 0.15, gate: 0.8, vibrato: { depth: 10, rate: 6, delay: 0.2 } } },
+  },
+  volcStars: {
+    ...VOLC_WING_SONG,
+    title: "Rumbling Deep: Star Dome",
+    transpose: -2,
+    bpm: 84,
+    voices: { ...VOLC_WING_SONG.voices, lead: { duty: 0.5, volume: 0.13, vibrato: { depth: 18, rate: 3.5, delay: 0.4 } }, harmony: { duty: 0.25, volume: 0.05 } },
+  },
+  volcScope: {
+    ...VOLC_HUB_SONG,
+    title: "Emberpeak Trail: The Great Telescope",
+    transpose: -2,
+    bpm: 108,
+    voices: { ...VOLC_HUB_SONG.voices, lead: { duty: 0.25, volume: 0.17, vibrato: { depth: 14, rate: 5.5, delay: 0.3 } }, drums: { volume: 0.34 } },
+  },
+};
+
+export const SONGS: Record<string, Song> = { town: TOWN_SONG, ...WING_SONGS, guardian: GUARDIAN_SONG, readingRoom: READING_ROOM_SONG, ...SEA_SONGS, ...CLOCK_SONGS, ...VOLC_SONGS };
 export const JINGLES: Record<string, Jingle> = { bookFound: BOOK_FOUND, wingRestored: WING_RESTORED, faint: FAINT };
 
 /** The music for where the player is in a quest (a guardian quiz has its own). */

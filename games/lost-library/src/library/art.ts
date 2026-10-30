@@ -588,10 +588,11 @@ export function drawCrate(c: Ctx, theme: string, px: number, py: number) {
     for (const [dx, dy] of [[3, 3], [12, 3], [3, 12], [12, 12]]) rect(c, "#5a3a10", px + dx, py + dy, 1, 1);
   } else if (theme === "volcano") {
     rect(c, "#1a1018", px + 1, py + 1, 14, 14);
-    rect(c, "#4a3a3a", px + 2, py + 2, 12, 12);
-    rect(c, "#5a4a4a", px + 3, py + 3, 5, 4);
-    rect(c, "#3a2a2a", px + 9, py + 9, 4, 3);
-    rect(c, "#ff8a3d", px + 7, py + 8, 1, 3);
+    rect(c, "#8a7a78", px + 2, py + 2, 12, 12);
+    rect(c, "#a89a98", px + 2, py + 2, 12, 2);
+    rect(c, "#b8aaa8", px + 3, py + 4, 5, 3);
+    rect(c, "#6a5a58", px + 9, py + 9, 4, 3);
+    rect(c, "#5a4a48", px + 2, py + 12, 12, 2);
   } else if (theme === "museum") {
     rect(c, "#3a2a10", px + 1, py + 1, 14, 14);
     rect(c, "#d8b878", px + 2, py + 2, 12, 12);

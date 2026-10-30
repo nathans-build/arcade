@@ -231,9 +231,13 @@ function wall(c: Ctx, style: WallStyle, p: Pal, px: number, py: number, tx: numb
       rect(c, p.shelf, px + 1, py + 1, 6, 14);
       rect(c, p.shelf, px + 9, py + 1, 6, 14);
       rect(c, "rgba(255,255,255,0.08)", px + 1, py + 1, 6, 1);
-      if (h % 5 === 0) {
-        rect(c, p.accent, px + 7, py + 3 + (h % 6), 2, 1);
-        rect(c, p.accent, px + 8, py + 4 + (h % 6), 1, 3);
+      if (h % 7 === 0) {
+        const cy = py + 3 + (h % 7);
+        c.globalAlpha = 0.7;
+        rect(c, p.accent, px + 3, cy, 2, 1);
+        rect(c, p.accent, px + 5, cy + 1, 2, 1);
+        rect(c, p.accent, px + 7, cy + 2, 1, 1);
+        c.globalAlpha = 1;
       }
       break;
     case "gallery":
