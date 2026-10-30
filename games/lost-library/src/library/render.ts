@@ -158,11 +158,12 @@ function shelf(c: Ctx, p: Pal, px: number, py: number, tx: number, ty: number, c
   }
 }
 
-function hedge(c: Ctx, px: number, py: number, tx: number, ty: number) {
+function hedge(c: Ctx, px: number, py: number, tx: number, ty: number, inside = false) {
   rect(c, "#143d1c", px, py, T, T);
   for (let i = 0; i < 9; i++) {
     const h = hash(tx, ty, i);
-    rect(c, i % 2 ? "#2b7a35" : "#1f5a2a", px + (h % 13), py + ((h >> 4) % 13), 4, 4);
+    // (The Lost Library's town hedges keep their original look; "garden" hedges stay inside their tile.)
+    rect(c, i % 2 ? "#2b7a35" : "#1f5a2a", px + (h % 13), py + ((inside ? h >>> 4 : h >> 4) % 13), 4, 4);
   }
 }
 
@@ -180,14 +181,14 @@ function wall(c: Ctx, style: WallStyle, p: Pal, px: number, py: number, tx: numb
       shelf(c, p, px, py, tx, ty, crack);
       return;
     case "hedge": case "garden":
-      hedge(c, px, py, tx, ty);
+      hedge(c, px, py, tx, ty, style === "garden");
       break;
     case "rock":
       rect(c, p.shelfDark, px, py, T, T);
       for (let i = 0; i < 3; i++) {
         const hh = hash(tx, ty, i + 20);
         const bx = px + 1 + (i % 2) * 7 + (hh % 2);
-        const by = py + 1 + Math.floor(i / 2) * 7 + ((hh >> 3) % 2);
+        const by = py + 1 + Math.floor(i / 2) * 7 + ((hh >>> 3) % 2);
         rect(c, p.shelf, bx, by, 7, 6);
         rect(c, p.accent, bx + 1, by, 4, 1);
       }
@@ -266,8 +267,8 @@ function floor(c: Ctx, p: Pal, style: FloorStyle, px: number, py: number, tx: nu
       return;
     case "sand":
       rect(c, p.floorA, px, py, T, T);
-      rect(c, p.floorB, px + (h % 13), py + ((h >> 4) % 13), 2, 1);
-      rect(c, p.floorB, px + ((h >> 8) % 13), py + ((h >> 12) % 13), 1, 1);
+      rect(c, p.floorB, px + (h % 13), py + ((h >>> 4) % 13), 2, 1);
+      rect(c, p.floorB, px + ((h >>> 8) % 13), py + ((h >>> 12) % 13), 1, 1);
       if (h % 23 === 0) rect(c, "#f2e0e8", px + 6, py + 7, 3, 2);
       return;
     case "tiles":
@@ -284,8 +285,8 @@ function floor(c: Ctx, p: Pal, style: FloorStyle, px: number, py: number, tx: nu
       return;
     case "ash":
       rect(c, p.floorA, px, py, T, T);
-      rect(c, p.floorB, px + (h % 12), py + ((h >> 4) % 12), 3, 2);
-      rect(c, "rgba(0,0,0,0.2)", px + ((h >> 8) % 13), py + ((h >> 12) % 13), 2, 1);
+      rect(c, p.floorB, px + (h % 12), py + ((h >>> 4) % 12), 3, 2);
+      rect(c, "rgba(0,0,0,0.2)", px + ((h >>> 8) % 13), py + ((h >>> 12) % 13), 2, 1);
       return;
     case "parquet":
       rect(c, p.floorA, px, py, T, T);
@@ -355,8 +356,8 @@ function gap(c: Ctx, g: Game, px: number, py: number, tx: number, ty: number) {
   rect(c, deep, px, py, T, T);
   if (g.q.theme === "volcano") {
     const h = hash(tx, ty, 3);
-    rect(c, "#e3562f", px + (h % 10), py + ((h >> 4) % 10), 5, 3);
-    rect(c, "#ffd23f", px + ((h >> 8) % 12), py + ((h >> 12) % 12), 2, 2);
+    rect(c, "#e3562f", px + (h % 10), py + ((h >>> 4) % 10), 5, 3);
+    rect(c, "#ffd23f", px + ((h >>> 8) % 12), py + ((h >>> 12) % 12), 2, 2);
     if (g.tile(tx, ty - 1) !== "_") rect(c, "#3a1a10", px, py, T, 3);
     return;
   }
@@ -544,7 +545,7 @@ function flowers(c: Ctx, theme: Theme, px: number, py: number, tx: number, ty: n
   const cols = theme === "sea" ? ["#f2e0e8", "#ffb0c8", "#ffd8a0"] : theme === "clock" ? ["#ffd23f", "#c0c8d8", "#b8862a"] : theme === "volcano" ? ["#ff8a3d", "#ffd23f", "#ff5a1f"] : ["#ff6fb5", "#ffd23f", "#f2f4ff"];
   for (let i = 0; i < 3; i++) {
     const h = hash(tx, ty, i + 3);
-    rect(c, cols[i], px + 2 + (h % 10), py + 2 + ((h >> 4) % 10), 2, 2);
+    rect(c, cols[i], px + 2 + (h % 10), py + 2 + ((theme === "library" ? h >> 4 : h >>> 4) % 10), 2, 2);
   }
 }
 
@@ -702,8 +703,8 @@ function drawStatic(c: Ctx, g: Game) {
       } else if (t === "s") {
         rect(c, "#b89868", px, py, T, T);
         const hh = hash(tx, ty, 4);
-        rect(c, "#9a7a4a", px + (hh % 12), py + ((hh >> 4) % 12), 3, 2);
-        rect(c, "rgba(150, 200, 255, 0.45)", px + ((hh >> 8) % 10), py + ((hh >> 12) % 10), 4, 1);
+        rect(c, "#9a7a4a", px + (hh % 12), py + ((hh >>> 4) % 12), 3, 2);
+        rect(c, "rgba(150, 200, 255, 0.45)", px + ((hh >>> 8) % 10), py + ((hh >>> 12) % 10), 4, 1);
       } else if (t === "t") {
         tree(c, theme, px, py);
       } else if (t === "N") {

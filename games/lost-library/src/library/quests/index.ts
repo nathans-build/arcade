@@ -6,9 +6,10 @@ import type { QuestDef } from "../quest";
 import { LIBRARY } from "../world";
 import { CLOCKWORK } from "./clockwork";
 import { LIGHTHOUSE } from "./lighthouse";
+import { MUSEUM } from "./museum";
 import { VOLCANO } from "./volcano";
 
-export const QUESTS: QuestDef[] = [LIBRARY, LIGHTHOUSE, CLOCKWORK, VOLCANO];
+export const QUESTS: QuestDef[] = [LIBRARY, LIGHTHOUSE, CLOCKWORK, VOLCANO, MUSEUM];
 
 export function questById(id: string | null | undefined): QuestDef | null {
   return QUESTS.find((q) => q.id === id) ?? null;
