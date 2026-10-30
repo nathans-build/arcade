@@ -1317,7 +1317,7 @@ export function drawFrame(c: Ctx, g: Game, time: number, title: string) {
     const secs = Math.ceil(g.timerMs / 1000);
     c.fillStyle = secs <= 2 && Math.floor(time * 6) % 2 ? "#e3262f" : "#ffd23f";
     c.textAlign = "right";
-    c.fillText(`⏱${secs}`, W - 3, TOP);
+    c.fillText(`TIME ${secs}`, W - 3, TOP);
     c.textAlign = "left";
   }
 }

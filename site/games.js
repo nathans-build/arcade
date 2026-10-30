@@ -549,7 +549,7 @@ window.GAMES = [
     prod: true,
     focus: true,
     title: "Quest of the Lost Library",
-    tagline: "Explore a grand library as Pip Lampwick: tidy ink sprites with your feather duster, push crates, light torches, find a magic item in each wing and open Question Doors with right answers to bring the lost books home.",
+    tagline: "Five top-down quests as Pip Lampwick: a lost library, a sunken lighthouse, a clockwork castle, a volcano observatory and a giggly haunted museum, with puzzles, magic items and Question Doors.",
     subjects: ["Math", "Science", "ELA", "Social Studies"],
     topics: ["numbers", "factors", "ratios", "fractions", "algebra", "geometry", "life", "earth", "physical", "reading", "phonics", "grammar", "civics", "history", "geography", "economics"],
     styles: ["adventure", "puzzle"],

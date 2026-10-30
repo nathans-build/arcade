@@ -19,6 +19,16 @@
  * Question Door is answered by tapping; no sideways scroll at 390px and on the title at 360px.
  * Topic links: ?topic=history picks Social Studies -> History, ?topic=math-mix picks ALL MATH, and without
  * ?grade= the title shows its own K-12 grade picker.
+ * Choose your quest (desktop, grade 5, keyboard): the picker shows five quest cards (title, live preview,
+ * progress, START / CONTINUE / NEW); a Lost Library save is made first; then each new quest is started
+ * from its card, Pip walks from the hub through the first wing's gate, bumps its Question Door, answers
+ * it wrong (stays shut, no heart lost, a new question of the wing's subject) then right (opens), walks
+ * through, and goes back to the picker from the pause menu, where the card now shows CONTINUE. The
+ * Lost Library's save is byte-for-byte untouched and CONTINUE brings it back.
+ * Choose your quest (phone 390x844, touch, grade 2): MUSIC and SFX toggle by tapping on the picker and
+ * while a message covers the game (the toolbar stays on top); each new quest is started by tapping its
+ * card, walked with the touch d-pad into its first wing, its Question Door answered by tapping (wrong,
+ * then right); no sideways scroll; back to the picker with MAP and "Choose quest".
  * Everywhere: no console errors and no requests outside this server.
  */
 const path = require("path");
@@ -443,6 +453,260 @@ async function topicLink(browser) {
   return problems;
 }
 
+const NEW_QUESTS = ["lighthouse", "clockwork", "volcano", "museum"];
+
+/** What the playtest needs to know about the running quest. */
+const questInfo = (page) =>
+  page.evaluate(() => {
+    const g = window.__ll.game;
+    const q = g.q;
+    const w = q.wings[0];
+    const qd = q.areas[w].doors.find((d) => d.kind === "question");
+    return { id: q.id, wing: w, subject: q.areas[w].subject, gate: q.gateFront[w], start: q.areas[w].start, door: qd.id, doorTo: qd.b, hubStart: q.areas[q.hub].start };
+  });
+
+/** Is the element's centre really on top (not covered by an overlay)? */
+const onTop = (loc) =>
+  loc.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return !!hit && (hit === el || el.contains(hit));
+  });
+
+async function questsDesktop(browser) {
+  const { ctx, page, errors, external } = await newPage(browser, { viewport: { width: 1280, height: 800 } });
+  const problems = [];
+  await page.goto(`${BASE}?grade=5&debug`, { waitUntil: "load" });
+  await page.evaluate(() => localStorage.clear());
+  await page.reload({ waitUntil: "load" });
+  await page.waitForFunction(() => !!window.__ll);
+  const cards = page.locator(".ll-quest");
+  if ((await cards.count()) !== 5) problems.push(`quest picker shows ${await cards.count()} quests, want 5`);
+  const ids = await page.evaluate(() => window.__ll.quests);
+  if (ids.join() !== ["library", ...NEW_QUESTS].join()) problems.push(`quest order ${ids}`);
+  for (let i = 0; i < 5; i++) {
+    const card = cards.nth(i);
+    const title = await card.locator(".ll-qtitle").innerText();
+    if (title.length < 8) problems.push(`card ${i}: no title`);
+    if ((await card.locator("canvas.ll-qpreview").count()) !== 1) problems.push(`card ${i}: no preview`);
+    if (!(await card.locator(".ll-qprog").innerText()).toLowerCase().includes("not started")) problems.push(`card ${i}: progress should say not started`);
+    if (!(await card.locator(".ll-qbtns .ll-cta", { hasText: "Start" }).count())) problems.push(`card ${i}: no START button`);
+  }
+  // The previews draw something (not a blank canvas).
+  const blank = await page.evaluate(() => [...document.querySelectorAll("canvas.ll-qpreview")].filter((c) => {
+    const d = c.getContext("2d").getImageData(0, 60, 320, 1).data;
+    return d.every((v, i) => i % 4 === 3 || v === d[i % 4]);
+  }).length);
+  if (blank) problems.push(`${blank} blank quest previews`);
+  // Arrow keys move between the quest cards.
+  await cards.nth(0).locator(".ll-questpick").focus();
+  await page.keyboard.press("ArrowRight");
+  if ((await page.evaluate(() => window.__ll.pick)) !== "lighthouse") problems.push("ArrowRight did not pick quest 2");
+  await page.keyboard.press("ArrowLeft");
+  if ((await page.evaluate(() => window.__ll.pick)) !== "library") problems.push("ArrowLeft did not pick quest 1");
+
+  // A Lost Library save first (Enter on a focused card starts it).
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => window.__ll.screen === "playing" && window.__ll.game.q.id === "library");
+  await settle(page);
+  await step(page, "left");
+  await step(page, "left");
+  await page.waitForTimeout(150);
+  await page.evaluate(() => window.__ll.toTitle());
+  await page.waitForFunction(() => window.__ll.screen === "title");
+  const libSave = await page.evaluate(() => localStorage.getItem("arcade.lost-library.save.v1"));
+  if (!libSave) problems.push("no Lost Library save");
+
+  for (const id of NEW_QUESTS) {
+    const label = `desktop ${id}`;
+    await page.locator(`.ll-quest[data-quest="${id}"] .ll-qbtns .ll-cta`, { hasText: "Start" }).click();
+    await page.waitForFunction((id) => window.__ll.screen === "playing" && window.__ll.game && window.__ll.game.q.id === id, id);
+    if (!(await page.locator(".ll-dialog").count())) problems.push(`${label}: no story intro`);
+    await settle(page);
+    const info = await questInfo(page);
+    let s = await st(page);
+    if (s.room !== info.hubStart.room) problems.push(`${label}: starts in ${s.room}`);
+    // Hub -> the first wing's gate -> its entrance.
+    await walkTo(page, info.gate.x, info.gate.y, problems, `${label} hub`);
+    await step(page, "up");
+    s = await st(page);
+    if (s.area !== info.wing || s.room !== info.start.room) problems.push(`${label}: gate led to ${s.room}`);
+    // The Question Door (north of the entrance): wrong, then right.
+    await walkTo(page, 9, 1, problems, `${label} entrance`);
+    await page.keyboard.down("ArrowUp");
+    await page.waitForTimeout(60);
+    await page.keyboard.up("ArrowUp");
+    await page.waitForFunction(() => !!window.__ll.quiz, null, { timeout: 3000 }).catch(() => problems.push(`${label}: Question Door did not ask`));
+    if (await quiz(page)) {
+      const hearts = (await st(page)).hearts;
+      await answerQuiz(page, false);
+      s = await st(page);
+      if (s.opened.includes(info.door)) problems.push(`${label}: a wrong answer opened the door`);
+      if (s.hearts !== hearts) problems.push(`${label}: a wrong answer cost a heart`);
+      if (!(await page.locator(".ll-quiz .verdict.no").count())) problems.push(`${label}: no 'not quite' verdict`);
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(120);
+      const q2 = await quiz(page);
+      if (!q2 || q2.picked !== null) problems.push(`${label}: no new question after a wrong answer`);
+      else if (q2.subject !== info.subject) problems.push(`${label}: the ${info.wing} wing asked ${q2.subject}, want ${info.subject} (MIXED)`);
+      await answerQuiz(page, true);
+      if (!(await st(page)).opened.includes(info.door)) problems.push(`${label}: a right answer did not open the door`);
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(120);
+      if (await quiz(page)) problems.push(`${label}: question panel still open`);
+    }
+    await step(page, "up");
+    await step(page, "up");
+    s = await st(page);
+    if (s.room !== info.doorTo) problems.push(`${label}: through the Question Door reached ${s.room}`);
+    // Back to the quest picker from the pause menu.
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(120);
+    if (!(await page.locator(".ll-map .ll-maproom.here").count())) problems.push(`${label}: no map`);
+    await page.locator(".ll-pause .ll-cta", { hasText: "Choose quest" }).click();
+    await page.waitForFunction(() => window.__ll.screen === "title");
+    if (!(await page.locator(`.ll-quest[data-quest="${id}"] .ll-qbtns .ll-cta`, { hasText: "Continue" }).count())) problems.push(`${label}: card has no CONTINUE after playing`);
+    const key = `arcade.lost-library.save.${id}.v1`;
+    if (!(await page.evaluate((k) => !!localStorage.getItem(k), key))) problems.push(`${label}: no save under ${key}`);
+  }
+  // Quest 1's save is untouched, and CONTINUE brings it back.
+  const libAfter = await page.evaluate(() => localStorage.getItem("arcade.lost-library.save.v1"));
+  if (libAfter !== libSave) problems.push("the Lost Library save changed while playing other quests");
+  const before = JSON.parse(libSave);
+  await page.locator('.ll-quest[data-quest="library"] .ll-qbtns .ll-cta', { hasText: "Continue" }).click();
+  await page.waitForFunction(() => window.__ll.screen === "playing" && window.__ll.game.q.id === "library");
+  await settle(page);
+  const back = await st(page);
+  if (back.room !== before.at.room || back.x !== before.at.x || back.y !== before.at.y) problems.push(`Lost Library CONTINUE went to ${back.room} (${back.x},${back.y})`);
+  if (!(await noSideways(page))) problems.push("sideways scroll");
+  if (errors.length) problems.push(`console errors: ${errors.join(" | ")}`);
+  if (external.length) problems.push(`external requests: ${external.join(", ")}`);
+  await ctx.close();
+  return problems;
+}
+
+async function tap(page, loc, id) {
+  await loc.dispatchEvent("pointerdown", { pointerId: id, pointerType: "touch", isPrimary: true });
+  await page.waitForTimeout(60);
+  await loc.dispatchEvent("pointerup", { pointerId: id, pointerType: "touch", isPrimary: true });
+  await page.waitForTimeout(20);
+}
+
+/** One step with the touch d-pad. */
+let pid = 100;
+async function touchStep(page, dir) {
+  await tap(page, page.locator(`[aria-label="Move ${dir}"]`), pid++);
+  for (let i = 0; i < 30; i++) {
+    const t = await page.evaluate(() => (window.__ll.game ? window.__ll.game.anim.t : 1));
+    if (t >= 1) break;
+    await page.waitForTimeout(30);
+  }
+  // Close any message by tapping it.
+  for (let i = 0; i < 6 && (await page.locator(".ll-dialog").count()) && !(await quiz(page)); i++) {
+    await page.locator(".ll-dialog").tap();
+    await page.waitForTimeout(100);
+  }
+}
+
+async function touchWalkTo(page, x, y, problems, label) {
+  const plan = await page.evaluate(([x, y]) => window.__ll.pathTo(x, y), [x, y]);
+  if (!plan) {
+    problems.push(`${label}: no path to (${x},${y})`);
+    return;
+  }
+  for (const d of plan) await touchStep(page, d);
+  const s = await st(page);
+  if (s.x !== x || s.y !== y) problems.push(`${label}: touch-walked to (${s.x},${s.y}), wanted (${x},${y})`);
+}
+
+async function toggles(page, problems, where) {
+  for (const name of ["MUSIC", "SFX"]) {
+    const btn = page.locator(".ll-tools button", { hasText: name }).first();
+    if (!(await btn.count())) {
+      problems.push(`${where}: no ${name} button`);
+      continue;
+    }
+    if (!(await onTop(btn))) problems.push(`${where}: the ${name} button is covered`);
+    const before = await btn.innerText();
+    await btn.tap();
+    await page.waitForTimeout(80);
+    const after = await page.locator(".ll-tools button", { hasText: name }).first().innerText();
+    if (after === before) problems.push(`${where}: tapping ${name} did nothing (${before})`);
+    await page.locator(".ll-tools button", { hasText: name }).first().tap();
+    await page.waitForTimeout(80);
+  }
+}
+
+async function questsPhone(browser) {
+  const { ctx, page, errors, external } = await newPage(browser, { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+  const problems = [];
+  await page.goto(`${BASE}?grade=2&debug`, { waitUntil: "load" });
+  await page.evaluate(() => localStorage.clear());
+  await page.reload({ waitUntil: "load" });
+  await page.waitForFunction(() => !!window.__ll);
+  if ((await page.locator(".ll-quest").count()) !== 5) problems.push("phone: quest picker should show 5 quests");
+  if (!(await noSideways(page))) problems.push("390px: sideways scroll on the quest picker");
+  await toggles(page, problems, "phone picker");
+  for (const id of NEW_QUESTS) {
+    const label = `phone ${id}`;
+    const start = page.locator(`.ll-quest[data-quest="${id}"] .ll-qbtns .ll-cta`, { hasText: "Start" });
+    await start.scrollIntoViewIfNeeded();
+    await start.tap();
+    await page.waitForFunction((id) => window.__ll.screen === "playing" && window.__ll.game && window.__ll.game.q.id === id, id);
+    // MUSIC / SFX stay tappable while the story message covers the screen.
+    if (await page.locator(".ll-dialog").count()) await toggles(page, problems, `${label} message`);
+    for (let i = 0; i < 6 && (await page.locator(".ll-dialog").count()); i++) {
+      await page.locator(".ll-dialog").tap();
+      await page.waitForTimeout(120);
+    }
+    if (!(await page.locator(".ll-controls.show").count())) problems.push(`${label}: touch controls hidden`);
+    if (!(await noSideways(page))) problems.push(`${label}: sideways scroll while playing`);
+    const info = await questInfo(page);
+    await touchWalkTo(page, info.gate.x, info.gate.y, problems, `${label} hub`);
+    await touchStep(page, "up");
+    let s = await st(page);
+    if (s.room !== info.start.room) problems.push(`${label}: the gate led to ${s.room}`);
+    await touchWalkTo(page, 9, 1, problems, `${label} entrance`);
+    await tap(page, page.locator('[aria-label="Move up"]'), pid++);
+    await page.waitForFunction(() => !!window.__ll.quiz, null, { timeout: 3000 }).catch(() => problems.push(`${label}: Question Door did not ask`));
+    const q = await quiz(page);
+    if (q) {
+      if (q.subject !== info.subject) problems.push(`${label}: asked ${q.subject}, want ${info.subject}`);
+      if (await page.locator(".ll-controls.show").count()) problems.push(`${label}: touch pad showing during a question`);
+      const hearts = (await st(page)).hearts;
+      await page.locator(".ll-quiz .opt").nth((q.answer + 1) % 4).tap();
+      await page.waitForTimeout(150);
+      s = await st(page);
+      if (s.opened.includes(info.door) || s.hearts !== hearts) problems.push(`${label}: a wrong tap opened the door or cost a heart`);
+      await page.locator(".ll-quiz .ll-cta").tap();
+      await page.waitForTimeout(150);
+      const q2 = await quiz(page);
+      if (!q2 || q2.picked !== null) problems.push(`${label}: no new question after a wrong answer`);
+      else {
+        await page.locator(".ll-quiz .opt").nth(q2.answer).tap();
+        await page.waitForTimeout(150);
+        if (!(await st(page)).opened.includes(info.door)) problems.push(`${label}: tapping the right answer did not open the door`);
+        await page.locator(".ll-quiz .ll-cta").tap();
+        await page.waitForTimeout(150);
+      }
+      if (!(await noSideways(page))) problems.push(`${label}: sideways scroll after a question`);
+    }
+    await touchStep(page, "up");
+    await touchStep(page, "up");
+    s = await st(page);
+    if (s.room !== info.doorTo) problems.push(`${label}: through the Question Door reached ${s.room}`);
+    await tap(page, page.locator('[aria-label="Map (Esc)"]'), pid++);
+    await page.waitForTimeout(150);
+    await toggles(page, problems, `${label} pause`);
+    await page.locator(".ll-pause .ll-cta", { hasText: "Choose quest" }).tap();
+    await page.waitForFunction(() => window.__ll.screen === "title");
+  }
+  if (errors.length) problems.push(`console errors: ${errors.join(" | ")}`);
+  if (external.length) problems.push(`external requests: ${external.join(", ")}`);
+  await ctx.close();
+  return problems;
+}
+
 async function saveShot(page, file) {
   // The canvas itself, scaled 2x with hard pixels: exactly 640 x 400.
   await page.waitForTimeout(400);
@@ -475,6 +739,12 @@ async function saveShot(page, file) {
     const tl = await topicLink(browser);
     console.log(`Topic links: ${tl.length ? "FAIL\n  - " + tl.join("\n  - ") : "ok"}`);
     failed += tl.length;
+    const qd = await questsDesktop(browser);
+    console.log(`Quests, desktop: ${qd.length ? "FAIL\n  - " + qd.join("\n  - ") : "ok"}`);
+    failed += qd.length;
+    const qp = await questsPhone(browser);
+    console.log(`Quests, phone 390px: ${qp.length ? "FAIL\n  - " + qp.join("\n  - ") : "ok"}`);
+    failed += qp.length;
   } finally {
     await browser.close();
   }
