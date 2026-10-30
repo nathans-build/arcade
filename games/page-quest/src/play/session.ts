@@ -5,9 +5,14 @@
  *    you retry. At 0 hearts: "THE END?" → restart at the last checkpoint with full hearts.
  *  - grades 4-5: no hearts. First miss: hint, retry. Second miss: the answer is revealed and
  *    the story continues.
+ * QUIZ gates (subject gates) follow the same rules: their question is a kit bank item drawn at
+ * play time (see subjects.ts) and stored in the gate state, so CONTINUE shows the same question.
+ * A wrong answer costs a heart for grades 6-12 like any gate; grades 4-5 get the item's own
+ * explanation as Quill's hint, then the answer is shown.
  */
 import type { Page, Story } from "@/story/types";
 import { standardFor } from "@/story/standards";
+import type { DealtQuestion, Subject } from "@/kit/types";
 
 export const MAX_HEARTS = 3;
 export const POINTS = { gateFirstTry: 100, gateLater: 25, win: 300, secret: 300, secretBonus: 500, lose: 50, newEnding: 200, transmission: 50 };
@@ -16,8 +21,11 @@ export interface LogEntry {
   standard: string;
   skill: string;
   correct: boolean;
-  kind: "gate" | "transmission";
+  /** gate = a story gate, quiz = a subject (QUIZ) gate, transmission = a checkpoint transmission. */
+  kind: "gate" | "quiz" | "transmission";
   page?: string;
+  /** Kit subject of quiz gates and transmissions. */
+  subject?: Subject;
 }
 
 export interface GateState {
@@ -30,6 +38,8 @@ export interface GateState {
   status: "open" | "wrong" | "reveal" | "solved";
   /** Display index of the last wrong pick. */
   lastWrong: number | null;
+  /** QUIZ gates: the subject question drawn for this visit (null until the reader draws one). */
+  quiz?: DealtQuestion | null;
 }
 
 export interface RunState {
@@ -62,6 +72,8 @@ export function pageOf(story: Story, id: string): Page | undefined {
 
 function gateFor(p: Page): GateState | null {
   if (!p.gate) return null;
+  // The dealt question is already shuffled: display order = its choice order.
+  if (p.gate.kind === "quiz") return { page: p.id, order: [0, 1, 2, 3], misses: 0, placed: [], status: "open", lastWrong: null, quiz: null };
   const n = p.gate.kind === "mc" ? p.gate.answers.length : p.gate.items.length;
   let order = shuffle([...Array(n).keys()]);
   // An order gate never starts already in order.
@@ -105,8 +117,19 @@ export function advance(story: Story, run: RunState, i: number): RunState {
 
 export type GateResult = "right" | "placed" | "wrong" | "reveal" | "lose" | "ignored";
 
+/** Puts the drawn subject question into an open QUIZ gate (ignored for other pages or once drawn). */
+export function setQuiz(story: Story, run: RunState, q: DealtQuestion): RunState {
+  const p = pageOf(story, run.page);
+  if (p?.gate?.kind !== "quiz" || !run.gate || run.gate.quiz) return run;
+  return { ...run, gate: { ...run.gate, quiz: q } };
+}
+
 function logGate(story: Story, run: RunState, grade: number, correct: boolean): RunState {
   const p = pageOf(story, run.page)!;
+  const q = run.gate?.quiz;
+  if (p.gate!.kind === "quiz" && q) {
+    return { ...run, log: [...run.log, { standard: q.standard, skill: q.skill, correct, kind: "quiz", page: p.id, subject: q.subject }] };
+  }
   const { code, skill } = standardFor(p.gate!.anchor, grade);
   return { ...run, log: [...run.log, { standard: code, skill, correct, kind: "gate", page: p.id }] };
 }
@@ -138,9 +161,14 @@ const open = (g: GateState | null) => !!g && (g.status === "open" || g.status ==
 export function answerMc(story: Story, run: RunState, display: number, grade: number): { run: RunState; result: GateResult } {
   const p = pageOf(story, run.page);
   const g = run.gate;
-  if (!p?.gate || p.gate.kind !== "mc" || !g || !open(g)) return { run, result: "ignored" };
+  if (!p?.gate || p.gate.kind === "order" || !g || !open(g)) return { run, result: "ignored" };
   const idx = g.order[display];
   if (idx === undefined) return { run, result: "ignored" };
+  if (p.gate.kind === "quiz") {
+    if (!g.quiz) return { run, result: "ignored" };
+    if (idx === g.quiz.answer) return { run: solve(story, run, g, grade), result: "right" };
+    return miss(story, run, g, grade, display);
+  }
   if (p.gate.answers[idx].correct) return { run: solve(story, run, g, grade), result: "right" };
   return miss(story, run, g, grade, display);
 }
@@ -168,6 +196,7 @@ export function restartFromCheckpoint(story: Story, run: RunState): RunState {
 export function correctIndex(story: Story, run: RunState): number {
   const p = pageOf(story, run.page);
   if (!p?.gate || !run.gate) return -1;
+  if (p.gate.kind === "quiz") return run.gate.quiz ? run.gate.order.indexOf(run.gate.quiz.answer) : -1;
   if (p.gate.kind === "mc") return run.gate.order.findIndex((i) => p.gate!.answers[i].correct);
   return run.gate.order.indexOf(run.gate.placed.length);
 }

@@ -224,6 +224,14 @@ Quill: Tell me the story of this chapter the way a responsible newspaper would r
 - A cruel wrecker lured the Wren onto the rocks to steal winter flour.
 - The mayor gave a stirring speech that bravely defended the keeper.
 hint: An objective summary reports events and claims without judging anyone. Watch for loaded words.
+next: quiz-ch2
+
+=== quiz-ch2
+scene: lighthouse
+cast: hero, quill:happy
+You take a moment to gather your thoughts. Quill draws a small, neatly lettered card from beneath one wing.
+Quill: The best explorers are never experts in only one thing. Consider this a brief detour before we press on.
+? QUIZ : Quick challenge before the next chapter!
 next: ch2
 
 # ============================================================
@@ -467,7 +475,7 @@ The first stars appear above Pell's Quay, and the steady harbor light glows bene
 - Old people should not be given important or dangerous jobs.
 - Machines are always more reliable than the people who run them.
 hint: Quill lists what each character was "guarding" and what those secrets did.
-next: ch3
+next: quiz-ch3
 
 # --- secret path (from the notebook) ---
 
@@ -496,6 +504,14 @@ He picks up his pen and writes, in a hand that trembles: the light stood still, 
 
 At the council meeting, the keeper is the first to speak, Orla is cleared of every charge, Nell is appointed assistant keeper, and Orla offers to teach her the flash chart. The old man keeps his chair beside the lens, but he never again keeps watch alone.
 end: secret The Honest Page
+
+=== quiz-ch3
+scene: beach
+cast: hero, quill:happy
+Before you can turn the page, Quill raises one wing, unhurried and deliberate.
+Quill: The story will keep. A quick challenge first; think it through rather than guessing.
+? QUIZ : Sharp minds win the day. Try this one!
+next: ch3
 
 
 # ============================================================

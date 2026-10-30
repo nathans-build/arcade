@@ -1915,4 +1915,221 @@ export const SCENE_PAINTERS: Record<SceneId, ScenePainter> = {
       }
     },
   },
+  // An underwater coral reef: sunlight rays slanting down from the surface, a sandy floor, brain and
+  // branching corals, a purple sea fan, tube sponges, swaying kelp, rising bubbles and little fish.
+  reef: {
+    floor: 188,
+    bg(g) {
+      g.bands(0, 0, W, 166, ["#46c4ee", "#2ea4dc", "#1e84c6", "#166aae", "#105492"]);
+      g.dither(0, 0, W, 2, "#c8f2ff", "#46c4ee");
+      // far reef shapes in the blue haze
+      for (let i = 0; i < 10; i++) g.ellipse(rnd(i + 401) * W, 154, 18 + rnd(i + 402) * 26, 10 + rnd(i + 403) * 12, i % 2 ? "#12508a" : "#0f4880");
+      // sandy floor with ripples and shells
+      g.rect(0, 162, W, 38, C.sand);
+      g.dither(0, 160, W, 4, "#105492", C.sand);
+      for (let i = 0; i < 18; i++) g.rect(rnd(i + 420) * W, 168 + rnd(i + 421) * 28, 8 + rnd(i + 422) * 10, 1, C.tan);
+      for (let i = 0; i < 6; i++) { const x = rnd(i + 440) * W, y = 176 + rnd(i + 441) * 18; g.ellipse(x, y, 2, 1, i % 2 ? C.cream : "#f0a0b0"); }
+      // rocks
+      g.ellipse(64, 166, 26, 10, "#5a6a7a");
+      g.ellipse(250, 168, 30, 9, "#5a6a7a");
+      g.dither(40, 160, 48, 4, "#6e8090", "#5a6a7a");
+      // brain coral (left) with grooves
+      g.ellipse(58, 152, 18, 12, "#d8a85a");
+      for (let k = -2; k <= 2; k++) g.line(44, 152 + k * 4, 72, 150 + k * 4, "#a87a3a");
+      // branching coral (pink) and staghorn (orange)
+      const branch = (x: number, y: number, h: number, c: string) => {
+        g.rect(x, y - h, 3, h, c);
+        g.rect(x - 7, y - h * 0.7, 3, h * 0.45, c); g.rect(x - 7, y - h * 0.3, 8, 3, c);
+        g.rect(x + 7, y - h * 0.85, 3, h * 0.5, c); g.rect(x + 2, y - h * 0.4, 8, 3, c);
+        g.circle(x + 1, y - h, 2, c); g.circle(x - 6, y - h * 0.7, 2, c); g.circle(x + 8, y - h * 0.85, 2, c);
+      };
+      branch(110, 166, 30, "#ff6a9a");
+      branch(126, 168, 22, "#ff8a5a");
+      branch(210, 166, 28, "#ffb03a");
+      // purple sea fan (a lattice)
+      for (let k = 0; k < 9; k++) g.line(282, 164, 262 + k * 5, 112 + Math.abs(k - 4) * 6, "#a03ad8");
+      for (let r = 0; r < 4; r++) g.line(266, 124 + r * 10, 298, 124 + r * 10, "#7a2aa8");
+      // tube sponges and an anemone
+      for (const [x, h, c] of [[160, 24, "#e86a2a"], [168, 16, "#e86a2a"], [232, 18, "#d8d03a"]] as [number, number, string][]) {
+        g.rect(x - 3, 168 - h, 7, h, c);
+        g.rect(x - 2, 168 - h, 5, 2, "#3a1a10");
+      }
+      for (let k = 0; k < 7; k++) g.line(190, 168, 184 + k * 2, 156 + Math.abs(k - 3), "#ff7ab8");
+      g.ellipse(190, 168, 6, 2, "#c84a8a");
+      // a starfish on the sand
+      g.tri(300, 186, 296, 194, 304, 194, "#ff8a2a"); g.tri(296, 189, 304, 189, 300, 196, "#ff8a2a");
+    },
+    anim(g, t) {
+      // sunlight rays from the surface
+      for (let i = 0; i < 5; i++) {
+        const x0 = 20 + i * 70 + Math.sin(t * 0.35 + i * 1.7) * 8;
+        g.poly([[x0, 0], [x0 + 14, 0], [x0 + 52, 165], [x0 + 26, 165]], "rgba(220,248,255,0.09)");
+      }
+      // swaying kelp (left and right edges)
+      for (const [bx, top, ph] of [[16, 70, 0], [28, 96, 1.3], [304, 80, 2.1], [292, 110, 0.6]] as [number, number, number][]) {
+        let px = bx;
+        for (let y = 188, k = 0; y > top; y -= 6, k++) {
+          const x = bx + Math.sin(t * 1.4 + ph + k * 0.35) * k * 0.45;
+          g.rect(x - 1, y - 6, 3, 7, "#2a8a3a");
+          if (k % 2) g.tri(x + 1, y - 4, x + 9, y - 9, x + 2, y - 1, "#3aaa48");
+          else g.tri(x - 1, y - 4, x - 9, y - 9, x - 2, y - 1, "#3aaa48");
+          px = x;
+        }
+        g.ellipse(px, top + 2, 2, 3, "#3aaa48");
+      }
+      // little fish darting past (two small schools)
+      for (let i = 0; i < 9; i++) {
+        const school = i < 5 ? 0 : 1;
+        const sp = school ? 22 : 16;
+        const dir = school ? -1 : 1;
+        const span = W + 60;
+        let x = (t * sp + i * 11 + school * 140) % span - 30;
+        if (dir < 0) x = W - x;
+        const y = (school ? 52 : 92) + (i % 3) * 6 + Math.sin(t * 3 + i) * 2;
+        const body = school ? "#ffd23f" : "#ff8a2a";
+        g.ellipse(x, y, 3, 2, body);
+        g.tri(x - 3 * dir, y, x - 6 * dir, y - 2, x - 6 * dir, y + 2, body);
+        g.px(x + 1 * dir, y - 1, C.black);
+        if (!school) g.rect(x - 1, y - 2, 1, 4, C.white);
+      }
+      // bubbles rising
+      for (let i = 0; i < 12; i++) {
+        const x = 40 + rnd(i + 500) * 240 + Math.sin(t * 2 + i) * 2;
+        const y = 186 - ((t * (14 + (i % 4) * 4) + rnd(i + 510) * 180) % 184);
+        const r = i % 3 ? 1 : 2;
+        g.rect(x - r, y - r, r * 2, r * 2, "rgba(220,248,255,0.55)");
+        g.px(x - r, y - r, C.white);
+      }
+    },
+  },
+
+  // A marine research boat at sea: a white wheelhouse with a radar dome and antennas, an orange
+  // A-frame crane at the stern lowering a line, the tagging gear (equipment cases, a cooler, a
+  // laptop on a folding table, a coiled line, a life ring), the open sea, gulls and a fluttering flag.
+  "research-boat": {
+    floor: 190,
+    bg(g) {
+      g.bands(0, 0, W, 90, ["#4a8ae0", "#6ea8f0", "#9cc8f8", "#c8e2ff"]);
+      cloud(g, 70, 22, 1.1);
+      cloud(g, 190, 34, 0.8);
+      // a far green island on the horizon
+      g.ellipse(250, 90, 34, 7, "#3a7a5a");
+      g.ellipse(258, 87, 16, 5, "#4a8a6a");
+      // (y 90-118: the sea, drawn by `back`)
+      // wheelhouse (right)
+      g.rect(206, 52, 114, 82, C.white);
+      g.rect(206, 52, 114, 3, "#c8d0d8");
+      g.rect(200, 48, 120, 5, "#2456e8");
+      for (let i = 0; i < 4; i++) { g.rect(214 + i * 26, 62, 20, 16, "#2a4a6a"); g.rect(216 + i * 26, 64, 6, 3, "#8ac8f0"); }
+      g.rect(230, 92, 22, 42, "#d8dee6"); g.rect(232, 94, 18, 14, "#2a4a6a"); g.px(247, 114, C.dgray);
+      // life ring
+      g.circle(286, 106, 11, C.orange); g.circle(286, 106, 5, C.white);
+      g.rect(275, 104, 4, 4, C.white); g.rect(293, 104, 4, 4, C.white); g.rect(284, 95, 4, 4, C.white); g.rect(284, 113, 4, 4, C.white);
+      // mast, radar dome, antennas
+      g.rect(262, 10, 3, 40, C.lgray);
+      g.ellipse(263, 16, 9, 5, C.white); g.rect(254, 16, 19, 4, C.white);
+      g.rect(250, 30, 28, 2, C.lgray);
+      g.rect(250, 20, 1, 12, C.dgray); g.rect(277, 18, 1, 14, C.dgray);
+      // A-frame crane at the stern (left), its line running down to the water
+      g.rect(30, 30, 5, 100, C.orange); g.rect(84, 30, 5, 100, C.orange);
+      g.rect(30, 28, 59, 6, C.orange); g.rect(32, 30, 55, 1, "#ffb06a");
+      g.rect(56, 34, 6, 6, C.dgray);
+      g.line(59, 40, 59, 116, C.black);
+      // rail and deck
+      g.rect(0, 118, W, 4, "#d8dee6");
+      for (let x = 4; x < 206; x += 14) g.rect(x, 122, 2, 12, "#d8dee6");
+      g.rect(0, 132, W, 3, "#9aa4ae");
+      g.rect(0, 135, W, 65, "#8a949e");
+      for (let i = -8; i <= 8; i++) g.line(160 + i * 14, 135, 160 + i * 40, 200, "#7a848e");
+      for (let i = 0; i < 60; i++) g.px(rnd(i + 600) * W, 140 + rnd(i + 601) * 58, "#9ea8b2");
+      g.rect(0, 135, W, 2, "#ffd23f");
+      // equipment: yellow cases, a cooler, a laptop on a folding table, coiled line
+      g.rect(100, 160, 28, 16, "#ffd23f"); g.rect(100, 160, 28, 2, "#c8a020"); g.rect(110, 166, 8, 2, C.black);
+      g.rect(104, 150, 22, 10, "#ffd23f"); g.rect(104, 150, 22, 2, "#c8a020");
+      g.rect(140, 162, 26, 14, C.white); g.rect(140, 162, 26, 3, "#2456e8"); g.rect(150, 158, 6, 4, C.dgray);
+      g.rect(176, 150, 34, 3, C.dgray); g.line(180, 153, 186, 176, C.dgray); g.line(206, 153, 200, 176, C.dgray);
+      g.rect(183, 140, 18, 10, "#2a2a30"); g.rect(185, 142, 14, 7, "#3ad0a0"); g.rect(181, 149, 22, 2, "#4a4a50");
+      g.ellipse(28, 176, 14, 5, "#ffd23f"); g.ellipse(28, 176, 9, 3, "#c8a020"); g.ellipse(28, 176, 4, 1, "#ffd23f");
+    },
+    back(g, t) {
+      sea(g, 88, 120, t, ["#2a7ad0", "#1e64b8", "#14509e"], "#bfe6ff");
+      // a little orange marker buoy bobbing far off
+      const by = 100 + Math.sin(t * 2) * 1.5;
+      g.rect(140, by - 4, 3, 5, C.orange); g.px(141, by - 6, C.white);
+    },
+    anim(g, t) {
+      // flag on the mast
+      for (let i = 0; i < 10; i++) g.rect(265 + i, 6 + Math.round(Math.sin(t * 6 + i * 0.7) * 1.2), 1, 5, i < 5 ? "#2456e8" : C.white);
+      // blinking mast light, a turning radar bar
+      if (Math.floor(t * 1.4) % 2) g.circle(263, 9, 1, C.lred);
+      const rx = Math.round(Math.cos(t * 3) * 8);
+      g.line(263 - rx, 22, 263 + rx, 22, C.dgray);
+      // two gulls
+      for (let k = 0; k < 2; k++) {
+        const gx = ((t * (12 + k * 5) + k * 160) % (W + 40)) - 20;
+        const gy = 26 + k * 16 + Math.sin(t * 1.3 + k) * 4;
+        const up = Math.floor(t * 4 + k) % 2;
+        g.rect(gx, gy, 3, 2, C.white);
+        g.line(gx - 5, gy - (up ? 3 : -1), gx, gy, C.white);
+        g.line(gx + 3, gy, gx + 8, gy - (up ? 3 : -1), C.white);
+      }
+      // the laptop screen's blip (a tracker ping)
+      if (Math.floor(t * 2) % 3 === 0) g.rect(192, 144, 2, 2, C.white);
+    },
+  },
+
+  // The deep sea, far below the sunlight: dark water, a rocky seamount, drifting "marine snow",
+  // glowing jellyfish, lanternfish lights, pulsing sea pens and a submersible's searchlight beam.
+  "deep-sea": {
+    floor: 190,
+    bg(g) {
+      g.bands(0, 0, W, 170, ["#06203a", "#04182e", "#031022", "#020a18", "#01060f"]);
+      // the seamount rising on the right
+      g.poly([[170, 170], [236, 70], [262, 58], [300, 80], [320, 96], [320, 170]], "#121c28");
+      g.poly([[200, 170], [246, 96], [272, 90], [320, 120], [320, 170]], "#0e1620");
+      for (let i = 0; i < 14; i++) g.px(220 + rnd(i + 700) * 96, 80 + rnd(i + 701) * 80, "#1e2a38");
+      // seabed with rocks and sponges
+      g.rect(0, 166, W, 34, "#141414");
+      g.dither(0, 164, W, 4, "#01060f", "#141414");
+      for (let i = 0; i < 9; i++) g.ellipse(rnd(i + 720) * W, 172 + rnd(i + 721) * 14, 8 + rnd(i + 722) * 12, 4, i % 2 ? "#1e2228" : "#262a30");
+      // glass sponge vases and tube worms
+      for (const x of [40, 128, 262]) { g.rect(x - 4, 150, 9, 18, "#c8c0a8"); g.rect(x - 3, 151, 7, 2, "#3a3628"); g.dither(x - 4, 152, 9, 16, "#c8c0a8", "#a8a088"); }
+      for (let k = 0; k < 6; k++) { g.rect(80 + k * 4, 156 + (k % 3) * 3, 2, 12 - (k % 3) * 3, C.white); g.rect(80 + k * 4, 154 + (k % 3) * 3, 2, 2, C.sbRed); }
+    },
+    anim(g, t) {
+      // the submersible's searchlight from the top left
+      const flick = 0.1 + (Math.sin(t * 7) > 0.97 ? 0.04 : 0);
+      g.poly([[0, 14], [0, 30], [140, 170], [230, 170]], `rgba(255,248,200,${flick.toFixed(2)})`);
+      g.rect(0, 10, 10, 22, "#d8a020"); g.rect(0, 14, 12, 14, "#ffe070");
+      // marine snow drifting down
+      for (let i = 0; i < 40; i++) {
+        const x = (rnd(i + 800) * W + Math.sin(t * 0.5 + i) * 3) % W;
+        const y = (rnd(i + 810) * 170 + t * (3 + (i % 3))) % 170;
+        g.px(x, y, i % 4 ? "#3a4a5a" : "#6a7a8a");
+      }
+      // glowing jellyfish, pulsing
+      for (let k = 0; k < 3; k++) {
+        const jx = 60 + k * 90 + Math.sin(t * 0.4 + k) * 10;
+        const jy = 40 + k * 22 + Math.sin(t * 0.9 + k * 2) * 6;
+        const p = Math.sin(t * 3 + k) > 0 ? 1 : 0;
+        const col = ["#55ffff", "#ff55ff", "#8aff8a"][k];
+        g.ellipse(jx, jy, 6 + p, 4 - p, col);
+        g.ellipse(jx, jy + 1, 4, 2, "#02101e");
+        for (let tl = -4; tl <= 4; tl += 2) for (let s2 = 0; s2 < 8; s2 += 2) g.px(jx + tl + Math.sin(t * 2 + s2 + tl) , jy + 4 + s2, col);
+      }
+      // lanternfish: rows of tiny lights gliding past
+      for (let i = 0; i < 6; i++) {
+        const x = W - ((t * 10 + i * 53) % (W + 30)) + 10;
+        const y = 120 + (i % 3) * 9;
+        g.rect(x, y, 5, 2, "#1a2838");
+        if (Math.floor(t * 3 + i) % 2) { g.px(x + 1, y + 1, C.lcyan); g.px(x + 3, y + 1, C.lcyan); }
+      }
+      // pulsing sea pens on the seabed
+      for (const [x, ph] of [[170, 0], [196, 1.5], [300, 3]] as [number, number][]) {
+        const on = 0.5 + Math.sin(t * 2 + ph) * 0.5;
+        g.rect(x, 152, 2, 16, "#5a3a6a");
+        for (let k = 0; k < 4; k++) g.rect(x - 2, 153 + k * 3, 6, 1, on > 0.5 ? "#c88aff" : "#7a4aa8");
+      }
+    },
+  },
 };

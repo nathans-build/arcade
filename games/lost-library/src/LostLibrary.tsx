@@ -20,15 +20,12 @@ import {
   type Grade,
   type Subject,
 } from "@/kit";
-import { BOOKS, BOOK_BY_ID } from "@/library/books";
-import { Game, clearSave, loadSave, writeSave, type GameEvent, type Sfx } from "@/library/game";
+import { Game, clearSave, loadSave, writeSave, type GameEvent, type SaveData, type Sfx } from "@/library/game";
 import { drawFrame, H, W } from "@/library/render";
 import { pathTo, solveRoomBlocks } from "@/library/solver";
 import { LibraryDecks, focusCatalog } from "@/library/questions";
-import {
-  AREAS, GUARDIANS, ITEMS, WINGS, roomById,
-  type BookId, type Dir, type GuardianId, type ItemId,
-} from "@/library/world";
+import { worldOf, type Book, type Dir, type QuestDef } from "@/library/quest";
+import { QUESTS, loadLastQuest, questById, saveLastQuest } from "@/library/quests";
 import {
   MIXED, SUBJECT_CHOICES, allLabel, focusFromUrl, focusLabel, focusTag, focusTopic, loadFocus,
   refocusSavedForGrade, saveFocus, topicForSubject, topicsOf, validateFocus,
@@ -44,13 +41,13 @@ type Screen = "title" | "playing" | "ending";
 
 type Overlay =
   | { kind: "msg"; text: string; title?: string; then?: () => void }
-  | { kind: "book"; book: BookId }
-  | { kind: "item"; item: ItemId };
+  | { kind: "book"; book: string }
+  | { kind: "item"; item: string };
 
 interface Quiz {
   kind: "door" | "guardian";
   doorId?: string;
-  guardian?: GuardianId;
+  guardian?: string;
   q: DealtQuestion;
   picked: number | null;
   /** The guardian's last right answer was the one that finished the quiz. */
@@ -68,21 +65,24 @@ interface Hud {
   hearts: number;
   max: number;
   keys: number | null;
-  selected: ItemId | null;
-  items: ItemId[];
+  selected: string | null;
+  items: string[];
   books: number;
   area: string;
   room: string;
+  hub: string;
 }
 
 const SUBJECT_TAGS: Record<Subject, string> = { math: "MATH", science: "SCIENCE", ela: "ELA", social: "SOCIAL STUDIES" };
+const SUBJECT_NAMES: Record<Subject, string> = { math: "Math", science: "Science", ela: "ELA", social: "Social Studies" };
 const ARROWS: Record<string, Dir> = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 function hudOf(g: Game): Hud {
   const w = g.wing;
   return {
     hearts: g.s.hearts, max: g.maxHearts, keys: w ? g.s.keys[w] : null, selected: g.s.selected, items: [...g.s.items],
-    books: g.s.books.length, area: AREAS[g.s.at.area].short, room: g.room.name,
+    books: g.s.books.length, area: g.area.short, room: g.room.name, hub: g.q.areas[g.q.hub].short,
   };
 }
 
@@ -94,6 +94,18 @@ function initialFocus(grade: Grade): { choice: FocusChoice; note: string | null 
     note = `${t.label} is for ${focusCatalog.gradesNote(t.id)}, not ${gradeLabel(grade)}.`;
   }
   return { choice: url.choice ?? validateFocus(loadFocus(), grade, focusCatalog), note };
+}
+
+/** ?quest=<id> preselects a quest; otherwise the one played last. */
+function initialQuest(): QuestDef {
+  const id = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("quest");
+  return questById(id) ?? loadLastQuest();
+}
+
+function loadAllSaves(): Record<string, SaveData | null> {
+  const out: Record<string, SaveData | null> = {};
+  for (const q of QUESTS) out[q.id] = loadSave(q);
+  return out;
 }
 
 const debug = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("debug");
@@ -121,6 +133,14 @@ function playSfx(audio: ChipAudio, name: Sfx) {
     case "right": audio.correct(); break;
     case "wrong": audio.wrong(); break;
     case "faint": audio.playJingle(FAINT); break;
+    case "lever": audio.tone(140, 0.12, "square", 0.3); later(110, () => audio.noise(0.3, 0.2)); break;
+    case "bubble": audio.tone(300, 0.18, "triangle", 0.35, 900); later(90, () => audio.tone(500, 0.12, "triangle", 0.25, 1100)); break;
+    case "pop": audio.tone(1400, 0.06, "square", 0.2, 300); break;
+    case "wind": for (let i = 0; i < 4; i++) later(i * 70, () => audio.tone(1500 - i * 120, 0.03, "square", 0.15)); break;
+    case "tick": audio.tone(1800, 0.03, "square", 0.15); later(120, () => audio.tone(1300, 0.03, "square", 0.15)); break;
+    case "steam": audio.noise(0.35, 0.18); break;
+    case "conveyor": audio.tone(220, 0.15, "triangle", 0.2, 330); break;
+    case "ghost": audio.tone(520, 0.5, "triangle", 0.3, 780); later(160, () => audio.tone(660, 0.4, "triangle", 0.2, 520)); break;
   }
 }
 
@@ -148,9 +168,12 @@ export default function LostLibrary() {
   useEffect(() => exposeMusicDebug(audio, SONGS, JINGLES), [audio]);
   const [readAloud, setReadAloud] = useState(() => readAloudPref(isEarlyReader(initialGrade("3"))));
   const [touch, setTouch] = useState(false);
-  const [saved, setSaved] = useState(() => loadSave());
-  const [bookCard, setBookCard] = useState<BookId | null>(null);
-  const [confirmNew, setConfirmNew] = useState(false);
+  /** The quest picked on the title screen, and the one being played. */
+  const [pick, setPick] = useState<QuestDef>(() => initialQuest());
+  const [quest, setQuest] = useState<QuestDef>(pick);
+  const [saves, setSaves] = useState(() => loadAllSaves());
+  const [bookCard, setBookCard] = useState<string | null>(null);
+  const [confirmNew, setConfirmNew] = useState<string | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const [screenWidth, setScreenWidth] = useState<number | null>(null);
 
@@ -165,6 +188,8 @@ export default function LostLibrary() {
   overlaysRef.current = overlays;
   const screenRef = useRef(screen);
   screenRef.current = screen;
+  const pickRef = useRef(pick);
+  pickRef.current = pick;
   const early = isEarlyReader(grade);
 
   // Fit the 16:10 screen in the space left over.
@@ -196,10 +221,10 @@ export default function LostLibrary() {
   /** The subject a Question Door / guardian asks in the current area (MIXED), null = any. */
   const subjectHere = useCallback((): Subject | null => {
     const g = gameRef.current;
-    return g ? AREAS[g.s.at.area].subject : null;
+    return g ? g.area.subject : null;
   }, []);
 
-  const startQuiz = useCallback((kind: Quiz["kind"], extra: { doorId?: string; guardian?: GuardianId }) => {
+  const startQuiz = useCallback((kind: Quiz["kind"], extra: { doorId?: string; guardian?: string }) => {
     const decks = decksRef.current;
     if (!decks) return;
     releaseHeld();
@@ -211,14 +236,16 @@ export default function LostLibrary() {
   // Game events -> sounds, messages, questions, cards. Kept in a ref so the loop always calls the latest.
   const onEvents = useRef<(ev: GameEvent[]) => void>(() => {});
   onEvents.current = (events: GameEvent[]) => {
+    const g = gameRef.current;
+    if (!g) return;
+    const q = g.q;
     for (const e of events) {
       if (e.type === "sfx") playSfx(audio, e.name);
       else if (e.type === "msg") pushOverlay({ kind: "msg", text: e.text, title: e.title });
       else if (e.type === "question") startQuiz("door", { doorId: e.doorId });
       else if (e.type === "guardian") {
-        const gd = GUARDIANS[e.guardian];
-        const g = gameRef.current;
-        const have = g ? g.guardianProgress(e.guardian) : 0;
+        const gd = q.guardians[e.guardian];
+        const have = g.guardianProgress(e.guardian);
         const intro = have > 0 ? `${gd.name}: Back again? You have ${have} of ${gd.need} right answers. Let's continue!` : gd.intro;
         releaseHeld();
         pushOverlay({ kind: "msg", title: `${gd.name}, ${gd.title.toUpperCase()}`, text: intro, then: () => startQuiz("guardian", { guardian: e.guardian }) });
@@ -228,11 +255,12 @@ export default function LostLibrary() {
       }
       else if (e.type === "item") pushOverlay({ kind: "item", item: e.item });
       else if (e.type === "restored") {
-        const gid = AREAS[e.wing].guardian!;
+        const gid = q.areas[e.wing].guardian!;
         audio.playJingle(WING_RESTORED);
-        pushOverlay({ kind: "msg", title: GUARDIANS[gid].name, text: `${GUARDIANS[gid].win} The ${AREAS[e.wing].name} is restored!` });
+        pushOverlay({ kind: "msg", title: q.guardians[gid].name, text: `${q.guardians[gid].win} The ${q.areas[e.wing].name} is restored!` });
       } else if (e.type === "finished") {
-        pushOverlay({ kind: "msg", title: GUARDIANS.smudge.name, text: GUARDIANS.smudge.win, then: () => setScreen("ending") });
+        const fg = q.guardians[q.areas[q.final].guardian!];
+        pushOverlay({ kind: "msg", title: fg.name, text: fg.win, then: () => setScreen("ending") });
       }
       if (e.type === "hurt" || e.type === "faint" || e.type === "question" || e.type === "guardian") releaseHeld();
     }
@@ -242,20 +270,23 @@ export default function LostLibrary() {
   const top = overlays[0];
   useEffect(() => {
     if (!top || !readAloudRef.current) return;
+    const q = gameRef.current?.q ?? quest;
     if (top.kind === "msg") speak(`${top.title ? `${top.title}. ` : ""}${top.text}`);
     else if (top.kind === "book") {
-      const b = BOOK_BY_ID.get(top.book)!;
-      speak(`You found a lost book: ${b.title}! Fun fact: ${b.fact}`);
-    } else speak(`You got the ${ITEMS[top.item].name}! ${ITEMS[top.item].how}`);
-  }, [top]);
+      const b = q.books.find((x) => x.id === top.book);
+      if (b) speak(`You found ${q.terms.treasure === "book" ? "a lost book" : `a ${q.terms.treasure}`}: ${b.title}! Fun fact: ${b.fact}`);
+    } else {
+      const it = q.items[top.item];
+      if (it) speak(`You got the ${it.name}! ${it.how}`);
+    }
+  }, [top, quest]);
 
-  // The main loop: a town demo behind the title screen, the real game while playing.
+  // The main loop: a demo of the picked quest's hub behind the title screen, the real game while playing.
   useEffect(() => {
     const canvas = canvasRef.current!;
     canvas.width = W;
     canvas.height = H;
     const ctx = canvas.getContext("2d")!;
-    demoRef.current = new Game(null, { early: false, enemies: true });
     let raf = 0;
     let last = performance.now();
     let lastV = -1;
@@ -271,10 +302,10 @@ export default function LostLibrary() {
         } else g.tick(0, null);
         const evs = g.takeEvents();
         if (evs.length) onEvents.current(evs);
-        // Music follows the player: town, each wing, the Reading Room, or a guardian's riddle.
-        audio.playSong(songFor(g.s.at.area, quizRef.current?.kind === "guardian"));
+        // Music follows the player: the hub, each wing, the final room, or a guardian's riddle.
+        audio.playSong(songFor(g.q, g.s.at.area, quizRef.current?.kind === "guardian"));
         if (g.dirty) {
-          writeSave(g.s);
+          writeSave(g.s, g.q);
           g.dirty = false;
         }
         if (g.version !== lastV || g !== lastGame) {
@@ -283,11 +314,13 @@ export default function LostLibrary() {
           setHud(hudOf(g));
         }
         drawFrame(ctx, g, now / 1000, g.room.name);
-      } else if (demoRef.current) {
+      } else {
+        const p = pickRef.current;
+        if (!demoRef.current || demoRef.current.q !== p) demoRef.current = new Game(null, { early: false, enemies: true, quest: p });
         const d = demoRef.current;
         d.tick(dt, null);
         d.takeEvents();
-        drawFrame(ctx, d, now / 1000, "Bramblebury Square");
+        drawFrame(ctx, d, now / 1000, d.room.name);
       }
       raf = requestAnimationFrame(frame);
     };
@@ -298,29 +331,6 @@ export default function LostLibrary() {
       stopSpeaking();
     };
   }, [audio]);
-
-  // Playtest hook (?debug only).
-  useEffect(() => {
-    if (!debug) return;
-    (window as unknown as { __ll: unknown }).__ll = {
-      get game() { return gameRef.current; },
-      get quiz() { return quizRef.current; },
-      get overlay() { return overlaysRef.current[0] ?? null; },
-      get screen() { return screenRef.current; },
-      pathTo: (x: number, y: number) => (gameRef.current ? pathTo(gameRef.current, x, y) : null),
-      blocksPlan: () => (gameRef.current ? solveRoomBlocks(gameRef.current) : null),
-      /** Skips to the Reading Room with all four wings restored (books given back). */
-      toReadingRoom: () => {
-        const g = gameRef.current;
-        if (!g) return;
-        for (const w of WINGS) {
-          if (!g.s.restored.includes(w)) g.s.restored.push(w);
-          if (!g.s.books.includes(w)) g.s.books.push(w);
-        }
-        g.goTo(AREAS.reading.start);
-      },
-    };
-  }, []);
 
   const chooseGrade = useCallback((g: Grade) => {
     setGrade(g);
@@ -337,30 +347,39 @@ export default function LostLibrary() {
     setFocusNote(null);
   }, []);
 
-  const begin = useCallback((fresh: boolean) => {
+  const choosePick = useCallback((q: QuestDef) => {
+    setPick(q);
+    saveLastQuest(q);
+    setConfirmNew((c) => (c === q.id ? c : null));
+  }, []);
+
+  const begin = useCallback((q: QuestDef, fresh: boolean) => {
     audio.unlock();
     rememberGrade(grade);
-    const save = fresh ? null : loadSave();
-    if (fresh) clearSave();
-    const g = new Game(save, { early: isEarlyReader(grade), enemies: true });
+    saveLastQuest(q);
+    setPick(q);
+    setQuest(q);
+    const save = fresh ? null : loadSave(q);
+    if (fresh) clearSave(q);
+    const g = new Game(save, { early: isEarlyReader(grade), enemies: true, quest: q });
     gameRef.current = g;
-    writeSave(g.s);
+    writeSave(g.s, q);
     const f = validateFocus(focus, grade, focusCatalog);
     setRunFocus(f);
     decksRef.current = new LibraryDecks(grade, GAME_ID, f);
     setLog([]);
     setQuiz(null);
     setPaused(false);
-    setConfirmNew(false);
+    setConfirmNew(null);
     setHud(hudOf(g));
     setScreen("playing");
     if (fresh || !save) {
       setOverlays([
-        { kind: "msg", title: "MADAME FOLIO", text: `${HERO}! Thank goodness you're here. The Ink Smudge knocked every book off the shelves of the Grand Lantern Library, and ink sprites are everywhere! Each of our four wings has a guardian keeping its book safe.` },
-        { kind: "msg", title: "HOW TO PLAY", text: "Arrow keys walk. Z swings your feather duster to tidy ink sprites. X uses your item (your lantern lights cold torches). Enter reads signs and talks. Esc shows the map. Answer questions with 1-4 or A-D." },
+        ...q.texts.intro.map((m) => ({ kind: "msg" as const, title: m.title, text: m.text })),
+        { kind: "msg", title: "HOW TO PLAY", text: q.texts.howTo },
       ]);
     } else {
-      setOverlays([{ kind: "msg", title: "WELCOME BACK", text: `Welcome back, ${HERO}! You're in ${g.room.name}. Books found: ${g.s.books.length} of ${BOOKS.length}.` }]);
+      setOverlays([{ kind: "msg", title: "WELCOME BACK", text: `Welcome back, ${HERO}! You're in ${g.room.name}. ${cap(q.terms.treasures)} found: ${g.s.books.length} of ${q.books.length}.` }]);
     }
   }, [audio, grade, focus]);
 
@@ -372,6 +391,45 @@ export default function LostLibrary() {
       return rest;
     });
   }, []);
+
+  const toTitle = useCallback(() => {
+    gameRef.current = null;
+    setScreen("title");
+    setPaused(false);
+    setQuiz(null);
+    setOverlays([]);
+    setSaves(loadAllSaves());
+    audio.stopMusic();
+    stopSpeaking();
+  }, [audio]);
+
+  // Playtest hook (?debug only).
+  useEffect(() => {
+    if (!debug) return;
+    (window as unknown as { __ll: unknown }).__ll = {
+      get game() { return gameRef.current; },
+      get quiz() { return quizRef.current; },
+      get overlay() { return overlaysRef.current[0] ?? null; },
+      get screen() { return screenRef.current; },
+      get pick() { return pickRef.current.id; },
+      quests: QUESTS.map((q) => q.id),
+      pathTo: (x: number, y: number) => (gameRef.current ? pathTo(gameRef.current, x, y) : null),
+      blocksPlan: () => (gameRef.current ? solveRoomBlocks(gameRef.current) : null),
+      /** Skips to the final room with every wing restored (treasures given back). */
+      toFinal: () => {
+        const g = gameRef.current;
+        if (!g) return;
+        for (const w of g.q.wings) {
+          if (!g.s.restored.includes(w)) g.s.restored.push(w);
+          const b = g.q.wingBook[w];
+          if (!g.s.books.includes(b)) g.s.books.push(b);
+        }
+        g.goTo(g.q.areas[g.q.final].start);
+      },
+      toReadingRoom: () => (window as unknown as { __ll: { toFinal: () => void } }).__ll.toFinal(),
+      toTitle,
+    };
+  }, [toTitle]);
 
   const answer = useCallback((i: number) => {
     const qz = quizRef.current;
@@ -432,17 +490,6 @@ export default function LostLibrary() {
     setPaused(false);
   }, []);
 
-  const toTitle = useCallback(() => {
-    gameRef.current = null;
-    setScreen("title");
-    setPaused(false);
-    setQuiz(null);
-    setOverlays([]);
-    setSaved(loadSave());
-    audio.stopMusic();
-    stopSpeaking();
-  }, [audio]);
-
   const toggleReadAloud = useCallback(() => {
     setReadAloud((on) => {
       setReadAloudPref(!on);
@@ -469,7 +516,7 @@ export default function LostLibrary() {
       if (screen === "title") {
         if (ev.key === "Enter" && !onButton) {
           ev.preventDefault();
-          begin(!saved);
+          begin(pick, !saves[pick.id]);
         }
         return;
       }
@@ -532,7 +579,7 @@ export default function LostLibrary() {
       window.removeEventListener("keyup", up);
       window.removeEventListener("blur", blur);
     };
-  }, [screen, quiz, overlays, paused, saved, answer, nextQuestion, stepBack, closeOverlay, togglePause, act, begin, replay, releaseHeld, audio]);
+  }, [screen, quiz, overlays, paused, saves, pick, answer, nextQuestion, stepBack, closeOverlay, togglePause, act, begin, replay, releaseHeld, audio]);
 
   // Touch pad: arrows are held, buttons fire on press.
   const holdProps = (d: Dir) => ({
@@ -564,9 +611,10 @@ export default function LostLibrary() {
   const showPad = touch && playing && !quiz && !paused;
   const tag = focusTag(runFocus);
   const g = gameRef.current;
+  const shown = playing || screen === "ending" ? quest : pick;
 
   return (
-    <div className={`ll-root ${early ? "early" : ""}`}>
+    <div className={`ll-root ${early ? "early" : ""} theme-${shown.theme}`}>
       <div className="ll-toolbar">
         <a href={arcadeLink(grade)}>◀ ARCADE</a>
         <div className="ll-tools">
@@ -595,42 +643,44 @@ export default function LostLibrary() {
                 <span key={i} className={i < hud.hearts ? "on" : "off"}>♥</span>
               ))}
             </div>
-            <div className="keys">{hud.keys === null ? <span className="dim">TOWN</span> : <>KEY ×{hud.keys}</>}</div>
-            <button className="item" onClick={() => act("swap")} title="Swap item (S)" aria-label={`Item: ${hud.selected ? ITEMS[hud.selected].name : "Lantern"}. Tap to swap.`}>
-              <ItemIcon item={hud.selected} /> {hud.selected ? ITEMS[hud.selected].short : "LANTERN"}
+            <div className="keys">{hud.keys === null ? <span className="dim">{hud.hub}</span> : <>KEY ×{hud.keys}</>}</div>
+            <button className="item" onClick={() => act("swap")} title="Swap item (S)" aria-label={`Item: ${hud.selected ? quest.items[hud.selected].name : "Lantern"}. Tap to swap.`}>
+              <ItemIcon q={quest} item={hud.selected} /> {hud.selected ? quest.items[hud.selected].short : "LANTERN"}
               {hud.items.length > 0 && <small> ⇄</small>}
             </button>
-            <div className="books">BOOKS {hud.books}/{BOOKS.length}</div>
+            <div className="books">{quest.terms.treasures.toUpperCase()} {hud.books}/{quest.books.length}</div>
             <div className="area">{hud.area}</div>
           </div>
         )}
 
         <div className="ll-stage" ref={stageRef}>
           <div className="ll-screen" style={screenWidth ? { width: screenWidth } : undefined}>
-            <canvas ref={canvasRef} aria-label="Quest of the Lost Library game screen" />
+            <canvas ref={canvasRef} aria-label={`${shown.title}: game screen`} />
 
             {screen === "title" && (
               <TitleScreen
-                grade={grade} onGrade={chooseGrade} focus={focus} focusNote={focusNote} onFocus={chooseFocus} saved={saved}
-                confirmNew={confirmNew} onNew={() => (saved && !confirmNew ? setConfirmNew(true) : begin(true))} onContinue={() => begin(false)}
+                grade={grade} onGrade={chooseGrade} focus={focus} focusNote={focusNote} onFocus={chooseFocus} saves={saves}
+                pick={pick} onPick={choosePick} confirmNew={confirmNew}
+                onNew={(q) => (saves[q.id] && confirmNew !== q.id ? (choosePick(q), setConfirmNew(q.id)) : begin(q, true))}
+                onContinue={(q) => begin(q, false)}
                 onBook={setBookCard}
               />
             )}
 
-            {playing && !quiz && top && <OverlayView o={top} onClose={closeOverlay} early={early} />}
+            {playing && !quiz && top && <OverlayView q={quest} o={top} onClose={closeOverlay} early={early} />}
 
             {playing && paused && !quiz && g && (
               <div className="ll-overlay">
                 <div className="ll-panel ll-pause">
-                  <div className="ll-h ll-pixel">PAUSED · {AREAS[g.s.at.area].name.toUpperCase()}</div>
+                  <div className="ll-h ll-pixel">PAUSED · {g.area.name.toUpperCase()}</div>
                   <MapView g={g} />
                   <Inventory g={g} />
                   <div className="ll-row">
-                    <button className="ll-cta ghost" onClick={toTitle}>Title screen</button>
+                    <button className="ll-cta ghost" onClick={toTitle}>Choose quest</button>
                     <button className="ll-cta ghost" onClick={resetRoom} title="Puts the crates back and returns you to the door you came in">Reset room</button>
                     <button className="ll-cta" autoFocus onClick={() => togglePause(false)}>Resume ▶</button>
                   </div>
-                  <HowToPlay />
+                  <HowToPlay q={quest} />
                 </div>
               </div>
             )}
@@ -641,7 +691,7 @@ export default function LostLibrary() {
 
             {bookCard && (screen !== "playing" || paused) && (
               <div className="ll-overlay top" onClick={() => setBookCard(null)}>
-                <BookCard book={bookCard} onClose={() => setBookCard(null)} />
+                <BookCard q={shown} book={bookCard} onClose={() => setBookCard(null)} />
               </div>
             )}
           </div>
@@ -672,8 +722,8 @@ export default function LostLibrary() {
 
 /* ------------------------------------------------------------------------------ pieces */
 
-function ItemIcon({ item }: { item: ItemId | null }) {
-  const color = item === "boomerang" ? "#e3262f" : item === "quill" ? "#f2f4ff" : item === "magnifier" ? "#b05cff" : item === "bell" ? "#6ea0ff" : "#ffd23f";
+function ItemIcon({ q, item }: { q: QuestDef; item: string | null }) {
+  const color = item ? q.items[item]?.color ?? "#ffd23f" : "#ffd23f";
   return <span className="ll-icon" style={{ background: color }} aria-hidden="true" />;
 }
 
@@ -686,16 +736,16 @@ function SpeakerIcon() {
   );
 }
 
-function OverlayView({ o, onClose, early }: { o: Overlay; onClose: () => void; early: boolean }) {
+function OverlayView({ q, o, onClose, early }: { q: QuestDef; o: Overlay; onClose: () => void; early: boolean }) {
   if (o.kind === "book") {
     return (
       <div className="ll-overlay">
-        <BookCard book={o.book} onClose={onClose} found />
+        <BookCard q={q} book={o.book} onClose={onClose} found />
       </div>
     );
   }
   if (o.kind === "item") {
-    const it = ITEMS[o.item];
+    const it = q.items[o.item];
     return (
       <div className="ll-overlay">
         <div className="ll-panel ll-card item" role="dialog" aria-label={it.name}>
@@ -716,25 +766,27 @@ function OverlayView({ o, onClose, early }: { o: Overlay; onClose: () => void; e
   );
 }
 
-function BookCard({ book, onClose, found }: { book: BookId; onClose: () => void; found?: boolean }) {
-  const b = BOOK_BY_ID.get(book)!;
+function BookCard({ q, book, onClose, found }: { q: QuestDef; book: string; onClose: () => void; found?: boolean }) {
+  const b = q.books.find((x) => x.id === book);
+  if (!b) return null;
   return (
     <div className="ll-panel ll-card book" role="dialog" aria-label={b.title} onClick={(e) => e.stopPropagation()}>
-      <div className="ll-bookcover" style={{ background: b.color }} aria-hidden="true" />
+      <div className={`ll-bookcover ${q.theme}`} style={{ background: b.color }} aria-hidden="true" />
       <div>
-        <div className="ll-h ll-pixel">{found ? "A LOST BOOK IS FOUND!" : "FROM YOUR BOOKSHELF"}</div>
+        <div className="ll-h ll-pixel">{found ? q.terms.found : `FROM ${q.terms.shelf}`}</div>
         <div className="ll-help big">{b.title}</div>
         <div className="ll-help"><span className="y">Fun fact:</span> {b.fact}</div>
-        <div className="ll-row"><button className="ll-cta" autoFocus onClick={onClose}>{found ? "Shelve it ▶" : "Close"}</button></div>
+        <div className="ll-row"><button className="ll-cta" autoFocus onClick={onClose}>{found ? (q.terms.treasure === "book" ? "Shelve it ▶" : "Keep it ▶") : "Close"}</button></div>
       </div>
     </div>
   );
 }
 
-function Bookshelf({ have, onBook }: { have: BookId[]; onBook: (b: BookId) => void }) {
+function Bookshelf({ q, have, onBook }: { q: QuestDef; have: string[]; onBook: (b: string) => void }) {
+  const list: Book[] = q.books;
   return (
-    <div className="ll-shelf" aria-label={`Bookshelf: ${have.length} of ${BOOKS.length} books returned`}>
-      {BOOKS.map((b) => {
+    <div className={`ll-shelf ${q.theme}`} aria-label={`${q.terms.shelf}: ${have.length} of ${list.length} ${q.terms.treasures} found`}>
+      {list.map((b) => {
         const on = have.includes(b.id);
         return (
           <button
@@ -743,18 +795,18 @@ function Bookshelf({ have, onBook }: { have: BookId[]; onBook: (b: BookId) => vo
             style={on ? { background: b.color } : undefined}
             disabled={!on}
             onClick={() => onBook(b.id)}
-            title={on ? b.title : "A missing book"}
-            aria-label={on ? `${b.title}: read its fun fact` : "Missing book"}
+            title={on ? b.title : `A missing ${q.terms.treasure}`}
+            aria-label={on ? `${b.title}: read its fun fact` : `Missing ${q.terms.treasure}`}
           />
         );
       })}
-      <span className="ll-shelfcount ll-pixel">{have.length}/{BOOKS.length}</span>
+      <span className="ll-shelfcount ll-pixel">{have.length}/{list.length}</span>
     </div>
   );
 }
 
 function MapView({ g }: { g: Game }) {
-  const area = AREAS[g.s.at.area];
+  const area = g.area;
   const wing = g.wing;
   const hasMap = wing ? g.s.maps.includes(wing) : true;
   const cols = Math.max(...area.rooms.map((r) => r.at[0])) + 1;
@@ -778,20 +830,21 @@ function MapView({ g }: { g: Game }) {
           </div>
         );
       })}
-      {wing && !hasMap && <div className="ll-help dim ll-mapnote">Find this wing's map to see the rooms you haven't visited.</div>}
+      {wing && !hasMap && <div className="ll-help dim ll-mapnote">Find this {g.q.terms.wing}'s map to see the rooms you haven't visited.</div>}
     </div>
   );
 }
 
 function Inventory({ g }: { g: Game }) {
+  const q = g.q;
   return (
     <div className="ll-help ll-inv">
-      <div><span className="y">{HERO}</span> carries a feather duster and a lantern{g.s.items.length ? ", plus:" : "."}</div>
+      <div><span className="y">{HERO}</span> {q.texts.carries}{g.s.items.length ? ", plus:" : "."}</div>
       {g.s.items.map((i) => (
-        <div key={i}><ItemIcon item={i} /> <b>{ITEMS[i].name}</b>: {ITEMS[i].how}</div>
+        <div key={i}><ItemIcon q={q} item={i} /> <b>{q.items[i].name}</b>: {q.items[i].how}</div>
       ))}
       <div className="dim">
-        Wings restored: {WINGS.filter((w) => g.s.restored.includes(w)).map((w) => AREAS[w].name).join(", ") || "none yet"} · Books {g.s.books.length}/{BOOKS.length}
+        {cap(q.terms.wings)} restored: {q.wings.filter((w) => g.s.restored.includes(w)).map((w) => q.areas[w].name).join(", ") || "none yet"} · {cap(q.terms.treasures)} {g.s.books.length}/{q.books.length}
       </div>
     </div>
   );
@@ -803,7 +856,7 @@ function QuizPanel({ quiz, g, tag, onAnswer, onNext, onBack, onSpeak }: {
   const { q, picked } = quiz;
   const done = picked !== null;
   const correct = done && picked === q.answer;
-  const gd = quiz.guardian ? GUARDIANS[quiz.guardian] : null;
+  const gd = quiz.guardian ? g.q.guardians[quiz.guardian] : null;
   const have = quiz.guardian ? g.guardianProgress(quiz.guardian) : 0;
   let verdict = "";
   if (done) {
@@ -811,7 +864,7 @@ function QuizPanel({ quiz, g, tag, onAnswer, onNext, onBack, onSpeak }: {
     else if (correct) verdict = quiz.done ? `✔ CORRECT! ${gd!.name} IS DELIGHTED!` : `✔ CORRECT! ${have} OF ${gd!.need}`;
     else verdict = `✘ NOT QUITE — THE ANSWER IS ${"ABCD"[q.answer]}`;
   }
-  const nextLabel = quiz.kind === "door" ? (correct ? "Walk on ▶" : "Try another question ▶") : quiz.done ? "Take the book ▶" : "Next question ▶";
+  const nextLabel = quiz.kind === "door" ? (correct ? "Walk on ▶" : "Try another question ▶") : quiz.done ? `Take the ${g.q.terms.treasure} ▶` : "Next question ▶";
   return (
     <div className={`ll-quiz ${quiz.kind} ${done ? (correct ? "correct" : "wrong") : ""}`} role="dialog" aria-label={quiz.kind === "door" ? "Question Door" : `${gd?.name} asks`}>
       <div className="head ll-pixel">
@@ -860,18 +913,43 @@ function QuizPanel({ quiz, g, tag, onAnswer, onNext, onBack, onSpeak }: {
   );
 }
 
-function HowToPlay() {
-  return (
-    <div className="ll-help ll-howto">
+function HowToPlay({ q }: { q: QuestDef }) {
+  const keys = (
+    <>
       <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> walk · <kbd>Z</kbd> feather duster · <kbd>X</kbd> use item · <kbd>S</kbd> swap item ·{" "}
       <kbd>ENTER</kbd> talk / read / open chests · <kbd>ESC</kbd> map &amp; pause · <kbd>1</kbd>–<kbd>4</kbd> or <kbd>A</kbd>–<kbd>D</kbd> answer · <kbd>M</kbd> mute ·{" "}
       <kbd>R</kbd> read aloud. On a phone or tablet: the arrow pad, DUST, ITEM, TALK and MAP.
+    </>
+  );
+  if (q.theme === "library") {
+    return (
+      <div className="ll-help ll-howto">
+        {keys}
+        <br />
+        Explore the town and the four wings of the library. <span className="c">Push book crates</span> onto switches, <span className="y">light cold torches</span>{" "}
+        with your lantern, and find each wing's <span className="y">small key</span>, <span className="y">map</span> and special <span className="y">item</span>.{" "}
+        <span className="c">Question Doors</span> open with a right answer; a wrong answer explains and gives you another question. Tidy{" "}
+        <span className="r">ink sprites</span> with your duster: if one touches you, you lose a heart. Out of hearts? You go back to the wing's entrance
+        and keep everything you found. Answer each wing's <span className="r">guardian</span> to restore the wing, then open the Reading Room!
+      </div>
+    );
+  }
+  const W = q.terms.wing;
+  return (
+    <div className="ll-help ll-howto">
+      {keys}
       <br />
-      Explore the town and the four wings of the library. <span className="c">Push book crates</span> onto switches, <span className="y">light cold torches</span>{" "}
-      with your lantern, and find each wing's <span className="y">small key</span>, <span className="y">map</span> and special <span className="y">item</span>.{" "}
+      Explore {q.texts.hubName} and the {q.wings.length} {q.terms.wings}. <span className="c">Push crates</span> onto switches, <span className="y">light cold torches</span>{" "}
+      with your lantern, and find each {W}'s <span className="y">small key</span>, <span className="y">map</span> and special <span className="y">item</span>.{" "}
       <span className="c">Question Doors</span> open with a right answer; a wrong answer explains and gives you another question. Tidy{" "}
-      <span className="r">ink sprites</span> with your duster: if one touches you, you lose a heart. Out of hearts? You go back to the wing's entrance
-      and keep everything you found. Answer each wing's <span className="r">guardian</span> to restore the wing, then open the Reading Room!
+      <span className="r">{q.terms.pests}</span> with your duster: if one bumps you, you lose a heart. Out of hearts? You go back to the {W}'s entrance
+      and keep everything you found. Answer each {W}'s <span className="r">guardian</span> to restore it, then open {q.texts.finalName}!
+      {q.texts.tricks && (
+        <>
+          <br />
+          <span className="y">New tricks:</span> {q.texts.tricks}
+        </>
+      )}
     </div>
   );
 }
@@ -891,7 +969,7 @@ function radioKeys(e: React.KeyboardEvent<HTMLElement>) {
   btns[j].click();
 }
 
-function FocusPicker({ grade, focus, note, onFocus }: { grade: Grade; focus: FocusChoice; note: string | null; onFocus: (f: FocusChoice) => void }) {
+function FocusPicker({ grade, focus, note, onFocus, quest }: { grade: Grade; focus: FocusChoice; note: string | null; onFocus: (f: FocusChoice) => void; quest: QuestDef }) {
   const avail = focusCatalog.available(grade);
   const subj = focus.subject === "mixed" ? null : focus.subject;
   const pickSubject = (s: QuestSubject) => {
@@ -938,7 +1016,17 @@ function FocusPicker({ grade, focus, note, onFocus }: { grade: Grade; focus: Foc
       )}
       <div className="ll-help ll-focusline">
         {focus.subject === "mixed" ? (
-          <>Each wing asks its own subject: <span className="r">Math</span>, <span className="g">Science</span>, <span className="c">Story (ELA)</span> and <span className="y">History &amp; Maps (Social Studies)</span>.</>
+          quest.theme === "library" ? (
+            <>Each wing asks its own subject: <span className="r">Math</span>, <span className="g">Science</span>, <span className="c">Story (ELA)</span> and <span className="y">History &amp; Maps (Social Studies)</span>.</>
+          ) : (
+            <>
+              Each {quest.terms.wing} of {quest.title} asks its own subject:{" "}
+              {quest.wings.map((w, i) => (
+                <span key={w}>{i > 0 && (i === quest.wings.length - 1 ? " and " : ", ")}<span className="c">{quest.areas[w].name}</span> ({SUBJECT_NAMES[quest.areas[w].subject!]})</span>
+              ))}
+              ; the final guardian asks all four.
+            </>
+          )
         ) : (
           <>Every Question Door and guardian asks: <b className="c">{focusLabel(focus)}</b></>
         )}
@@ -947,23 +1035,108 @@ function FocusPicker({ grade, focus, note, onFocus }: { grade: Grade; focus: Foc
   );
 }
 
+/** A little live preview of a quest: its hub, drawn by the real renderer at a few frames a second. */
+function QuestPreview({ q }: { q: QuestDef }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const cv = ref.current;
+    if (!cv) return;
+    cv.width = W;
+    cv.height = H;
+    const ctx = cv.getContext("2d");
+    if (!ctx) return;
+    const demo = new Game(null, { early: false, enemies: true, quest: q });
+    let last = performance.now();
+    let timer = 0;
+    const draw = () => {
+      const now = performance.now();
+      demo.tick(Math.min(0.25, (now - last) / 1000), null);
+      demo.takeEvents();
+      last = now;
+      drawFrame(ctx, demo, now / 1000, q.title);
+    };
+    draw();
+    timer = window.setInterval(draw, 160);
+    return () => window.clearInterval(timer);
+  }, [q]);
+  return <canvas ref={ref} className="ll-qpreview" aria-hidden="true" />;
+}
+
+function QuestPicker({ saves, pick, onPick, confirmNew, onNew, onContinue }: {
+  saves: Record<string, SaveData | null>; pick: QuestDef; onPick: (q: QuestDef) => void; confirmNew: string | null;
+  onNew: (q: QuestDef) => void; onContinue: (q: QuestDef) => void;
+}) {
+  return (
+    <div className="ll-quests" role="radiogroup" aria-label="Choose your quest" onKeyDown={radioKeys}>
+      {QUESTS.map((q, i) => {
+        const s = saves[q.id];
+        const on = q.id === pick.id;
+        const restored = s ? s.restored.filter((w) => q.wings.includes(w)).length : 0;
+        return (
+          <div key={q.id} className={`ll-quest ${on ? "on" : ""} ${q.theme}`} data-quest={q.id}>
+            <button
+              role="radio" aria-checked={on} tabIndex={on ? 0 : -1} className="ll-questpick" onClick={() => onPick(q)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (s) onContinue(q);
+                  else onNew(q);
+                }
+              }}
+              aria-label={`Quest ${i + 1}: ${q.title}. ${s ? `${restored} of ${q.wings.length} ${q.terms.wings} restored` : "Not started"}.`}
+            >
+              <QuestPreview q={q} />
+              <span className="ll-qnum ll-pixel">QUEST {i + 1}</span>
+              <span className="ll-qtitle ll-pixel">{q.title.toUpperCase()}</span>
+              <span className="ll-qline">{q.tagline}</span>
+              <span className="ll-qprog">
+                {s ? (
+                  <>
+                    <span className="y">{"★".repeat(restored)}{"☆".repeat(q.wings.length - restored)}</span> {restored}/{q.wings.length} {q.terms.wings} restored
+                    {s.finished && <b className="g"> · COMPLETE!</b>}
+                  </>
+                ) : (
+                  <span className="dim">Not started yet</span>
+                )}
+              </span>
+            </button>
+            <div className="ll-qbtns">
+              {s ? (
+                <>
+                  <button className="ll-cta small" onClick={() => onContinue(q)}>Continue ▶</button>
+                  <button className="ll-cta small ghost" onClick={() => onNew(q)}>{confirmNew === q.id ? "Erase & restart?" : "New"}</button>
+                </>
+              ) : (
+                <button className="ll-cta small" onClick={() => onNew(q)}>Start ▶</button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function TitleScreen({
-  grade, onGrade, focus, focusNote, onFocus, saved, confirmNew, onNew, onContinue, onBook,
+  grade, onGrade, focus, focusNote, onFocus, saves, pick, onPick, confirmNew, onNew, onContinue, onBook,
 }: {
   grade: Grade; onGrade: (g: Grade) => void; focus: FocusChoice; focusNote: string | null; onFocus: (f: FocusChoice) => void;
-  saved: ReturnType<typeof loadSave>; confirmNew: boolean; onNew: () => void; onContinue: () => void; onBook: (b: BookId) => void;
+  saves: Record<string, SaveData | null>; pick: QuestDef; onPick: (q: QuestDef) => void; confirmNew: string | null;
+  onNew: (q: QuestDef) => void; onContinue: (q: QuestDef) => void; onBook: (b: string) => void;
 }) {
   const fromArcade = gradeFromArcade();
   const startRef = useRef<HTMLButtonElement>(null);
   useEffect(() => { startRef.current?.focus({ preventScroll: true }); }, []);
+  const saved = saves[pick.id];
   return (
     <div className="ll-overlay title">
       <div className="ll-panel title">
         <div className="ll-title ll-pixel">QUEST OF THE<br />LOST LIBRARY</div>
         <div className="ll-sub ll-pixel">SPIDERBEN10'S ARCADE · K–12 · NC STANDARDS</div>
         <div className="ll-help ll-story">
-          The Ink Smudge has knocked every book off the shelves of the Grand Lantern Library! You are <span className="y">{HERO}</span>, junior
-          page-keeper, with a trusty <span className="c">feather duster</span> and a <span className="y">lantern</span>. Restore the four wings and find the lost books.
+          You are <span className="y">{HERO}</span>, junior page-keeper, with a trusty <span className="c">feather duster</span> and a{" "}
+          <span className="y">lantern</span>. Five adventures are waiting: pick one, explore its {pick.terms.wings}, solve puzzles and answer questions to set things right!
         </div>
 
         {fromArcade ? (
@@ -983,34 +1156,39 @@ function TitleScreen({
           </>
         )}
 
-        <FocusPicker grade={grade} focus={focus} note={focusNote} onFocus={onFocus} />
+        <FocusPicker grade={grade} focus={focus} note={focusNote} onFocus={onFocus} quest={pick} />
 
-        <div className="ll-h ll-pixel">YOUR BOOKSHELF</div>
-        <Bookshelf have={saved?.books ?? []} onBook={onBook} />
+        <div className="ll-h ll-pixel">CHOOSE YOUR QUEST</div>
+        <QuestPicker saves={saves} pick={pick} onPick={onPick} confirmNew={confirmNew} onNew={onNew} onContinue={onContinue} />
+
+        <div className="ll-help ll-story ll-qstory"><span className="y">{pick.title}:</span> {pick.story}</div>
+        <div className="ll-h ll-pixel">{pick.terms.shelf}</div>
+        <Bookshelf q={pick} have={saved?.books ?? []} onBook={onBook} />
 
         <div className="ll-start">
           {saved && (
-            <button ref={startRef} className="ll-cta big" onClick={onContinue}>Continue ▶</button>
+            <button ref={startRef} className="ll-cta big" onClick={() => onContinue(pick)}>Continue ▶</button>
           )}
-          <button ref={saved ? undefined : startRef} className={`ll-cta big ${saved ? "ghost" : ""}`} onClick={onNew}>
-            {saved ? (confirmNew ? "Erase save & start over?" : "New quest") : "Start the quest ▶"}
+          <button ref={saved ? undefined : startRef} className={`ll-cta big ${saved ? "ghost" : ""}`} onClick={() => onNew(pick)}>
+            {saved ? (confirmNew === pick.id ? "Erase save & start over?" : "New quest") : "Start the quest ▶"}
           </button>
         </div>
         {saved && (
           <div className="ll-help dim ll-savenote">
-            Saved quest: {roomById(saved.at.room).name} · {saved.restored.length}/4 wings restored · {saved.books.length}/{BOOKS.length} books
+            Saved quest: {worldOf(pick).has(saved.at.room) ? worldOf(pick).room(saved.at.room).name : pick.title} · {saved.restored.length}/{pick.wings.length} {pick.terms.wings} restored · {saved.books.length}/{pick.books.length} {pick.terms.treasures}
           </div>
         )}
         <div className="ll-h ll-pixel">HOW TO PLAY</div>
-        <HowToPlay />
+        <HowToPlay q={pick} />
       </div>
     </div>
   );
 }
 
 function Ending({ g, log, grade, focus, onKeep, onTitle, onBook }: {
-  g: Game; log: LogEntry[]; grade: Grade; focus: FocusChoice; onKeep: () => void; onTitle: () => void; onBook: (b: BookId) => void;
+  g: Game; log: LogEntry[]; grade: Grade; focus: FocusChoice; onKeep: () => void; onTitle: () => void; onBook: (b: string) => void;
 }) {
+  const q = g.q;
   const byStd = new Map<string, { skill: string; subject: Subject; n: number; c: number }>();
   for (const l of log) {
     const cur = byStd.get(l.standard) ?? { skill: l.skill, subject: l.subject, n: 0, c: 0 };
@@ -1020,19 +1198,24 @@ function Ending({ g, log, grade, focus, onKeep, onTitle, onBook }: {
   }
   const right = log.filter((l) => l.correct).length;
   const practice = [...byStd.entries()].filter(([, v]) => v.c / v.n < 0.75);
-  const missing = BOOKS.length - g.s.books.length;
+  const missing = q.books.length - g.s.books.length;
+  const T = q.terms;
   return (
     <div className="ll-overlay">
       <div className="ll-panel won">
-        <div className="ll-title small ll-pixel">THE LOST LIBRARY IS FOUND!</div>
+        <div className="ll-title small ll-pixel">{q.texts.endingTitle}</div>
         <div className="ll-help big" style={{ textAlign: "center" }}>
-          {HERO} restored all four wings and the Reading Room. {gradeLabel(grade)} ·{" "}
+          {HERO} {q.texts.endingText} {gradeLabel(grade)} ·{" "}
           {focus.subject === "mixed" ? "Mixed subjects" : focusLabel(focus)}
         </div>
-        <Bookshelf have={g.s.books} onBook={onBook} />
+        <Bookshelf q={q} have={g.s.books} onBook={onBook} />
         <div className="ll-help">
           Questions this visit: <b className="g">{right}/{log.length}</b> right
-          {missing > 0 ? <> · <span className="y">{missing} bonus {missing === 1 ? "book is" : "books are"} still hidden in the wings!</span></> : <> · <span className="y">Every book is home!</span></>}
+          {missing > 0 ? (
+            <> · <span className="y">{missing} bonus {missing === 1 ? `${T.treasure} is` : `${T.treasures} are`} still hidden in the {T.wings}!</span></>
+          ) : (
+            <> · <span className="y">{T.treasure === "book" ? "Every book is home!" : `Every ${T.treasure} is found!`}</span></>
+          )}
         </div>
         {byStd.size > 0 && (
           <div className="ll-tablewrap">
@@ -1054,7 +1237,7 @@ function Ending({ g, log, grade, focus, onKeep, onTitle, onBook }: {
           <div className="ll-help"><span className="y">Practice next:</span> {practice.map(([std, v]) => `${v.skill} (${std})`).join(", ")}. These come up more often.</div>
         )}
         <div className="ll-row">
-          <button className="ll-cta ghost" onClick={onTitle}>Title screen</button>
+          <button className="ll-cta ghost" onClick={onTitle}>Choose quest</button>
           <button className="ll-cta" autoFocus onClick={onKeep}>Keep exploring ▶</button>
         </div>
       </div>

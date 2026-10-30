@@ -173,6 +173,14 @@ Keeper: And then the council will have to decide whether they would prefer to ke
 - Augusta Treloar builds Halyard in her cottage to clean the beach.
 - Noor and the captain become friends and agree to rebuild the pier.
 hint: An objective summary names the central conflict and the key discovery, without opinions.
+next: quiz-ch2
+
+=== quiz-ch2
+scene: lighthouse
+cast: hero, quill:happy
+You take a moment to gather your thoughts. Quill draws a small, neatly lettered card from beneath one wing.
+Quill: The best explorers are never experts in only one thing. Consider this a brief detour before we press on.
+? QUIZ : Quick challenge before the next chapter!
 next: ch2
 
 # ============================================================
@@ -330,6 +338,14 @@ Kid: The vote is tomorrow, and I have the data, the logbooks and the categories.
 - Captain Quarrie persuades Noor to give up the cleanup program.
 - Petrel maps the storm and predicts that the vote will fail.
 hint: Think about the two major discoveries and the major event during the storm.
+next: quiz-ch3
+
+=== quiz-ch3
+scene: beach
+cast: hero, quill:happy
+Before you can turn the page, Quill raises one wing, unhurried and deliberate.
+Quill: The story will keep. A quick challenge first; think it through rather than guessing.
+? QUIZ : Sharp minds win the day. Try this one!
 next: ch3
 
 # ============================================================

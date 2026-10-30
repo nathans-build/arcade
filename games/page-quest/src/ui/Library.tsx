@@ -5,6 +5,7 @@ import { GENRES, SCENE_LABEL, type Band, type Genre, type SceneId } from "@/stor
 import { SceneView } from "@/engine/view";
 import { loadEndings, loadRun } from "@/play/storage";
 import type { ReaderStart } from "./Reader";
+import { SUBJECT_CHOICES, subjectLabel, type PqSubject } from "@/play/subjects";
 
 type Tab = Genre | "mine";
 
@@ -42,6 +43,26 @@ export function GradePicker({ grade, onGrade }: { grade: Grade; onGrade: (g: Gra
   );
 }
 
+/**
+ * The subject row (like the other arcade games): MIXED · READING · MATH · SCIENCE · SOCIAL STUDIES.
+ * Story gates always test the book; the subject picks Quill's quick challenges (QUIZ gates) and
+ * the checkpoint transmissions. Buttons only (← → stay the shelf keys).
+ */
+export function SubjectPicker({ subject, onSubject, fromMenu }: { subject: PqSubject; onSubject: (s: PqSubject) => void; fromMenu?: boolean }) {
+  const cur = SUBJECT_CHOICES.find((c) => c.id === subject)!;
+  return (
+    <div className="pq-subjects" role="radiogroup" aria-label="Subject for Quill's quick challenges">
+      <span className="lbl pq-pixel">SUBJECT:</span>
+      {SUBJECT_CHOICES.map((c) => (
+        <button key={c.id} role="radio" aria-checked={c.id === subject} data-subject={c.id} className={`pq-subject pq-pixel ${c.id === subject ? "on" : ""}`} onClick={() => onSubject(c.id)} title={c.note}>
+          {c.label}
+        </button>
+      ))}
+      <span className="note">Quick challenges &amp; transmissions: {cur.note}{fromMenu ? " (picked in the arcade)" : ""}. Story questions always test the book.</span>
+    </div>
+  );
+}
+
 export function bandLabel(band: string): string {
   return band === "4-5" ? "Grades 4–5" : band === "6-8" ? "Grades 6–8" : band === "9-12" ? "Grades 9–12" : band;
 }
@@ -63,9 +84,12 @@ export function MiniScene({ scene, cast, className }: { scene: string; cast: { i
 }
 
 export function Library({
-  grade, playerBand, books, draftBooks, view, onGrade, onOpen, onWriter,
+  grade, playerBand, books, draftBooks, view, subject, subjectFromMenu, onSubject, onGrade, onOpen, onWriter,
 }: {
   grade: Grade;
+  subject: PqSubject;
+  subjectFromMenu?: boolean;
+  onSubject: (s: PqSubject) => void;
   playerBand: Band | null;
   books: Book[];
   draftBooks: Book[];
@@ -137,6 +161,18 @@ export function Library({
     return () => window.clearTimeout(t);
   }, [view, tab]);
 
+  // Quill announces a new subject choice.
+  const firstSubject = useRef(true);
+  useEffect(() => {
+    if (firstSubject.current) {
+      firstSubject.current = false;
+      return;
+    }
+    view?.set({ speaking: "quill", bubble: { who: "quill", text: subject === "mixed" ? "MIXED! EVERY SUBJECT TAKES A TURN." : `QUICK CHALLENGES: ${subjectLabel(subject)}!` } });
+    const t = window.setTimeout(() => view?.set({ speaking: null }), 1600);
+    return () => window.clearTimeout(t);
+  }, [view, subject]);
+
   return (
     <div className="pq-library">
       <div className="pq-libhead">
@@ -152,6 +188,8 @@ export function Library({
           <GradePicker grade={grade} onGrade={onGrade} />
         )}
       </div>
+
+      <SubjectPicker subject={subject} onSubject={onSubject} fromMenu={subjectFromMenu} />
 
       <div className="pq-tabs" role="tablist">
         {GENRES.map((g) => (

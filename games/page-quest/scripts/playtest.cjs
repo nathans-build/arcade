@@ -5,6 +5,7 @@
  * Runs (keyboard 1280x800 and iPad touch 1080x810):
  *  - grades K and 3: the "grades 4 and up" screen; no ?grade: the picker
  *  - grades 4, 7, 11: plays the sample book (HOW TO PLAY) to BOTH endings (win + secret),
+ *    (its quick challenge is answered with the ?debug answer attribute),
  *    answers the gates with keys or taps, checks the transmission, the clue journal, hearts
  *    (grade 7: lose by hearts → back to the checkpoint; grade 4: never loses, answer revealed),
  *    the standard codes, the endings gallery and the mission report
@@ -151,6 +152,27 @@ async function continueGate(page, touch) {
   await page.waitForTimeout(200);
 }
 
+/** A QUIZ gate (subject question): answer right using the ?debug answer attribute. Returns the subject tag. */
+async function passQuiz(page, touch, notes, problems, where) {
+  await reveal(page, touch);
+  await page.waitForTimeout(150);
+  const info = await page.evaluate(() => {
+    const r = document.querySelector(".pq-reader");
+    return { kind: r.dataset.gateKind, answer: Number(r.dataset.quizAnswer), subject: r.dataset.quizSubject };
+  });
+  if (info.kind !== "quiz" || !(info.answer >= 0)) {
+    problems.push(`${where}: expected a QUIZ gate (${JSON.stringify(info)})`);
+    return "";
+  }
+  const tag = await page.locator(".pq-gate.quiz .pq-tag.subj").innerText().catch(() => "");
+  await answerMc(page, touch, info.answer);
+  const r = await R(page);
+  if (r.gate !== "solved") problems.push(`${where}: QUIZ gate ${r.gate}`);
+  notes.push(`${where}: QUIZ ${tag} (${info.subject}) solved`);
+  await continueGate(page, touch);
+  return tag;
+}
+
 async function finish(page, touch) {
   await reveal(page, touch);
   if (touch) await page.locator(".pq-after .pq-cta").tap();
@@ -246,6 +268,11 @@ async function playSample(page, touch, grade, route, problems, notes) {
   r = await R(page);
   if (r.gate !== "solved") problems.push(`order gate ${r.gate}`);
   await continueGate(page, touch);
+
+  // The practice QUIZ gate (a question from the subject picked in the library)
+  r = await R(page);
+  if (r.page !== "challenge") problems.push(`expected challenge, at ${r.page}`);
+  await passQuiz(page, touch, notes, problems, "sample");
 
   // Fork and ending
   await choose(page, touch, route === "secret" ? 1 : 0);

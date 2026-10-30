@@ -10,7 +10,15 @@ import { countSyllables, readability } from "../src/story/readability";
 import { standardFor } from "../src/story/standards";
 import type { Story } from "../src/story/types";
 import { draftFromStory, draftFromText, draftToText, newDraft } from "../src/writer/draft";
-import { advance, answerMc, newRun, tapOrder, type RunState } from "../src/play/session";
+import { advance, answerMc, correctIndex, newRun, setQuiz, tapOrder, type RunState } from "../src/play/session";
+import {
+  MIXED_ROTATION, SUBJECT_KEY, SubjectDeck, initialSubject, loadSubject, saveSubject, subjectFromParams, subjectsFor, writtenPool, type BankSource,
+} from "../src/play/subjects";
+import { exits } from "../src/story/validate";
+import type { DealtQuestion, Grade, Question, Subject } from "../src/kit/types";
+import fs from "node:fs";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { CHARACTERS, GENRES, MOODS, SCENES, charByName } from "../src/story/roster";
 import { SCENE_PAINTERS } from "../src/engine/scenes";
 import { KEYS, SPRITES } from "../src/engine/sprites";
@@ -495,6 +503,254 @@ end: win W
   for (const id of ["helperbot", "retrobot", "drone", "rover", "fixbot", "mech", "robodog"]) assert.ok(new RegExp(`\\b${id}\\b`).test(back), `${id} survives the draft round-trip`);
   for (const sc of NEW_SCENES) assert.ok(back.includes(`scene: ${sc}`), `${sc} survives the draft round-trip`);
   assert.deepEqual(checkStory(back).errors, []);
+});
+
+
+// ---- Subjects: the library's picker, QUIZ gates and transmissions ----
+
+// localStorage for Node (the picker and kit progress persist through it).
+const store = new Map<string, string>();
+(globalThis as unknown as { localStorage: Storage }).localStorage = {
+  getItem: (k: string) => (store.has(k) ? store.get(k)! : null),
+  setItem: (k: string, v: string) => void store.set(k, String(v)),
+  removeItem: (k: string) => void store.delete(k),
+  clear: () => store.clear(),
+  key: (i: number) => [...store.keys()][i] ?? null,
+  get length() { return store.size; },
+} as Storage;
+
+// The kit's written banks, loaded from their files (kit/banks/index.ts uses import.meta.glob, which Node lacks).
+const bankDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../src/kit/banks");
+const BANK: Record<string, Partial<Record<Grade, Question[]>>> = { science: {}, ela: {}, social: {} };
+for (const subj of Object.keys(BANK)) {
+  for (const f of fs.readdirSync(path.join(bankDir, subj))) {
+    const m = /^g(K|\d+)\.ts$/.exec(f);
+    if (m) BANK[subj][m[1] as Grade] = ((await import(pathToFileURL(path.join(bankDir, subj, f)).href)) as { default: Question[] }).default;
+  }
+}
+const bankFor: BankSource = (subject, grade) => BANK[subject][grade] ?? [];
+
+const QUIZ_STORY = `${HEAD("6-8")}
+=== a
+scene: reef
+cast: hero, quill, whaleshark:happy
+checkpoint
+Quill: Before we go on!
+? QUIZ : Before we go on, a quick challenge!
+next: b
+
+=== b
+scene: research-boat
+cast: biologist, hammerhead, greatwhite:frozen
+checkpoint
+Biologist: Two more.
+? QUIZ
+next: c
+
+=== c
+scene: deep-sea
+cast: hero
+The end.
+end: win W
+`;
+
+test("QUIZ gates: parse, validate, serialize and the Writer's Desk", () => {
+  const r = checkStory(QUIZ_STORY);
+  assert.deepEqual(r.errors.map((e) => e.message), []);
+  assert.deepEqual(r.warnings.map((e) => e.message), []);
+  const g = r.story.pages[0].gate!;
+  assert.equal(g.kind, "quiz");
+  assert.equal(g.question, "Before we go on, a quick challenge!");
+  assert.equal(r.story.pages[1].gate!.question, "", "the lead-in is optional");
+  assert.deepEqual(r.stats.gates, { mc: 0, order: 0, quiz: 2 });
+  // Written answers, order items or a missing next: are errors; a hint is a warning (unused).
+  assert.ok(has(QUIZ_STORY.replace("? QUIZ\n", "? QUIZ\n+ 4\n- 5\n"), /QUIZ gate has no written answers/));
+  assert.ok(has(QUIZ_STORY.replace("? QUIZ\n", "? QUIZ\n1 one\n"), /QUIZ gate has no order items/));
+  assert.ok(has(QUIZ_STORY.replace("next: b\n", ""), /QUIZ gate needs a "next:"/));
+  assert.ok(checkStory(QUIZ_STORY.replace("? QUIZ\n", "? QUIZ\nhint: no\n")).warnings.some((w) => /hint is not used/.test(w.message)));
+  // A story gate written as before still parses as a story gate.
+  assert.equal(parseStory(GOOD).story.pages[1].gate!.kind, "mc");
+  // Round trips: serializer and Writer's Desk draft keep the QUIZ gates.
+  const text = serializeStory(r.story);
+  assert.ok(text.includes("? QUIZ : Before we go on, a quick challenge!") && /\? QUIZ\nnext: c/.test(text));
+  assert.equal(serializeStory(parseStory(text).story), text);
+  const d = draftFromText(QUIZ_STORY);
+  assert.equal(d.pages[0].gate.kind, "quiz");
+  assert.equal(serializeStory(parseStory(draftToText(d)).story), text);
+});
+
+test("subject picker: saved per player, ?topic= / ?subject= from the menu", () => {
+  store.clear();
+  assert.equal(loadSubject(), "mixed", "MIXED is the default");
+  saveSubject("science");
+  assert.equal(store.get(SUBJECT_KEY), "science");
+  assert.equal(SUBJECT_KEY, "arcade.page-quest.subject");
+  assert.equal(loadSubject(), "science");
+  store.set(SUBJECT_KEY, "nonsense");
+  assert.equal(loadSubject(), "mixed", "an unknown stored value is MIXED");
+  saveSubject("social");
+  assert.deepEqual(initialSubject(""), { subject: "social", fromMenu: false });
+  assert.deepEqual(initialSubject("?grade=7&topic=math-mix"), { subject: "math", fromMenu: true });
+  assert.equal(subjectFromParams("?topic=science-mix"), "science");
+  assert.equal(subjectFromParams("?topic=social-mix"), "social");
+  assert.equal(subjectFromParams("?topic=reading"), "reading");
+  assert.equal(subjectFromParams("?topic=writing"), "reading");
+  assert.equal(subjectFromParams("?subject=ela"), "reading");
+  assert.equal(subjectFromParams("?subject=mixed"), "mixed");
+  assert.equal(subjectFromParams("?topic=geometry"), null, "topics Page Quest doesn't list are ignored");
+  assert.equal(loadSubject(), "social", "a menu topic doesn't overwrite the saved choice");
+  assert.deepEqual(subjectsFor("reading"), ["ela"]);
+  assert.deepEqual(subjectsFor("mixed"), ["math", "science", "ela", "social"]);
+});
+
+test("QUIZ questions come from the chosen subject's bank at the player's grade", () => {
+  store.clear();
+  store.set("arcade.adaptiveMath", "0"); // adaptive off: math is generated at exactly the player's grade
+  for (const grade of ["4", "5", "7", "9", "12"] as Grade[]) {
+    for (const [mode, subject] of [["science", "science"], ["social", "social"], ["reading", "ela"], ["math", "math"]] as const) {
+      const deck = new SubjectDeck(grade, mode, bankFor, { gameId: "pq-test" });
+      const own = new Set((subject === "math" ? [] : bankFor(subject, grade)).map((q) => q.id));
+      for (let i = 0; i < 12; i++) {
+        const q = deck.draw();
+        assert.equal(q.subject, subject, `${mode} at grade ${grade}`);
+        assert.equal(q.grade, grade, `${mode} at grade ${grade}: question grade ${q.grade}`);
+        if (subject !== "math") assert.ok(own.has(q.id), `${q.id} is from the grade ${grade} ${subject} bank`);
+        assert.equal(q.choices.length, 4);
+        assert.ok(q.answer >= 0 && q.answer < 4 && q.explanation.length > 0);
+      }
+    }
+  }
+  // Written items don't repeat until the pool is used up.
+  const deck = new SubjectDeck("6", "science", bankFor, { gameId: "pq-test" });
+  const ids = Array.from({ length: 30 }, () => deck.draw().id);
+  assert.equal(new Set(ids).size, 30);
+  // A grade with too few items borrows from its neighbours (never runs dry).
+  const thin: BankSource = (s, g) => (g === "7" ? bankFor(s, g).slice(0, 3) : bankFor(s, g));
+  assert.ok(writtenPool(thin, "science", "7").length >= 8);
+  // Adaptive math on: the grade follows the player's math level (within 2 grades).
+  store.set("arcade.adaptiveMath", "1");
+  store.set("arcade.mathLevel.7", "8");
+  const adaptive = new SubjectDeck("7", "math", bankFor, { gameId: "pq-test" });
+  for (let i = 0; i < 10; i++) assert.equal(adaptive.draw().grade, "8");
+  store.clear();
+});
+
+test("MIXED rotates subjects across QUIZ gates and transmissions", () => {
+  store.clear();
+  const deck = new SubjectDeck("7", "mixed", bankFor, { gameId: "pq-test", start: 0 });
+  assert.deepEqual(deck.subjects, MIXED_ROTATION);
+  // In a read, QUIZ gates and checkpoint transmissions take turns from the same deck.
+  const drawn: Subject[] = [];
+  for (let i = 0; i < 8; i++) drawn.push(deck.draw().subject);
+  assert.deepEqual(drawn, ["math", "science", "ela", "social", "math", "science", "ela", "social"]);
+  const later = new SubjectDeck("7", "mixed", bankFor, { gameId: "pq-test", start: 2 });
+  assert.equal(later.peek(), "ela");
+  assert.deepEqual([later.draw().subject, later.draw().subject, later.draw().subject], ["ela", "social", "math"]);
+  // One subject: transmissions use it too (no more ELA-only transmissions).
+  const sci = new SubjectDeck("7", "science", bankFor, { gameId: "pq-test" });
+  for (let i = 0; i < 5; i++) assert.equal(sci.draw().subject, "science");
+});
+
+const FIXED_Q: DealtQuestion = {
+  id: "t-1", subject: "science", grade: "7", standard: "LS.7.1.1", skill: "Cells", prompt: "Which is a cell part?",
+  choices: ["Nucleus", "Planet", "Comet", "Volcano"], answer: 0, explanation: "The nucleus holds the cell's DNA.",
+};
+
+test("QUIZ gates follow the grade rules (hearts for 6-12, gentle for 4-5)", () => {
+  const quizBook = parseStory(QUIZ_STORY).story;
+  for (const grade of [7, 11]) {
+    let run = newRun(quizBook, grade);
+    assert.equal(run.gate!.quiz, null, "the question is drawn at play time");
+    assert.equal(answerMc(quizBook, run, 0, grade).result, "ignored", "no answers before a question is drawn");
+    run = setQuiz(quizBook, run, FIXED_Q);
+    assert.equal(setQuiz(quizBook, run, { ...FIXED_Q, id: "other" }).gate!.quiz!.id, "t-1", "drawn once per visit");
+    assert.equal(correctIndex(quizBook, run), 0);
+    let res = answerMc(quizBook, run, 2, grade);
+    assert.equal(res.result, "wrong");
+    assert.equal(res.run.hearts, 2, "a wrong subject answer costs a heart at grades 6-12");
+    res = answerMc(quizBook, res.run, 0, grade);
+    assert.equal(res.result, "right");
+    assert.equal(res.run.score, 25);
+    assert.deepEqual(res.run.log, [{ standard: "LS.7.1.1", skill: "Cells", correct: false, kind: "quiz", page: "a", subject: "science" }]);
+    // Three wrong answers: THE END? (back to the checkpoint with full hearts).
+    let r2 = setQuiz(quizBook, newRun(quizBook, grade), FIXED_Q);
+    for (const d of [1, 2]) r2 = answerMc(quizBook, r2, d, grade).run;
+    assert.equal(answerMc(quizBook, r2, 3, grade).result, "lose");
+  }
+  for (const grade of [4, 5]) {
+    let run = setQuiz(quizBook, newRun(quizBook, grade), FIXED_Q);
+    let res = answerMc(quizBook, run, 1, grade);
+    assert.equal(res.result, "wrong", "first miss: the explanation as Quill's hint");
+    assert.equal(res.run.hearts, 3, "no hearts at grades 4-5");
+    res = answerMc(quizBook, res.run, 2, grade);
+    assert.equal(res.result, "reveal", "second miss: the answer is shown");
+    assert.equal(res.run.log[0].kind, "quiz");
+    assert.equal(res.run.log[0].correct, false);
+    run = advance(quizBook, res.run, 0);
+    assert.equal(run.page, "b", "the story goes on");
+    run = setQuiz(quizBook, run, { ...FIXED_Q, id: "t-2" });
+    res = answerMc(quizBook, run, 0, grade);
+    assert.equal(res.result, "right");
+    assert.equal(res.run.score, 100, "right first try +100");
+    assert.equal(res.run.log[1].correct, true);
+  }
+});
+
+test("the shark adventures can be read to a win and a secret ending", () => {
+  const dir = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../src/stories");
+  for (const band of ["4-5", "6-8", "9-12"]) {
+    const r = checkStory(fs.readFileSync(path.join(dir, band, "adventure-sharks.story"), "utf8"));
+    assert.deepEqual(r.errors.map((e) => e.message), [], band);
+    const story = r.story;
+    const byId = new Map(story.pages.map((p) => [p.id, p]));
+    // Breadth-first: the path to each ending.
+    const prev = new Map<string, string | null>([[story.start, null]]);
+    const queue = [story.start];
+    while (queue.length) {
+      const id = queue.shift()!;
+      for (const x of exits(byId.get(id)!)) if (!prev.has(x)) { prev.set(x, id); queue.push(x); }
+    }
+    for (const type of ["win", "secret", ...(band === "4-5" ? [] : ["lose"])]) {
+      const end = story.pages.find((p) => p.end?.type === type && prev.has(p.id));
+      assert.ok(end, `${band}: a reachable ${type} ending`);
+      const route: string[] = [];
+      for (let id: string | null = end!.id; id; id = prev.get(id) ?? null) route.unshift(id);
+      // Play the route with the session rules at grade 7, answering every gate right.
+      let run = newRun(story, 7);
+      for (let i = 1; i < route.length; i++) {
+        const p = byId.get(run.page)!;
+        if (p.gate) {
+          if (p.gate.kind === "quiz") run = setQuiz(story, run, FIXED_Q);
+          if (p.gate.kind === "order") for (let k = 0; k < p.gate.items.length; k++) run = tapOrder(story, run, run.gate!.order.indexOf(k), 7).run;
+          else run = answerMc(story, run, correctIndex(story, run), 7).run;
+          assert.equal(run.gate!.status, "solved", `${band} ${p.id}`);
+          run = advance(story, run, 0);
+        } else run = advance(story, run, p.choices.findIndex((c) => c.target === route[i]));
+        assert.equal(run.page, route[i], `${band}: ${route[i - 1]} -> ${route[i]}`);
+      }
+      assert.equal(byId.get(run.page)!.end!.type, type);
+      assert.equal(run.hearts, 3);
+    }
+    assert.ok(story.pages.filter((p) => p.gate?.kind === "quiz").length >= 2, `${band}: QUIZ gates`);
+  }
+});
+
+test("ocean art: reef, research boat and deep sea scenes; sharks and a marine biologist", () => {
+  for (const sc of ["reef", "research-boat", "deep-sea"]) {
+    assert.ok((SCENES as readonly string[]).includes(sc), sc);
+    assert.ok(SCENE_PAINTERS[sc as keyof typeof SCENE_PAINTERS].anim, `${sc} is animated`);
+  }
+  for (const [name, id] of [["Whaleshark", "whaleshark"], ["Hammerhead", "hammerhead"], ["Greatwhite", "greatwhite"], ["Biologist", "biologist"]] as const) {
+    assert.equal(charByName(name), id);
+    const def = SPRITES[id];
+    assert.ok(def.face && def.face.mx !== undefined, `${id} has a face`);
+    const frames = MOODS.map((m) => faceRows(def, false, m, false, false).join("/"));
+    assert.equal(new Set(frames).size, frames.length, `${id}: every mood looks different`);
+    if (id !== "biologist") {
+      assert.ok(def.float && def.alt && def.alt.length === def.rows.length, `${id} swims with a tail swish`);
+      assert.ok(Number.isInteger(def.scale) && def.scale! >= 2, `${id} is drawn big`);
+    }
+  }
 });
 
 console.log(`test-story: ${passed} tests passed`);

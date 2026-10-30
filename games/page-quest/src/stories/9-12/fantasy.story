@@ -197,7 +197,7 @@ Quill: Do you always give advice to strangers in hallways?
 
 Cat: Only to the ones who look as though they will not take it.
 > Climb the records tower to read the ledger -> ledger
-> Go to bed and rest before the tide -> ch2
+> Go to bed and rest before the tide -> quiz-ch2
 
 === ledger
 scene: academy-hall
@@ -209,7 +209,15 @@ The entries are identical in their wording until you reach the last one, written
 Cat: That second line appeared the week after the last Renewal, and nobody in the Cloister has ever admitted to writing it.
 
 Quill closes the ledger very gently, as one closes the door of a sleeping child.
-> Go to bed and rest before the tide -> ch2
+> Go to bed and rest before the tide -> quiz-ch2
+
+=== quiz-ch2
+scene: academy-hall
+cast: hero, quill:happy
+Before you can turn the page, Quill raises one wing, unhurried and deliberate.
+Quill: The story will keep. A quick challenge first; think it through rather than guessing.
+? QUIZ : Sharp minds win the day. Try this one!
+next: ch2
 
 # ============================================================
 # CHAPTER TWO: THE THREAD
@@ -394,6 +402,14 @@ Quill: Tell me Chapter Two the way a fair and careful witness would tell it, wit
 - Brave Mira heroically led the way through the terrifying maze.
 - The sphinx tricked everyone into entering a trap under the temple.
 hint: An objective summary reports events in order and avoids loaded words like "cruel" or "terrifying."
+next: quiz-ch3
+
+=== quiz-ch3
+scene: labyrinth
+cast: hero, quill:happy
+The narrative pauses, like a breath held between chapters. Quill regards you with her steady amber eyes.
+Quill: Curiosity doesn't stop at the edge of a book. Let's test a different kind of thinking.
+? QUIZ : One quick challenge, then back to the story!
 next: ch3
 
 # ============================================================

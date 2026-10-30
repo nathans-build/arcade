@@ -181,6 +181,14 @@ Quill: Precisely. It's an excellent plan, provided that nobody offers the zombie
 - Evil aliens attacked Mossgrove and stole the marshmallows.
 - The crew is in terrible danger and will never be the same.
 hint: An objective summary sticks to facts without opinions or exaggeration. Listen to what Quill says "we actually know."
+next: quiz-ch2
+
+=== quiz-ch2
+scene: lab
+cast: hero, quill:happy
+You pause to collect your thoughts. Quill produces a small card from beneath her wing with a flourish.
+Quill: A real adventurer trains every skill, not just one. Here's a quick challenge before we continue.
+? QUIZ : Quick challenge before the next chapter!
 next: ch2
 
 # ============================================================
@@ -385,6 +393,14 @@ Astronaut: There is one complication, though. MV-7 must stay frozen until the mo
 - Arlo discovered that marshmallows are the cure for glowcap.
 - Captain Strand rescued everyone, and the mission is over.
 hint: An objective summary tells the key events without exaggeration. Whom did you rescue, and what did she tell you about the cure?
+next: quiz-ch3
+
+=== quiz-ch3
+scene: lab
+cast: hero, quill:happy
+Before you can turn the page, Quill lifts one wing like a crossing guard.
+Quill: Hold on! The story will wait for us. First, one of my quick challenges.
+? QUIZ : Sharp minds win the day. Try this one!
 next: ch3
 
 # ============================================================
@@ -418,7 +434,7 @@ Arlo groans almost as dramatically as a zombie and presses his helmet against th
 Kid: Sorry, that was my fault. I always confuse the two temperature scales.
 
 Quill: Zero and one hundred are the freezing and boiling points in Celsius, but Dr. Kaya was very specific about using Fahrenheit. Let's reread the clue carefully before we guess again, because a detective who rushes usually ends up guessing twice.
-> Try the code again -> ch3
+> Try the code again -> quiz-ch3
 
 === canister
 scene: cryo-bay
