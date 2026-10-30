@@ -135,6 +135,14 @@ You smile in the dark. Tomorrow, the real adventure begins.
 - Captain Reyes decided to turn the ship around and go back to Earth.
 - Bolt the robot ate all the crackers in the pantry.
 hint: Listen to Quill's summary of the day. Who did you find, and what did you promise?
+next: quiz-ch2
+
+=== quiz-ch2
+scene: space-bridge
+cast: hero, quill:happy
+You stop for a moment to catch your breath. Quill pulls a tiny card out from under her wing.
+Quill: Good explorers keep all their skills sharp, not just their reading skills. Ready?
+? QUIZ : Quick challenge before the next chapter!
 next: ch2
 
 # ============================================================
@@ -260,6 +268,14 @@ Zib presses its face against the window and squeaks with joy.
 - Zib flew back to its comet all by itself.
 - The crew decided to land on the planet Pickle instead.
 hint: Think about the problem at the start of the chapter and how it was solved by the end.
+next: quiz-ch3
+
+=== quiz-ch3
+scene: space-bridge
+cast: hero, quill:happy
+Quill hops in front of you and holds up one wing.
+Quill: Wait just a moment! The next part of the story is coming. First, try one of my quick challenges.
+? QUIZ : Sharp minds win the day. Try this one!
 next: ch3
 
 # ============================================================

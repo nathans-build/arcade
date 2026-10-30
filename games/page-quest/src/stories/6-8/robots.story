@@ -192,6 +192,14 @@ Kid: Deal. Tomorrow we have a field trip to the Roboworks factory across town. M
 - Clatterbox gets stuck in a gym doorway in front of a huge crowd.
 - Yumi quits the team after an argument about wheels.
 hint: An objective summary covers the main problem and the key discovery, without opinions or side details.
+next: quiz-ch2
+
+=== quiz-ch2
+scene: robot-workshop
+cast: hero, quill:happy
+For a moment the story goes still, as if the book itself were waiting. Quill blinks her big amber eyes.
+Quill: Sharp minds solve hard problems. Let's see how you handle this one.
+? QUIZ : One quick challenge, then back to the story!
 next: ch2
 
 # ============================================================
@@ -319,6 +327,14 @@ clue: Skitter's battery health is only 71 percent, and fast walking drains power
 - Dez builds treads after all, and Skitter crosses the water.
 - Dr. Villanueva joins the Loose Screws as their new captain.
 hint: Think about what the team learned at the factory and how the team changed afterward.
+next: quiz-ch3
+
+=== quiz-ch3
+scene: robot-workshop
+cast: hero, quill:happy
+Quill swoops down and settles on your shoulder, her feathers ruffled from the trip.
+Quill: Hoo! You've made it this far by reading carefully. Before the next part begins, let's keep your mind sharp.
+? QUIZ : Before we go on, a quick challenge!
 next: ch3
 
 # ============================================================

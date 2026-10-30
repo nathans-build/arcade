@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  QuestionDeck,
+  bankFor,
   gradeNumber,
   loadProgress,
   recordAnswer,
@@ -25,10 +25,12 @@ import { resolveMood } from "@/story/validate";
 import { charName, type CharId } from "@/story/roster";
 import { standardFor } from "@/story/standards";
 import type { Block, Gate, Page } from "@/story/types";
+import { DEFAULT_QUIZ_LEAD } from "@/story/parse";
 import {
-  MAX_HEARTS, POINTS, advance, answerMc, correctIndex, newRun, pageOf, restartFromCheckpoint, tapOrder, usesHearts,
+  MAX_HEARTS, POINTS, advance, answerMc, correctIndex, newRun, pageOf, restartFromCheckpoint, setQuiz, tapOrder, usesHearts,
   type LogEntry, type RunState,
 } from "@/play/session";
+import { SUBJECT_TAG, SubjectDeck, type PqSubject } from "@/play/subjects";
 import { addEnding, clearRun, loadEndings, loadRun, saveRun } from "@/play/storage";
 
 export type ReaderStart = { kind: "new" } | { kind: "continue" } | { kind: "page"; page: string };
@@ -87,13 +89,18 @@ export function Portrait({ who, mood }: { who: CharId; mood: string }) {
   return <canvas ref={ref} className="pq-portrait" aria-hidden="true" />;
 }
 
+/** ?debug: the reader shows the QUIZ gate's right answer as a data attribute (automated playtests). */
+const DEBUG = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("debug");
+
 export function Reader({
-  book, start, playtest, grade, view, audio, readAloud, onToggleReadAloud, paused, onExit,
+  book, start, playtest, grade, subject, view, audio, readAloud, onToggleReadAloud, paused, onExit,
 }: {
   book: Book;
   start: ReaderStart;
   playtest: boolean;
   grade: Grade;
+  /** The library's subject choice: QUIZ gates and transmissions draw from it. */
+  subject: PqSubject;
   view: SceneView | null;
   audio: ChipAudio;
   readAloud: boolean;
@@ -117,7 +124,8 @@ export function Reader({
   const [ending, setEnding] = useState<EndingInfo | null>(null);
   const [tq, setTq] = useState<DealtQuestion | null>(null);
   const [tPicked, setTPicked] = useState<number | null>(null);
-  const deck = useMemo(() => new QuestionDeck(grade, "ela", { gameId: GAME_ID }), [grade]);
+  // One deck per read: QUIZ gates and transmissions take turns from it (MIXED rotates subjects).
+  const deck = useMemo(() => new SubjectDeck(grade, subject, bankFor, { gameId: GAME_ID }), [grade, subject]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const choicesRef = useRef<HTMLDivElement>(null);
 
@@ -145,6 +153,23 @@ export function Reader({
     scrollRef.current?.scrollTo({ top: 0 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [run.page, run.visited.length === 0]);
+
+  // A QUIZ gate without its question yet (a new visit, a restart, an old save): draw one from the subject deck.
+  const needQuiz = page.gate?.kind === "quiz" && !!run.gate && !run.gate.quiz;
+  useEffect(() => {
+    if (!needQuiz) return;
+    const q = deck.draw();
+    setRun((r) => setQuiz(story, r, q));
+  }, [needQuiz, story, deck]);
+  const quizQ = page.gate?.kind === "quiz" ? run.gate?.quiz ?? null : null;
+  // Read aloud: once the question is drawn, read the page again with Quill's question (once per question).
+  const spokenQuiz = useRef<string | null>(null);
+  useEffect(() => {
+    if (!quizQ || spokenQuiz.current === quizQ.id) return;
+    spokenQuiz.current = quizQ.id;
+    if (readAloud && overlay === null) speak(pageSpeech(page, run));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quizQ?.id]);
 
   // Keep the save current (hearts, gate progress, score).
   useEffect(() => {
@@ -196,7 +221,9 @@ export function Reader({
     (before: RunState, after: RunState) => {
       if (after.log.length > before.log.length && page.gate) {
         const e = after.log[after.log.length - 1];
-        recordAnswer(GAME_ID, kitQuestion(book.id, page, page.gate, grade), e.correct);
+        // A QUIZ gate records the bank item itself (its own standard; math also moves the adaptive level).
+        const q = page.gate.kind === "quiz" ? after.gate?.quiz : kitQuestion(book.id, page, page.gate, grade);
+        if (q) recordAnswer(GAME_ID, q, e.correct);
       }
     },
     [book.id, page, grade],
@@ -216,24 +243,28 @@ export function Reader({
   const gateMsg = useCallback(
     (result: string, r: RunState) => {
       const gate = page.gate!;
+      const q = gate.kind === "quiz" ? r.gate?.quiz ?? null : null;
+      // QUIZ gates teach with the bank item's own explanation (as the hint, and after a right answer).
+      const hint = q ? q.explanation : gate.hint;
       if (result === "right") {
         audio.correct();
         const first = r.gate!.misses === 0;
-        setFeedback({ text: first ? `✔ Correct! +${POINTS.gateFirstTry}` : "✔ You got it!", ok: true });
-        if (readAloud) speak(first ? "Correct!" : "You got it!");
+        const msg = first ? `✔ Correct! +${POINTS.gateFirstTry}` : "✔ You got it!";
+        setFeedback({ text: q ? `${msg} ${q.explanation}` : msg, ok: true });
+        if (readAloud) speak(`${first ? "Correct!" : "You got it!"}${q ? ` ${q.explanation}` : ""}`);
       } else if (result === "placed") {
         audio.blip();
         setFeedback(null);
       } else if (result === "wrong") {
         audio.wrong();
         const heart = hearts ? " −1 ♥" : "";
-        setFeedback({ text: `✘ Not quite.${heart} Quill: ${gate.hint}`, ok: false });
-        if (readAloud) speak(`Not quite. Quill says: ${gate.hint}`);
+        setFeedback({ text: `✘ Not quite.${heart} Quill: ${hint}`, ok: false });
+        if (readAloud) speak(`Not quite. Quill says: ${hint}`);
       } else if (result === "reveal") {
         audio.wrong();
-        const ans = gate.kind === "mc" ? gate.answers.find((a) => a.correct)!.text : gate.items.map((i) => i.text).join(" Then: ");
-        setFeedback({ text: `Quill: Let's look together. ${gate.kind === "mc" ? `The answer is "${ans}".` : "Here is the right order."} ${gate.hint}`, ok: false });
-        if (readAloud) speak(`Let's look together. The answer is: ${ans}. ${gate.hint}`);
+        const ans = q ? q.choices[q.answer] : gate.kind === "mc" ? gate.answers.find((a) => a.correct)!.text : gate.items.map((i) => i.text).join(" Then: ");
+        setFeedback({ text: `Quill: Let's look together. ${gate.kind !== "order" ? `The answer is "${ans}".` : "Here is the right order."} ${hint}`, ok: false });
+        if (readAloud) speak(`Let's look together. The answer is: ${ans}. ${hint}`);
       } else if (result === "lose") {
         audio.playJingle(END_LOSE);
         stopSpeaking();
@@ -327,7 +358,7 @@ export function Reader({
         ...r,
         score: r.score + (ok ? POINTS.transmission : 0),
         hearts: ok && hearts ? Math.min(MAX_HEARTS, r.hearts + 1) : r.hearts,
-        log: [...r.log, { standard: tq.standard, skill: tq.skill, correct: ok, kind: "transmission" }],
+        log: [...r.log, { standard: tq.standard, skill: tq.skill, correct: ok, kind: "transmission", subject: tq.subject }],
       }));
       if (readAloud) speak(`${ok ? "Correct!" : `Not quite. The answer is ${tq.choices[tq.answer]}.`} ${tq.explanation}`);
     },
@@ -406,14 +437,14 @@ export function Reader({
         ev.preventDefault();
         if (!revealed) skip();
         else if (page.gate) {
-          const max = page.gate.kind === "mc" ? page.gate.answers.length : page.gate.items.length;
+          const max = page.gate.kind === "quiz" ? (quizQ ? 4 : 0) : page.gate.kind === "mc" ? page.gate.answers.length : page.gate.items.length;
           if (n < max) answer(n);
         } else if (page.choices.length && n < 4) choose(n);
       }
     };
     window.addEventListener("keydown", down);
     return () => window.removeEventListener("keydown", down);
-  }, [overlay, paused, tPicked, revealed, page, gateDone, answerTransmission, closeTransmission, replay, restart, skip, continueGate, finish, answer, choose]);
+  }, [overlay, paused, tPicked, revealed, page, gateDone, quizQ, answerTransmission, closeTransmission, replay, restart, skip, continueGate, finish, answer, choose]);
 
   // ---- render ----
   let used = 0;
@@ -438,11 +469,23 @@ export function Reader({
     return <p key={i}>{vis}</p>;
   });
 
-  const std = page.gate ? standardFor(page.gate.anchor, g) : null;
+  const std = page.gate?.kind === "quiz" ? (quizQ ? { code: quizQ.standard, skill: quizQ.skill } : null) : page.gate ? standardFor(page.gate.anchor, g) : null;
   const gs = run.gate;
 
   return (
-    <div className="pq-reader" data-page={run.page} data-hearts={run.hearts} data-gate={gs?.status ?? ""} data-score={run.score} data-revealed={revealed ? "1" : "0"}>
+    <div
+      className="pq-reader"
+      data-page={run.page}
+      data-hearts={run.hearts}
+      data-gate={gs?.status ?? ""}
+      data-gate-kind={page.gate?.kind ?? ""}
+      data-score={run.score}
+      data-revealed={revealed ? "1" : "0"}
+      data-subject={subject}
+      data-quiz-subject={quizQ?.subject ?? ""}
+      data-quiz-grade={quizQ?.grade ?? ""}
+      data-quiz-answer={DEBUG && quizQ ? quizQ.answer : undefined}
+    >
       <div className="pq-readhead">
         <button className="pq-small pq-pixel" onClick={() => { stopSpeaking(); onExit(); }}>◀ {playtest ? "DESK" : "LIBRARY"}</button>
         <span className="book">{story.title}</span>
@@ -485,7 +528,7 @@ export function Reader({
               </div>
             )}
             {page.gate && gs && std && (
-              <GateView gate={page.gate} gs={gs} std={std} feedback={feedback} correct={correctIndex(story, run)} onAnswer={answer} onContinue={continueGate} />
+              <GateView gate={page.gate} gs={gs} std={std} quiz={quizQ} feedback={feedback} correct={correctIndex(story, run)} onAnswer={answer} onContinue={continueGate} />
             )}
             {page.end && (
               <div className="pq-btnrow">
@@ -517,7 +560,7 @@ export function Reader({
           <div className="pq-card" role="dialog" aria-label="Transmission question">
             <div className="pq-h pq-pixel pq-blink">◆ INCOMING TRANSMISSION FROM QUILL</div>
             <div className="pq-tagrow">
-              <span className="pq-tag pq-pixel">ELA</span>
+              <span className={`pq-tag subj ${tq.subject} pq-pixel`}>{SUBJECT_TAG[tq.subject]}</span>
               <span className="pq-tag std pq-pixel">{tq.standard} · {tq.skill}</span>
             </div>
             {tq.passage && <div className="pq-passage">{tq.passage}</div>}
@@ -590,7 +633,10 @@ function endBanner(type: string) {
 function pageSpeech(p: Page, run: RunState): string {
   const body = p.blocks.map((b) => (b.kind === "say" ? `${charName(b.who)} says: ${b.text}` : b.text)).join(" ");
   let tail = "";
-  if (p.gate && run.gate) {
+  if (p.gate?.kind === "quiz") {
+    const q = run.gate?.quiz;
+    if (q) tail = ` Quill says: ${p.gate.question || DEFAULT_QUIZ_LEAD} ${q.passage ? `${q.passage} ` : ""}${q.prompt} ${q.choices.map((t, i) => `${"ABCD"[i]}: ${t}.`).join(" ")}`;
+  } else if (p.gate && run.gate) {
     const texts = p.gate.kind === "mc" ? run.gate.order.map((i) => p.gate!.answers[i].text) : run.gate.order.map((i) => p.gate!.items[i].text);
     tail = ` Question: ${p.gate.question} ${texts.map((t, i) => `${"ABCDE"[i]}: ${t}.`).join(" ")}`;
   } else if (p.choices.length) tail = ` ${p.choices.map((c, i) => `${"ABCD"[i]}: ${c.text}.`).join(" ")}`;
@@ -599,11 +645,12 @@ function pageSpeech(p: Page, run: RunState): string {
 }
 
 function GateView({
-  gate, gs, std, feedback, correct, onAnswer, onContinue,
+  gate, gs, std, quiz, feedback, correct, onAnswer, onContinue,
 }: {
   gate: Gate;
   gs: NonNullable<RunState["gate"]>;
   std: { code: string; skill: string };
+  quiz: DealtQuestion | null;
   feedback: { text: string; ok: boolean } | null;
   correct: number;
   onAnswer: (i: number) => void;
@@ -612,10 +659,39 @@ function GateView({
   const done = gs.status === "solved" || gs.status === "reveal";
   const head = (
     <div className="pq-tagrow">
-      <span className="pq-tag pq-pixel">{gate.kind === "order" ? "PUT IN ORDER" : "QUILL'S QUESTION"}</span>
+      <span className="pq-tag pq-pixel">{gate.kind === "order" ? "PUT IN ORDER" : gate.kind === "quiz" ? "QUICK CHALLENGE" : "QUILL'S QUESTION"}</span>
+      {quiz && <span className={`pq-tag subj ${quiz.subject} pq-pixel`}>{SUBJECT_TAG[quiz.subject]}</span>}
       <span className="pq-tag std pq-pixel">{std.code} · {std.skill}</span>
     </div>
   );
+  if (gate.kind === "quiz") {
+    if (!quiz) return null;
+    return (
+      <div className={`pq-gate quiz ${gs.status}`} onClick={(e) => e.stopPropagation()}>
+        {head}
+        <div className="pq-quizlead"><Portrait who="quill" mood="happy" /> <span><b className="pq-pixel">QUILL</b> {gate.question || DEFAULT_QUIZ_LEAD}</span></div>
+        {quiz.passage && <div className="pq-passage">{quiz.passage}</div>}
+        <div className="pq-prompt">{quiz.prompt}</div>
+        <div className="pq-answers">
+          {quiz.choices.map((c, d) => {
+            const st = done && d === quiz.answer ? "right" : gs.lastWrong === d ? "wrong" : "";
+            return (
+              <button key={d} className={`pq-choice ${st}`} disabled={done} onClick={() => onAnswer(d)}>
+                <span className="key pq-pixel">{"ABCD"[d]}</span>
+                <span>{c}</span>
+              </button>
+            );
+          })}
+        </div>
+        {feedback && <div className={`pq-feedback ${feedback.ok ? "ok" : "no"}`}>{feedback.text}</div>}
+        {done && (
+          <div className="pq-btnrow">
+            <button className="pq-cta" autoFocus onClick={onContinue}>Continue ▶</button>
+          </div>
+        )}
+      </div>
+    );
+  }
   return (
     <div className={`pq-gate ${gs.status}`} onClick={(e) => e.stopPropagation()}>
       {head}
@@ -726,7 +802,7 @@ function EndingReport({
                 <tr key={k}>
                   <td className="c">{v.std}</td>
                   <td>{v.skill}</td>
-                  <td className="dim">{[...v.kinds].map((x) => (x === "gate" ? "story gates" : "transmissions")).join(" + ")}</td>
+                  <td className="dim">{[...v.kinds].map((x) => (x === "gate" ? "story gates" : x === "quiz" ? "quick challenges" : "transmissions")).join(" + ")}</td>
                   <td style={{ color: v.c === v.n ? "var(--pq-green)" : v.c / v.n >= 0.75 ? "var(--pq-yellow)" : "var(--pq-red)" }}>{v.c}/{v.n}</td>
                 </tr>
               ))}

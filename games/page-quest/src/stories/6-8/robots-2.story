@@ -160,6 +160,14 @@ The diner clock says 2:40, which leaves two hours and twenty minutes before the 
 - Quill fixes Tumble's GPS dish, and the package is delivered at once.
 - Tumble decides that paper maps are useless and throws its map away.
 hint: An objective summary tells the main problem and the most important event, without opinions.
+next: quiz-ch2
+
+=== quiz-ch2
+scene: city-street
+cast: hero, quill:happy
+Before you can turn the page, Quill lifts one wing like a crossing guard.
+Quill: Hold on! The story will wait for us. First, one of my quick challenges.
+? QUIZ : Sharp minds win the day. Try this one!
 next: ch2
 
 # ============================================================
@@ -289,6 +297,14 @@ As the streetlights flicker on, Tumble swivels its camera head toward the north,
 - Tumble gets lost in Hawthorn Park and has to spend the night there.
 - Tumble decides to stay at 14 Larch Lane and become a telescope.
 hint: Think about the delivery and the new problem at the end of the chapter.
+next: quiz-ch3
+
+=== quiz-ch3
+scene: city-street
+cast: hero, quill:happy
+For a moment the story goes still, as if the book itself were waiting. Quill blinks her big amber eyes.
+Quill: Sharp minds solve hard problems. Let's see how you handle this one.
+? QUIZ : One quick challenge, then back to the story!
 next: ch3
 
 # ============================================================

@@ -193,6 +193,14 @@ Quill: Before we chase anybody, let's make sure we can explain what happened wit
 - Grandma Morwenna's cake is the most delicious cake in the world.
 - Fennick is the bravest and smartest bat in Pumpkin Hollow.
 hint: An objective summary tells the main events without opinions or guesses. Which choice sticks to the facts?
+next: quiz-chapter2
+
+=== quiz-chapter2
+scene: castle-night
+cast: hero, quill:happy
+For a moment the story goes still, as if the book itself were waiting. Quill blinks her big amber eyes.
+Quill: Sharp minds solve hard problems. Let's see how you handle this one.
+? QUIZ : One quick challenge, then back to the story!
 next: chapter2
 
 # ============================================================
@@ -385,6 +393,14 @@ The grandfather clock in the hallway strikes half past nine. You think about the
 - Hide it in a book about the moon.
 - Read the recipe aloud at night.
 hint: The moon cannot really read. What does the moon give off that could fall on a hiding place through a window?
+next: quiz-chapter3
+
+=== quiz-chapter3
+scene: castle-night
+cast: hero, quill:happy
+Quill swoops down and settles on your shoulder, her feathers ruffled from the trip.
+Quill: Hoo! You've made it this far by reading carefully. Before the next part begins, let's keep your mind sharp.
+? QUIZ : Before we go on, a quick challenge!
 next: chapter3
 
 # ============================================================

@@ -190,6 +190,14 @@ Quill: When a claim comes from a suspect, or from someone with a grudge, we look
 - "the echo, I promise you, was large, and it was distinctly hairy"
 - "I may have written the Chronicle during a rather vain decade."
 hint: Pemberton named ten o'clock on Tuesday. Which source has no stake in the matter and says where Barnaby was?
+next: quiz-ch2
+
+=== quiz-ch2
+scene: castle-night
+cast: hero, quill:happy
+You take a moment to gather your thoughts. Quill draws a small, neatly lettered card from beneath one wing.
+Quill: The best explorers are never experts in only one thing. Consider this a brief detour before we press on.
+? QUIZ : Quick challenge before the next chapter!
 next: ch2
 
 # ============================================================
@@ -400,6 +408,14 @@ The first gray light touches the window, and the Countess, yawning politely behi
 - Old documents are always more accurate than new ones.
 - Newspapers should only be written by trained professionals.
 hint: Quill contrasts the loud, protective stories with the "dull" sources nobody wrote "to win an argument."
+next: quiz-ch3
+
+=== quiz-ch3
+scene: castle-night
+cast: hero, quill:happy
+Before you can turn the page, Quill raises one wing, unhurried and deliberate.
+Quill: The story will keep. A quick challenge first; think it through rather than guessing.
+? QUIZ : Sharp minds win the day. Try this one!
 next: ch3
 
 # ============================================================

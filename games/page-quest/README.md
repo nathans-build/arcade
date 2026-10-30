@@ -15,39 +15,60 @@ story below it (or beside it on wide screens) in big VT323 text, with read-aloud
   still playable); your level's book is selected. The detail card shows the cover scene, blurb,
   reading level, and **endings found (x / y)**, with READ, or CONTINUE / START OVER for a book in
   progress (the current page is saved per book).
-- **Reading:** each page draws its scene (34 procedurally drawn EGA-style backgrounds, animated:
+- **Subject row** (like the other arcade games): **MIXED** (the default) · **READING** · **MATH** ·
+  **SCIENCE** · **SOCIAL STUDIES**, under the library header. The story gates written in the books
+  always test the book; the subject picks Quill's **quick challenges** (`? QUIZ` gates, see below) and
+  the checkpoint **transmissions**, drawn from the shared kit question banks at the player's grade
+  (READING = the ELA bank; MATH = the kit's generated math at the player's adaptive math level, like
+  Dojo Tower; MIXED takes turns math → science → reading → social studies across the whole read).
+  The choice is saved in `arcade.page-quest.subject`. From the arcade menu, `?topic=` picks a subject
+  for that visit (`math-mix` → MATH, `science-mix` → SCIENCE, `social-mix` → SOCIAL STUDIES, `ela-mix`,
+  `reading` or `writing` → READING; `?subject=mixed|reading|ela|math|science|social` works too); topics
+  inside a subject (fractions, life science...) are not offered, so the menu only links whole-subject mixes.
+- **Reading:** each page draws its scene (37 procedurally drawn EGA-style backgrounds, animated:
   waves, torches, stars, lasers, rain, scrolling train windows, cryo-bay mist, drifting magic letters,
-  a radar sweep, conveyor belts, a scoreboard clock, welding sparks...) with up to three
-  characters (34 original sprites with idle bobbing, blinking, moods on the face and in emote bubbles
+  a radar sweep, conveyor belts, a scoreboard clock, welding sparks, reef fish, kelp and bubbles,
+  glowing deep-sea jellyfish...) with up to three
+  characters (38 original sprites with idle bobbing, blinking, moods on the face and in emote bubbles
   ♥ … ! ? ❄ and friends; the `frozen` mood turns any character to ice and holds them still). The text types out (tap, Space or Enter skips); dialogue lines show the speaker's
   portrait while their sprite bobs and talks. Then pick a choice **A–D** (keys 1–4 / A–D or tap).
 - **Gates** are Quill's skill questions inside the story: multiple choice (answers shuffled) or
   **put in order** (tap the torn map / diary pieces in the order they happened). Each gate is tagged
   with the NC standard for your grade (anchor `RL.3` → `RL.7.3` at grade 7) and recorded in the kit's
   per-standard progress.
+- **Quick challenges** (`? QUIZ` gates) sit between scenes in every book (2–3 per book, usually at the
+  chapter breaks; 1 in the HOW TO PLAY book). Quill flutters in ("Before we go on, a quick
+  challenge!") and asks a question from the chosen subject at the player's grade (the header shows
+  QUICK CHALLENGE, the subject and the bank item's own standard, e.g. `PS.7.2.2`). Answers 1–4 / A–D or
+  tap. Quill's hint after a miss, and the note after a right answer, is the bank item's own
+  explanation. The question is kept in the book's save, so CONTINUE shows the same one. It is
+  recorded in the kit's progress by its standard (math also moves the adaptive math level) and shown in
+  the mission report as *quick challenges*.
 - **Losing (by the player's grade, not the book's):**
   - **Grades 6–12:** a **COURAGE** meter of 3 hearts. A wrong answer costs a heart and shows Quill's
-    hint; try again. At 0 hearts: **THE END?** → *Try again from checkpoint* (full hearts). The 6–8 and
+    hint; try again. This includes quick challenges: a wrong subject answer costs a heart like any
+    other gate (one rule for every question; the hint is the item's explanation, so the retry is fair). At 0 hearts: **THE END?** → *Try again from checkpoint* (full hearts). The 6–8 and
     9–12 books also have **lose endings** (the thief escapes, the ship drifts off course...), with
     *Try again from checkpoint*.
   - **Grades 4–5:** no hearts, nothing is lost. First miss: Quill's hint. Second miss: Quill shows
-    the right answer and the story goes on. If a grade 4–5 player reads a harder book and reaches a
+    the right answer and the story goes on (story gates and quick challenges alike). If a grade 4–5 player reads a harder book and reaches a
     lose ending, it becomes a **DETOUR**: the page is read, the ending is added to the gallery, and
     Quill flies you back to the checkpoint.
-- **Checkpoints** (`checkpoint` pages) also bring an **incoming transmission from Quill**: an ELA
-  question from the shared kit bank with its explanation (+50 points; grades 6+ also win back a heart).
+- **Checkpoints** (`checkpoint` pages) also bring an **incoming transmission from Quill**: a question
+  from the chosen subject's kit bank (MIXED takes turns; the tag shows MATH / SCIENCE / READING /
+  SOCIAL STUDIES) with its explanation (+50 points; grades 6+ also win back a heart).
 - **Clue Journal** (**J** or the JOURNAL button) lists the clues collected in this read.
 - **Endings:** win, lose and **secret** endings. The ending screen shows the ending's name and type,
   the book's **endings gallery** (saved per browser), your score (gates right first try +100, later
   +25, win +300, secret +300 **+500 secret bonus**, a new ending +200, transmissions +50; high score
   via the kit), and a **mission report** by standard (code + skill, first-try results) with
   **practice next**.
-- **HOW TO PLAY:** `src/stories/sample/tutorial.story` is a short practice book (8+ pages, one
-  gate of each type, a win and a secret ending). It opens from the HOW TO PLAY button; it only shows
+- **HOW TO PLAY:** `src/stories/sample/tutorial.story` is a short practice book (10 pages, one
+  gate of each type including a quick challenge, a win and a secret ending). It opens from the HOW TO PLAY button; it only shows
   inside its genre on the shelf when that genre has no real books yet.
 - **Grades K–3** see a friendly *"Page Quest is for grades 4 and up"* screen with the ◀ ARCADE link.
 
-## Writer's Desk (Nathan is the co-author)
+## Writer's Desk (SpiderBen10 is the co-author)
 
 From the library, **✎ WRITER'S DESK** opens an editor for your own books (desktop and iPad):
 
@@ -58,13 +79,15 @@ From the library, **✎ WRITER'S DESK** opens an editor for your own books (desk
   story text (blank line = new paragraph, `Quill: words` = dialogue, `~ Chapter Two ~` = heading),
   and how the page ends: **choices** (text + a target page from a dropdown, or *+ new page…*), a
   **question gate** (multiple choice or put-in-order, the standard anchor, Quill's hint, the next
-  page), or an **ending** (win / secret / lose, lose only for 6-8 and 9-12).
+  page; or a **quick challenge** from the reader's subject, with Quill's lead-in and the next page),
+  or an **ending** (win / secret / lose, lose only for 6-8 and 9-12).
 - A **live validator** (the same one `npm test` uses; click a problem to jump to its page) and a
   **reading-level meter** (Flesch–Kincaid grade against the band).
 - **PLAYTEST** from the current page or from the start (drafts don't touch your endings gallery).
 - **EXPORT** downloads the `.story` file; **IMPORT** loads one (file picker) and **PASTE** takes pasted text.
 - Drafts appear on the shelf under **MY BOOKS · by SpiderBen10**.
 - Typing in the editor never triggers game keys (A–D, J, P, M...).
+- The scene and cast dropdowns come from the roster, so the ocean scenes and the sharks are there too.
 
 ### Shipping a book you wrote (so everyone gets it)
 
@@ -87,9 +110,29 @@ Plain UTF-8 text: a header (`title`, `author`, `genre` mystery|adventure|space|f
 `=== page-id`. Each page has `scene:`, optional `cast:` (0–3 characters, `id[:mood]`),
 `checkpoint`, `clue:` lines, body text and ends with ONE of: 1–4 choices (`> text -> page-id`, text ≤
 48 characters), a gate (`? RL.3 : question` with 2–4 `+`/`-` answers ≤ 70 characters and exactly one
-`+`, or `? RL.5 order : question` with 3–5 numbered items; then `hint:` and `next:`), or
-`end: win|lose|secret Ending Name`. `#` lines are comments. The full contract is in the Page Quest
+`+`, or `? RL.5 order : question` with 3–5 numbered items; then `hint:` and `next:`), a **subject
+gate** (`? QUIZ : lead-in` then `next:`), or `end: win|lose|secret Ending Name`. `#` lines are comments. The full contract is in the Page Quest
 design brief (`PAGE_QUEST.md`); scenes and characters are listed in `src/story/roster.ts`.
+
+**Subject gates (`? QUIZ`).** An addition to the brief, so books can ask questions from every
+subject:
+
+```
+=== quiz-chapter2
+scene: research-boat
+cast: hero, quill:happy
+Quill hops onto the railing and pulls a tiny card out from under her wing.
+Quill: Hoo! Divers need sharp minds.
+? QUIZ : Before we dive, a quick challenge!
+next: chapter2
+```
+
+The lead-in after the colon is optional (Quill says "Before we go on, a quick challenge!"). A QUIZ
+gate has no answers, items or standard of its own: the question comes from the reader's subject at
+play time. `+`/`-` answers or numbered items under it are errors; a `hint:` line is a warning (unused);
+`next:` is required. Put QUIZ gates between scenes (chapter breaks are ideal), not in the middle of a
+clue, so the subject question never interrupts the story's own reasoning. `npm test` wants 2–3 per
+shelf book.
 
 **How this engine reads the parts the brief leaves open** (the most lenient reasonable reading):
 
@@ -123,7 +166,7 @@ design brief (`PAGE_QUEST.md`); scenes and characters are listed in `src/story/r
 The Writer's Desk dropdowns and the validator read these from `src/story/roster.ts`, so a new entry
 there (plus its art in `src/engine/scenes.ts` / `sprites.ts`) shows up everywhere.
 
-**Scenes (34):** `library` (the Arcade Library hub), `beach`, `ship-deck`, `island-jungle`, `cave`,
+**Scenes (37):** `library` (the Arcade Library hub), `beach`, `ship-deck`, `island-jungle`, `cave`,
 `castle-hall`, `forest`, `village`, `mountain-pass`, `space-bridge`, `space-corridor`,
 `planet-surface`, `museum-hall`, `museum-vault`, `city-street`, `lab`, `lighthouse`, `stormy-sea`,
 `school`, `train`, `cryo-bay` (a frosty space-station cryo bay: frozen sleep pods, icicles, an icy
@@ -140,7 +183,10 @@ trees, a gull), `labyrinth` (stone maze corridors with torches and a red thread 
 `robot-arena` (a robot competition arena: cheering bleachers doing the wave, team banners, a scoreboard with a ticking clock, sweeping spotlights, a ramp),
 `recycling-center` (a sunny recycling center: CANS / PAPER / GLASS / CUPS bins, a sorting belt, bales, a gliding seagull),
 `rooftop-night` (a city rooftop at night: skyline windows, water tower, blinking antenna, a BEEP/BOOP billboard, shooting stars),
-`bakery` (a bakery kitchen: a glowing brick oven, an awning window, shelves of bread and cakes, a mixing bowl with steam).
+`bakery` (a bakery kitchen: a glowing brick oven, an awning window, shelves of bread and cakes, a mixing bowl with steam),
+`reef` (an underwater coral reef: sunlight rays from the surface, brain and branching corals, a purple sea fan, tube sponges, swaying kelp, little fish darting past in schools, rising bubbles),
+`research-boat` (a marine research boat at sea: white wheelhouse with a radar dome, an orange A-frame crane at the stern, tagging gear, a laptop on a folding table, a life ring, gulls, a marker buoy bobbing on the waves),
+`deep-sea` (the deep sea: dark water, a seamount, drifting marine snow, pulsing glowing jellyfish, lanternfish lights, sea pens and a submersible's searchlight).
 
 | id | dialogue name | who |
 |---|---|---|
@@ -178,6 +224,15 @@ trees, a gull), `labyrinth` (stone maze corridors with torches and a red thread 
 | fixbot | Fixbot | a spider-legged repair robot: yellow dome with a hazard light, dark visor with orange eyes, wrench and screwdriver arms |
 | mech | Mech | a big, friendly construction mech: orange hard hat with a beacon, cockpit-window face, hazard stripes, grabber hands |
 | robodog | Robodog | a robot pet dog: silver body, blue ear flaps, green LED eyes, red collar with a gold tag, an antenna tail that wags |
+| whaleshark | Whaleshark | a gentle whale shark, the biggest fish in the sea: blue-grey with white spots, pale belly, wide mouth at the front (drawn 3× size, swims, tail swish) |
+| hammerhead | Hammerhead | a bronze-grey hammerhead shark: tall dorsal fin, the wide "hammer" head with an eye at each end (2× size, swims) |
+| greatwhite | Greatwhite | a great white shark: slate-grey back, white belly (countershading), pointed snout, a calm closed-mouth smile; never gory, no teeth (2× size, swims) |
+| biologist | Biologist | a marine biologist in a teal wetsuit with an orange zip stripe, a dive mask pushed up on her head, a ponytail and yellow fins |
+
+Sharks are side-on, facing right like the other animals (the last cast member is mirrored), and are
+drawn bigger with the sprite's `scale` (a whole-number multiple of the normal pixel size); all of them
+show every mood, including `frozen`. Sharks never talk in the shark books (they are real animals);
+people talk about them.
 
 Robots whose faces are screens use `brow` in their face data, so their eyebrows glow in the screen colour (angry,
 sad and scared still read clearly); every robot shows all eight moods, including `frozen`.
@@ -188,8 +243,9 @@ see-through ice block, with no idle bob (a ❄ emote bubble shows now and then).
 
 ## Grades and standards
 
-Gates are written with a standard anchor; the game reports it at the player's grade. The transmissions
-come from the kit's ELA bank for the player's grade.
+Gates are written with a standard anchor; the game reports it at the player's grade. Quick challenges
+(`? QUIZ`) and the transmissions come from the chosen subject's kit bank for the player's grade and
+are reported with the bank item's own NC code (e.g. `NC.7.RP.2`, `PS.7.2.2`, `7.H.1.1`, `RL.7.1`).
 
 | Grade | Books | Gate codes (anchors used in the books) | Losing |
 |---|---|---|---|
@@ -208,10 +264,20 @@ RI.1–RI.9 the informational-text versions (main idea, text structure, author's
 evidence...), L.1 grammar, L.2 capitals/punctuation/spelling, L.4 word meaning from clues, L.5
 figurative language, W.1–W.3 opinion/informative/narrative writing.
 
-The 29 books on the shelf now (`npm test` output; plus the HOW TO PLAY sample): 4–5 books read at
-Flesch–Kincaid grade 3.1–4.2, 6–8 books at 5.9–7.1, 9–12 books at 8.3–10.6; 26–42 pages each, 10–18 gates,
-3–6 endings. Fantasy: *The Jar of Lost Stories* (4–5, Greek myths and the English words they gave us) and
+The 32 books on the shelf now (`npm test` output; plus the HOW TO PLAY sample): 4–5 books read at
+Flesch–Kincaid grade 3.0–4.1, 6–8 books at 5.9–7.0, 9–12 books at 8.2–10.4; 27–44 pages each, 10–18 story
+gates plus 2–3 quick challenges, 3–6 endings. Fantasy: *The Jar of Lost Stories* (4–5, Greek myths and the English words they gave us) and
 *The Fading Word of Briarwick* (6–8, a hidden school where spells need correct grammar).
+
+**Shark adventures** (ADVENTURE shelf, one per band; sharks are respected and cool, nobody gets bitten;
+`npm test` checks each has a shark, an ocean scene, 8+ story gates, 2–3 quick challenges, reachable win
+and secret endings, lose endings only for 6–8 and 9–12, and names used in no other book):
+
+| Band | Book | Pages · gates · endings | Reading level | Shark facts and skills |
+|---|---|---|---|---|
+| 4–5 | *Speckle and the Reef Rescue* — a young whale shark is tangled in a ghost net at Turtle Rock Reef; dive with a marine biologist to free her (secret: her spots match a photo from long ago) | 27 pages · 12 + 1 order story gates, 2 quick challenges · 2 win, 1 secret | FK 3.3 | whale sharks (biggest fish, filter feeders, spot patterns like fingerprints), nurse sharks resting and pumping water over their gills, hammerhead heads, ghost nets, coral fragments; dive safety steps in order, similes, context clues, theme |
+| 6–8 | *The Tracker Before the Storm* — a great white's pop-up satellite tag released early; read the drift data, take radio bearings and find it in a weed line before a storm | 30 pages · 13 story gates, 3 quick challenges · 2 win, 2 lose, 1 secret | FK 6.6 | pop-up archival tags, countershading, deep dives, scalloped hammerhead schools at seamounts and their electric sense, sharks vs. people (claims & evidence), sargassum; data tables, point of view, theme (careful courage) |
+| 9–12 | *The Silence at Corvina Seamount* — acoustic receivers on a seamount go quiet; rule out equipment and low oxygen, dive in a submersible, and build a case fair enough to protect the mountain (secret: a lanternshark nursery) | 31 pages · 13 + 1 order story gates, 3 quick challenges · 2 win, 2 lose, 1 secret | FK 8.7 | bluntnose sixgills, scalloped hammerheads, acoustic telemetry and sync tags, bioluminescence, marine snow, lanternshark counter-illumination, vessel transponders; claims vs. evidence, comparing sources, tone, word roots, rhetoric |
 
 **Robots** (two per band; every main character's name is unique across all books, which `npm test` checks):
 
@@ -270,6 +336,19 @@ Robots shelf it also checks two books per band, reading level within the band, 4
 every multiple-choice gate with a hint and a reading/language standard, reachable endings (lose endings
 only in 6–8 and 9–12), robot cast and scenes, and that no main character's name appears in any other book.
 
+`npm test` also covers the subjects: QUIZ gate parsing/validation/round-trips, the saved subject and the
+menu's `?topic=`, QUIZ questions drawn from the right kit bank at the right grade for every subject (with
+the real bank files), MIXED rotation shared by quick challenges and transmissions, the grade 4–5 and 6–12
+rules on QUIZ gates, and a scripted read of each shark book to its win, secret (and lose) endings.
+
+`scripts/playtest-subjects.cjs` (preview on port 8915: `npx vite preview --port 8915 --host 127.0.0.1`)
+plays the built game at desktop 1280×800 (keyboard) and phone 390×844 (touch): SCIENCE at grade 7 (saved,
+kept after a reload) through *The Tracker Before the Storm* to an ending (story gates, a quick challenge
+answered wrong (−1 heart, the item's explanation as the hint) then right, SCIENCE transmissions, the
+mission report), then MATH at grade 4 through *Speckle and the Reef Rescue* to the secret ending (a double
+miss reveals the answer, no hearts), `?topic=science-mix`, MUSIC/SFX taps on the phone, no horizontal
+scroll and no page errors.
+
 `scripts/playtest.cjs` is an automated Playwright playtest (needs `npx vite preview --port 4417 --host 127.0.0.1`):
 grades K and 3 (the 4+ screen), 4, 7 and 11 with the keyboard at 1280×800 and with touch at 1080×810,
 plus the grade picker. It plays the sample book to both endings (gates by keys and by taps, the
@@ -280,7 +359,8 @@ re-import, MY BOOKS). `SHOT=1` saves `docs/screenshot.png` (scene + text) and `d
 640×400 canvas). `?debug` exposes a few handles as `window.__pq`.
 
 Code map: `src/story/` (roster, parser, validator, serializer, readability, standards),
-`src/play/` (reading rules, saves), `src/engine/` (bitmap font, pixel drawing, scenes, sprites,
+`src/play/` (reading rules, saves, `subjects.ts`: the subject picker and the deck behind quick challenges
+and transmissions), `src/engine/` (bitmap font, pixel drawing, scenes, sprites,
 moods, renderer), `src/ui/` (library, reader, Writer's Desk, CSS), `src/writer/draft.ts`,
 `src/books.ts` (loads `src/stories/**/*.story` with `import.meta.glob`). `src/kit` is the shared
 arcade kit (copy the canonical `kit/` folder there before building).

@@ -186,6 +186,14 @@ Mentor: Quickly, please, because at this rate, by tomorrow night the towers will
 - Professor Thorne takes the word from the stone to punish students.
 - You join the Exclamation Points and become Sabine's best friend.
 hint: An objective summary covers the main events: where you went, what you learned, and the problem at the end of the chapter.
+next: quiz-ch2
+
+=== quiz-ch2
+scene: castle-hall
+cast: hero, quill:happy
+Quill swoops down and settles on your shoulder, her feathers ruffled from the trip.
+Quill: Hoo! You've made it this far by reading carefully. Before the next part begins, let's keep your mind sharp.
+? QUIZ : Before we go on, a quick challenge!
 next: ch2
 
 # ============================================================
@@ -343,6 +351,14 @@ Quill: Everything that used to be together is now separated. I believe the missi
 - Errata the dragon eats the founding sentence by mistake.
 - The Question Marks and Exclamation Points move to a new castle.
 hint: Think about what you discovered about Sabine, the Chronicle, and the diary in the garden.
+next: quiz-ch3
+
+=== quiz-ch3
+scene: forest
+cast: hero, quill:happy
+You pause to collect your thoughts. Quill produces a small card from beneath her wing with a flourish.
+Quill: A real adventurer trains every skill, not just one. Here's a quick challenge before we continue.
+? QUIZ : Quick challenge before the next chapter!
 next: ch3
 
 # ============================================================

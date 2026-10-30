@@ -187,6 +187,14 @@ Quill: Before we turn the page, let us state plainly what we know, without decor
 - Tamsin has proved beyond doubt that the crates are completely safe.
 - A fungal blight from Earth has spread through half of the dome.
 hint: An objective summary takes no sides and claims nothing beyond the evidence. Which one reports both the theory and the pattern?
+next: quiz-g-ch2
+
+=== quiz-g-ch2
+scene: library
+cast: hero, quill:happy
+The narrative pauses, like a breath held between chapters. Quill regards you with her steady amber eyes.
+Quill: Curiosity doesn't stop at the edge of a book. Let's test a different kind of thinking.
+? QUIZ : One quick challenge, then back to the story!
 next: g-ch2
 
 # ============================================================
@@ -417,6 +425,14 @@ Quill: Notice how this chapter has been constructed. Nobody on Halcyon Base did 
 - A leader must always follow the handbook, whatever the evidence.
 - Young people are always wiser than the adults around them.
 hint: Quill says that "each step made sense on its own." What happens when nobody checks how the steps add up?
+next: quiz-g-ch3
+
+=== quiz-g-ch3
+scene: library
+cast: hero, quill:happy
+Quill glides down and settles on your shoulder, folding her wings with the air of a professor before an exam.
+Quill: You've read this far with real care. Before the story continues, let's make sure the rest of your mind is just as sharp.
+? QUIZ : Before we go on, a quick challenge!
 next: g-ch3
 
 # ============================================================

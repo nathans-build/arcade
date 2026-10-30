@@ -34,10 +34,18 @@ export interface GateAnswer {
   line: number;
 }
 
+/**
+ * "mc" and "order" are story gates written in the book (they test the story). "quiz" is a
+ * subject gate (`? QUIZ : lead-in`): its question is drawn at play time from the kit bank of the
+ * subject the player picked, at the player's grade; the book only writes Quill's lead-in.
+ */
+export type GateKind = "mc" | "order" | "quiz";
+
 export interface Gate {
-  kind: "mc" | "order";
-  /** Standard without the grade, e.g. "RL.3". */
+  kind: GateKind;
+  /** Standard without the grade, e.g. "RL.3" ("QUIZ" for subject gates: the bank item has its own). */
   anchor: string;
+  /** The question (for "quiz": Quill's lead-in line, may be empty). */
   question: string;
   /** Multiple choice answers (kind "mc"). */
   answers: GateAnswer[];

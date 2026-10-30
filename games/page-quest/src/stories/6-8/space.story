@@ -155,6 +155,14 @@ You think back over the day. The Kestrel is orbiting the ice moon Nerida and is 
 - The toaster in the galley was sending secret messages.
 - Aliens attacked the Kestrel, and the crew fled home.
 hint: An objective summary lists the main events without opinions. Which choice tells what actually happened?
+next: quiz-chapter2
+
+=== quiz-chapter2
+scene: space-corridor
+cast: hero, quill:happy
+Before you can turn the page, Quill lifts one wing like a crossing guard.
+Quill: Hold on! The story will wait for us. First, one of my quick challenges.
+? QUIZ : Sharp minds win the day. Try this one!
 next: chapter2
 
 # ============================================================
@@ -356,6 +364,14 @@ Quill: And yet here we are, because you listened.
 - Rules are made to be broken during important missions.
 - Robots are always wiser than humans.
 hint: Quill describes the choices that worked best. What two things did they balance?
+next: quiz-chapter3
+
+=== quiz-chapter3
+scene: cave
+cast: hero, quill:happy
+For a moment the story goes still, as if the book itself were waiting. Quill blinks her big amber eyes.
+Quill: Sharp minds solve hard problems. Let's see how you handle this one.
+? QUIZ : One quick challenge, then back to the story!
 next: chapter3
 
 # ============================================================

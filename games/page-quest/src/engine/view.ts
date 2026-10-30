@@ -129,9 +129,11 @@ export class SceneView {
       const mood = resolveMood(c.mood);
       const talking = st.speaking === c.id;
       const rows0 = def.rows;
-      const h = rows0.length * SCALE;
+      // Big animals (the sharks) draw at a whole-number multiple of the normal pixel size.
+      const S = SCALE * (def.scale ?? 1);
+      const h = rows0.length * S;
       const frozen = mood === "frozen";
-      let x = xs[i] - 8 * SCALE;
+      let x = xs[i] - 8 * S;
       let y = floor - h - (def.lift ?? 0);
       // Frozen characters hold perfectly still (no bob, no float, no talking hop).
       if (!frozen) {
@@ -145,22 +147,24 @@ export class SceneView {
       // shadow
       g.dither(xs[i] - 12, floor - 2, 24, 3, "#000000", "rgba(0,0,0,0)");
 
-      const altRate = c.id === "cat" ? 1.2 : c.id === "zombie" ? 1.6 : c.id === "sphinx" ? 0.7 : c.id === "griffin" ? 2.2 : c.id === "ghost" ? 3 : 6;
+      // Two-frame rates: slow swishes for the sharks' tails, quick flaps for wings and rotors.
+      const ALT_RATE: Partial<Record<string, number>> = { cat: 1.2, zombie: 1.6, sphinx: 0.7, griffin: 2.2, ghost: 3, whaleshark: 1.2, hammerhead: 2.2, greatwhite: 1.8 };
+      const altRate = ALT_RATE[c.id] ?? 6;
       const altFrame = def.alt ? Math.floor(t * altRate) % 2 === 1 : false;
       const blink = (t + i * 1.7) % 4 < 0.14;
       const rows = faceRows(def, altFrame, mood, blink, talking && Math.floor(t * 7) % 2 === 0);
       const flip = cast.length > 1 && i === cast.length - 1 && c.id !== "hero";
       if (c.id === "ghost") g.ctx.globalAlpha = 0.85;
-      g.grid(rows, { ...KEYS, ...(def.colors ?? {}) }, x, y, SCALE, flip);
+      g.grid(rows, { ...KEYS, ...(def.colors ?? {}) }, x, y, S, flip);
       g.ctx.globalAlpha = 1;
       // top of the visible sprite
       const top = rows.findIndex((r) => /[^.]/.test(r));
-      if (frozen) this.iceBlock(x, y + Math.max(0, top) * SCALE - 3, 16 * SCALE, floor - (y + Math.max(0, top) * SCALE) + 1, t, i);
-      heads[c.id] = [xs[i], y + Math.max(0, top) * SCALE];
+      if (frozen) this.iceBlock(x, y + Math.max(0, top) * S - 3, 16 * S, floor - (y + Math.max(0, top) * S) + 1, t, i);
+      heads[c.id] = [xs[i], y + Math.max(0, top) * S];
 
       const since = t - this.moodSince;
       const showEmote = mood !== "normal" && (def.noFace || since < 4 || since % 8 < 1.6 || talking);
-      if (showEmote) this.emote(mood, xs[i] + 10, y + Math.max(0, top) * SCALE - 14);
+      if (showEmote) this.emote(mood, xs[i] + 10, y + Math.max(0, top) * S - 14);
     });
 
     if (st.bubble && heads[st.bubble.who]) this.speech(st.bubble.text, heads[st.bubble.who]);

@@ -202,6 +202,14 @@ Quill: One day of our expedition is complete, so tell me plainly what happened t
 - Isolde is lost because the lazy council refused to search for her.
 - The beautiful forest road was the best part of a truly wonderful day.
 hint: A summary covers the main events without judgments like "rude," "lazy," or "wonderful."
+next: quiz-a-ch2
+
+=== quiz-a-ch2
+scene: forest
+cast: hero, quill:happy
+Before you can turn the page, Quill raises one wing, unhurried and deliberate.
+Quill: The story will keep. A quick challenge first; think it through rather than guessing.
+? QUIZ : Sharp minds win the day. Try this one!
 next: a-ch2
 
 # ============================================================
@@ -431,6 +439,14 @@ Quill: Stories often reveal what they value through the characters who succeed i
 - Family members should never argue before a long journey.
 - Old stories are entertaining but have no practical use.
 hint: Think about who has succeeded so far: the fast and greedy, or the slow and careful?
+next: quiz-a-ch3
+
+=== quiz-a-ch3
+scene: cave
+cast: hero, quill:happy
+The narrative pauses, like a breath held between chapters. Quill regards you with her steady amber eyes.
+Quill: Curiosity doesn't stop at the edge of a book. Let's test a different kind of thinking.
+? QUIZ : One quick challenge, then back to the story!
 next: a-ch3
 
 # ============================================================

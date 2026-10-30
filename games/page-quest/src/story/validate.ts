@@ -16,7 +16,8 @@ export interface StoryStats {
   pages: number;
   reachable: number;
   endings: { win: number; lose: number; secret: number };
-  gates: { mc: number; order: number };
+  /** Story gates (mc, order) and subject gates (quiz: `? QUIZ`, drawn from the player's subject). */
+  gates: { mc: number; order: number; quiz: number };
   checkpoints: number;
   readability: Readability;
 }
@@ -103,7 +104,12 @@ export function validateStory(story: Story): { issues: Issue[]; stats: StoryStat
     }
 
     const g = p.gate;
-    if (g) {
+    if (g && g.kind === "quiz") {
+      if (g.question.length > 120) warn(g.line, `The QUIZ lead-in is ${g.question.length} characters; keep it short (Quill says it before the question).`, id);
+      if (g.hintLine) warn(g.hintLine, "A QUIZ gate's hint is not used: Quill explains the subject question with the bank item's own explanation.", id);
+      if (!g.next) err(g.line, 'The QUIZ gate needs a "next:" line (the page after the question).', id);
+      else if (!byId.has(g.next)) err(g.nextLine || g.line, `Gate next: goes to page "${g.next}", which does not exist.`, id);
+    } else if (g) {
       if (!(g.anchor in ANCHORS)) err(g.line, `Unknown standard anchor "${g.anchor}". Use RL.1–RL.9, RI.1–RI.9, L.1–L.6, W.1–W.3, RF.3 or RF.4.`, id);
       else if (g.anchor === "RL.8") warn(g.line, "RL.8 is not used for literature in the standards; consider RL.1, RL.3 or RI.8.", id);
       else if (g.anchor.startsWith("RF.") && !lowBand) warn(g.line, `${g.anchor} (foundational skills) ends at grade 5; older players are scored on ${g.anchor === "RF.3" ? "L.x.4" : "RL.x.10"}.`, id);
@@ -179,11 +185,13 @@ export function validateStory(story: Story): { issues: Issue[]; stats: StoryStat
   const ends = { win: 0, lose: 0, secret: 0 };
   let mc = 0;
   let order = 0;
+  let quiz = 0;
   let checkpoints = 0;
   for (const p of story.pages) {
     if (p.end && p.end.type in ends) ends[p.end.type as keyof typeof ends]++;
     if (p.gate?.kind === "mc") mc++;
     if (p.gate?.kind === "order") order++;
+    if (p.gate?.kind === "quiz") quiz++;
     if (p.checkpoint) checkpoints++;
   }
   if (story.pages.length && ends.win + ends.secret === 0) warn(0, "The book has no win or secret ending.");
@@ -196,7 +204,7 @@ export function validateStory(story: Story): { issues: Issue[]; stats: StoryStat
       pages: story.pages.length,
       reachable: reach.size,
       endings: ends,
-      gates: { mc, order },
+      gates: { mc, order, quiz },
       checkpoints,
       readability: storyReadability(story),
     },

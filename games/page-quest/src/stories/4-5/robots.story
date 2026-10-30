@@ -164,6 +164,14 @@ Helperbot: A plan! Whirligig gets the lemons, and we get new arms! Let's go!
 - Ms. Butterbell bakes a cake and brings it to the shop.
 - Whirligig teaches Dumpling how to fly.
 hint: Think about the big problem at the start and the plan at the end of the chapter.
+next: quiz-ch2
+
+=== quiz-ch2
+scene: bakery
+cast: hero, quill:happy
+Quill hops in front of you and holds up one wing.
+Quill: Wait just a moment! The next part of the story is coming. First, try one of my quick challenges.
+? QUIZ : Sharp minds win the day. Try this one!
 next: ch2
 
 # ============================================================
@@ -310,6 +318,14 @@ Helperbot: We have everything. Now we just have to bake it right.
 - Whirligig wins a race against three eggs.
 - Quill bakes a cake in the robot workshop.
 hint: What two things did Dumpling need at the end of Chapter One? How did it get them?
+next: quiz-ch3
+
+=== quiz-ch3
+scene: bakery
+cast: hero, quill:happy
+The page goes quiet, like the whole book is holding its breath. Quill puffs out her feathers.
+Quill: Hoo hoo! It's time for a quick challenge. Take your time and think it through.
+? QUIZ : One quick challenge, then back to the story!
 next: ch3
 
 # ============================================================

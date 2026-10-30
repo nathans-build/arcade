@@ -178,6 +178,14 @@ You think about Mateo's grin and wonder if he is braver than he thinks. Then you
 - Mateo broke the mirror, so the crew turned around.
 - Dot flew the ship by herself all the way to Saturn.
 hint: Listen to Quill's summary of the chapter. What happened to the mirror, and what happened at Jupiter?
+next: quiz-ch2
+
+=== quiz-ch2
+scene: space-corridor
+cast: hero, quill:happy
+Quill flutters down and lands on your shoulder. She gives you a big owl wink.
+Quill: Hoo! You are reading like a champion. Let's warm up your brain before the story goes on.
+? QUIZ : Before we go on, a quick challenge!
 next: ch2
 
 # ============================================================
@@ -342,6 +350,14 @@ Captain Bright smiles at her nephew, and he smiles back. You notice that he hasn
 - Dot broke the water pump, so the crew went home.
 - Mateo stayed in bed while the Captain flew through the ice.
 hint: Quill sums it up. What was the big problem, and who solved it?
+next: quiz-ch3
+
+=== quiz-ch3
+scene: space-bridge
+cast: hero, quill:happy
+You stop for a moment to catch your breath. Quill pulls a tiny card out from under her wing.
+Quill: Good explorers keep all their skills sharp, not just their reading skills. Ready?
+? QUIZ : Quick challenge before the next chapter!
 next: ch3
 
 # ============================================================
