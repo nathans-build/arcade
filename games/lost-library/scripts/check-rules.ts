@@ -24,6 +24,13 @@
  *    draws only that, at every grade. Through Vite's SSR loader, so the kit's real banks are used.
  * 7. The topic picker: ?topic= / ?subject= parsing (arcade ids, quiz-mix ids), stored choice
  *    parsing, fallback when a grade can't offer a topic.
+ * 8. Every quest (scripts/quest-checks.ts), the Lost Library included: map data, every door agrees on
+ *    both sides, every wing solvable from its entrance and the whole quest from a fresh save (K-2 and
+ *    3+), every item reachable and needed, collect-everything, timed puzzles at 2x walking time, no
+ *    softlock after random play, Question Doors / guardians, saving. Plus unit tests of every new
+ *    mechanic (tide, bubble, clock switch, conveyor, wind-up, lava / hot rock / magma, vents, ghosts),
+ *    and every Question Door and guardian of every quest drawing valid questions for every subject
+ *    and every grade (K-12, so every grade band).
  */
 import { GRADES } from "../src/kit/grades";
 import { MATH_GENERATORS, mathQuestion } from "../src/kit/math";
@@ -35,6 +42,8 @@ import {
 } from "../src/library/focus";
 import { Game, SAVE_KEY, newSave, parseSave, type SaveData } from "../src/library/game";
 import { HERO_SPRITES } from "../src/library/render";
+import { QUESTS } from "../src/library/quests";
+import { checkMechanics, checkQuest, type QuestReport } from "./quest-checks";
 import { applyAction, pathTo, solve, solveRoomBlocks, type Action } from "../src/library/solver";
 import {
   AREAS, AREA_IDS, COLS, DELTA, GATE_FRONT, GUARDIANS, GUARDIAN_ROOM, ITEMS, ROWS, WINGS, WING_BONUS_ROOM, allRooms, doorsOf,
@@ -405,6 +414,20 @@ for (const w of WINGS) {
   check(r.blocks.map((b) => b.join()).join(";") === start && r.s.at.x === 19 && r.s.at.y === 5, () => "Reset room puts crates and hero back");
 }
 
+/* --------------------------------------------------------------------- 8. every quest */
+
+check(QUESTS[0].id === "library" && QUESTS[0].saveKey === SAVE_KEY, () => "quest 1 is the Lost Library with its original save key");
+check(new Set(QUESTS.map((q) => q.id)).size === QUESTS.length && new Set(QUESTS.map((q) => q.saveKey)).size === QUESTS.length, () => "quest ids and save keys are unique");
+check(QUESTS.every((q) => q.saveKey.startsWith("arcade.lost-library.")), () => "every save key starts with arcade.lost-library.");
+checkMechanics(check);
+const questReports = new Map<string, QuestReport>();
+for (const q of QUESTS) questReports.set(q.id, checkQuest(q, check, { fuzz: q.id === "library" ? 4 : 8 }));
+{
+  // Room ids never collide with the Lost Library's, so an old save can never load into another quest.
+  const lib = new Set(allRooms().map((r) => r.id));
+  for (const q of QUESTS.slice(1)) for (const a of Object.values(q.areas)) for (const r of a.rooms) check(!lib.has(r.id), () => `${q.id}: room id ${r.id} is also a Lost Library room`);
+}
+
 /* ------------------------------------------------------------------ 6 & 7. questions */
 
 type Written = Exclude<Subject, "math">;
@@ -526,6 +549,24 @@ check(same(parseStoredFocus("wizardry", "x"), MIXED) && same(parseStoredFocus("e
         for (const w of [...WINGS, null]) checkQ(one.draw(w ? AREAS[w].subject : null), `ALL ${s} ${g}`, s);
       }
     }
+    // Every quest: each area's Question Doors and guardian draw valid questions of the right subject,
+    // MIXED and for every one-subject choice, at every grade.
+    for (const q of QUESTS) {
+      for (const g of GRADES) {
+        const decks = new mod.LibraryDecks(g, "lost-library-test");
+        for (const a of Object.values(q.areas)) {
+          if (!a.guardian && !a.doors.some((d) => d.kind === "question")) continue;
+          for (let i = 0; i < 4; i++) {
+            const qq = decks.draw(a.subject);
+            checkQ(qq, `${q.id} MIXED ${g} ${a.id}`, a.subject ?? undefined);
+          }
+        }
+        for (const s of ["math", "science", "ela", "social"] as Subject[]) {
+          const one = new mod.LibraryDecks(g, "lost-library-test", { subject: s, topic: "all" });
+          for (const a of Object.values(q.areas)) if (a.guardian || a.doors.some((d) => d.kind === "question")) checkQ(one.draw(a.subject), `${q.id} ALL ${s} ${g} ${a.id}`, s);
+        }
+      }
+    }
     const t = new mod.LibraryDecks("7", "lost-library-test", { subject: "math", topic: "ratios" });
     for (let i = 0; i < 10; i++) check(classifyTopic(t.draw("science")) === "ratios", () => "a topic quest asks that topic in every wing");
   } finally {
@@ -535,6 +576,13 @@ check(same(parseStoredFocus("wizardry", "x"), MIXED) && same(parseStoredFocus("e
 
 console.log(`${checks} checks, ${failures} failures (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 console.log(`Rooms ${allRooms().length} (${AREA_IDS.map((a) => `${a} ${AREAS[a].rooms.length}`).join(", ")}); softlock trials ${fuzzRuns}; questions checked ${questionsChecked}; focus draws ${focusDraws}.`);
+for (const [id, r] of questReports) {
+  console.log(
+    `Quest ${id}: ${r.rooms} rooms; wings ${r.wings.map((w) => `${w.id} ${w.rooms} rooms (${w.actions3}/${w.actionsK2} actions 3+/K-2)`).join(", ")}; ` +
+      `whole quest ${r.whole}/${r.wholeK2} actions, collect-everything ${r.everything}/${r.everythingK2}; softlock trials ${r.fuzz}` +
+      (r.timedRooms.length ? `; timed rooms ${r.timedRooms.join(", ")}${r.minMargin !== null ? ` (clock-switch margin >= ${r.minMargin.toFixed(1)}x)` : ""}` : ""),
+  );
+}
 console.log("Topics by grade:");
 for (const g of GRADES) console.log(`  ${g.padStart(2)}: ${offeredAt.get(g)!.join(", ")}`);
 if (failures) {

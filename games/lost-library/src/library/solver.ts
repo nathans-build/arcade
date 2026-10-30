@@ -14,26 +14,40 @@
  *
  * Pure TypeScript (no DOM).
  */
-import { Game } from "./game";
-import { DELTA, type AreaId, type Dir, type ItemId, type Place } from "./world";
+import { Game, SOLVER_STEP_MS } from "./game";
+import { DELTA, type Dir, type Place } from "./quest";
 
-/** A step: a move, or face a direction and use an item / press Enter, or reset the room. */
-export type Action = Dir | "reset" | `enter@${Dir}` | `x:${ItemId | "lantern"}@${Dir}`;
+/**
+ * A step: a move, or face a direction and use an item / press Enter, wait a moment (steam vents),
+ * or reset the room.
+ */
+export type Action = Dir | "reset" | "wait" | `enter@${Dir}` | `x:${string}@${Dir}`;
 
 const MOVES: Dir[] = ["up", "down", "left", "right"];
 
-/** Runs one action, answering any Question Door or guardian right. */
-export function applyAction(g: Game, a: Action): void {
+/**
+ * Runs one action, answering any Question Door or guardian right. Every action takes `stepMs` of
+ * game time (a conveyor ride one step per tile), so timed gates and steam vents are played at a
+ * walking speed slower than the real one: whatever the solver manages, a player manages too.
+ */
+export function applyAction(g: Game, a: Action, stepMs = SOLVER_STEP_MS): void {
+  let steps = 1;
   if (a === "reset") g.resetRoom();
-  else if (a.startsWith("enter@")) {
+  else if (a === "wait") {
+    // just time passing
+  } else if (a.startsWith("enter@")) {
     g.s.at.facing = a.slice(6) as Dir;
     g.interact();
   } else if (a.startsWith("x:")) {
     const [item, dir] = a.slice(2).split("@");
     g.s.at.facing = dir as Dir;
-    g.select(item === "lantern" ? null : (item as ItemId));
+    g.select(item === "lantern" ? null : item);
     g.useItem();
-  } else g.move(a as Dir);
+  } else {
+    g.move(a as Dir);
+    steps = Math.max(1, g.lastSteps);
+  }
+  if (a !== "reset") g.passTime(stepMs * steps);
   for (const e of g.takeEvents()) {
     if (e.type === "question") g.openQuestionDoor(e.doorId);
     else if (e.type === "guardian") {
@@ -47,16 +61,28 @@ interface Light {
   at: Place;
   entry: Place;
   blocks: [number, number][];
-  selected: ItemId | null;
+  selected: string | null;
+  /** Tide levers flipped (reversible, so not progress). */
+  tide: string[];
+  clockMs: number;
+  timerMs: number;
+  shield: number;
 }
 function getLight(g: Game): Light {
-  return { at: { ...g.s.at }, entry: { ...g.s.entry }, blocks: g.blocks.map(([x, y]) => [x, y]), selected: g.s.selected };
+  return {
+    at: { ...g.s.at }, entry: { ...g.s.entry }, blocks: g.blocks.map(([x, y]) => [x, y]), selected: g.s.selected,
+    tide: [...g.s.tide], clockMs: g.clockMs, timerMs: g.timerMs, shield: g.shield,
+  };
 }
 function setLight(g: Game, l: Light, x = l.at.x, y = l.at.y) {
   g.s.at = { ...l.at, x, y };
   g.s.entry = { ...l.entry };
   g.blocks = l.blocks.map(([bx, by]) => [bx, by]);
   g.s.selected = l.selected;
+  g.s.tide = [...l.tide];
+  g.clockMs = l.clockMs;
+  g.timerMs = l.timerMs;
+  g.shield = l.shield;
   g.enemies = [];
   g.drops = [];
   g.events = [];
@@ -128,23 +154,59 @@ class Heap<T> {
   }
 }
 
-const configKey = (l: Light) => `${l.at.room}|${l.blocks.map(([x, y]) => `${x},${y}`).join(";")}|${l.entry.room},${l.entry.x},${l.entry.y}`;
+/** Rooms with steam vents: the vent rhythm's period (ms), so the clock only matters modulo it. */
+const ventPeriod = new Map<string, number>();
+function configKey(g: Game, l: Light): string {
+  let key = `${l.at.room}|${l.blocks.map(([x, y]) => `${x},${y}`).join(";")}|${l.entry.room},${l.entry.x},${l.entry.y}`;
+  if (l.tide.length) key += `|t${[...l.tide].sort().join(",")}`;
+  if (l.shield > 0) key += `|b${l.shield}`;
+  if (l.timerMs > 0) key += `|z${Math.round(l.timerMs)}`;
+  const room = g.world.room(l.at.room);
+  if (room.rows.some((r) => r.includes("%"))) {
+    const k = `${g.q.id}:${room.id}:${g.opts.early}`;
+    let per = ventPeriod.get(k);
+    if (per === undefined) {
+      const v = g.ventRhythm(room);
+      per = v.on + v.off;
+      ventPeriod.set(k, per);
+    }
+    key += `|v${Math.round(l.clockMs) % per}`;
+  }
+  return key;
+}
 
 /** Item and Enter actions that can possibly do something at this spot (the rest change nothing). */
 function usefulActs(g: Game, x: number, y: number): Action[] {
   const out: Action[] = [];
   const room = g.room;
   const has = (c: string) => room.rows.some((r) => r.includes(c));
+  const boomerang = g.itemWith("boomerang");
+  const grapple = g.itemWith("grapple");
+  const windup = g.itemWith("windup");
+  const heat = g.itemWith("heat");
   for (const d of MOVES) {
     const [dx, dy] = DELTA[d];
     const t = g.tile(x + dx, y + dy);
-    if (t === "G" || t === "C") out.push(`enter@${d}`);
+    if (t === "G" || t === "C" || t === "l") out.push(`enter@${d}`);
     if (t === "T") out.push(`x:lantern@${d}`);
-    if (g.s.items.includes("boomerang") && has("R")) out.push(`x:boomerang@${d}`);
-    if (g.s.items.includes("quill") && has("o")) out.push(`x:quill@${d}`);
+    if (boomerang && has("R")) out.push(`x:${boomerang}@${d}`);
+    if (grapple && has("o")) out.push(`x:${grapple}@${d}`);
+    if (windup && t === "&") out.push(`x:${windup}@${d}`);
+    if (heat && t === "*") out.push(`x:${heat}@${d}`);
   }
-  if (g.s.items.includes("magnifier") && (has("i") || room.secret) && !g.s.revealed.includes(room.id)) out.push("x:magnifier@up");
-  if (g.s.items.includes("bell")) out.push("x:bell@up");
+  const reveal = g.itemWith("reveal");
+  if (reveal && (has("i") || room.secret) && !g.s.revealed.includes(room.id)) out.push(`x:${reveal}@up`);
+  const echo = g.itemWith("echo");
+  if (echo) out.push(`x:${echo}@up`);
+  const ghost = g.itemWith("ghost");
+  if (ghost) {
+    const unseen = (has("i") || has("q") || !!room.secret) && !g.s.revealed.includes(room.id);
+    const hidden = g.world.doorsOf(room.id).some((d) => d.door.kind === "hidden" && !g.s.opened.includes(d.door.id));
+    if (unseen || hidden) out.push(`x:${ghost}@up`);
+  }
+  const bubble = g.itemWith("bubble");
+  if (bubble && g.shield === 0 && (has("w") || has("j"))) out.push(`x:${bubble}@up`);
+  if (has("%")) out.push("wait");
   return out;
 }
 
@@ -159,7 +221,9 @@ export interface SolveResult {
 
 export interface SolveOpts {
   /** Stay inside this area (a wing must be solvable on its own). */
-  area?: AreaId;
+  area?: string;
+  /** Game time per action (default SOLVER_STEP_MS). */
+  stepMs?: number;
   /** Stay inside this room. */
   room?: string;
   /** Only progress that passes this counts; other progress is treated as a dead end. */
@@ -189,7 +253,7 @@ export function solve(g: Game, goal: (g: Game) => boolean, opts: SolveOpts = {})
 
     const tryAct = (light: Light, x: number, y: number, a: Action): "progress" | "same" | Light => {
       setLight(g, light, x, y);
-      applyAction(g, a);
+      applyAction(g, a, opts.stepMs);
       nodes++;
       if (g.progSig() !== sig) {
         if (!opts.accept || opts.accept(g)) return "progress";
@@ -201,7 +265,7 @@ export function solve(g: Game, goal: (g: Game) => boolean, opts: SolveOpts = {})
 
     while (outer.size && !found) {
       const { light, path, depth } = outer.pop();
-      const ck = configKey(light);
+      const ck = configKey(g, light);
       if (flooded.has(`${ck}|${light.at.x},${light.at.y}`)) continue;
       // Flood the hero's free-walk region in this configuration.
       const inner: { x: number; y: number; path: Action[] }[] = [{ x: light.at.x, y: light.at.y, path }];
@@ -219,7 +283,7 @@ export function solve(g: Game, goal: (g: Game) => boolean, opts: SolveOpts = {})
           if (r === "same") continue;
           if (opts.area && r.at.area !== opts.area) continue;
           if (opts.room && r.at.room !== opts.room) continue;
-          const nk = configKey(r);
+          const nk = configKey(g, r);
           const spot = `${nk}|${r.at.x},${r.at.y}`;
           if (flooded.has(spot)) continue;
           if (nk === ck && a !== "reset") {
@@ -247,7 +311,7 @@ export function solve(g: Game, goal: (g: Game) => boolean, opts: SolveOpts = {})
     }
     // Replay the winning path from the milestone's start, so the game is exactly in that state.
     g.restore(saved);
-    for (const a of found) applyAction(g, a);
+    for (const a of found) applyAction(g, a, opts.stepMs);
     if (g.progSig() === sig) {
       return { ok: false, actions, milestones: m, nodes, reason: `replay mismatch near ${g.s.at.room}` };
     }
@@ -266,7 +330,7 @@ export function pathTo(g: Game, tx: number, ty: number): Dir[] | null {
   const sig = g.progSig();
   const queue: { x: number; y: number; path: Dir[] }[] = [{ x: light.at.x, y: light.at.y, path: [] }];
   const seen = new Set([`${light.at.x},${light.at.y}`]);
-  const blocks = configKey(light);
+  const blocks = configKey(g, light);
   try {
     for (let qi = 0; qi < queue.length; qi++) {
       const p = queue[qi];
@@ -277,7 +341,7 @@ export function pathTo(g: Game, tx: number, ty: number): Dir[] | null {
         g.takeEvents();
         // The target itself may hold a pickup (picking it up is the point of walking there).
         if (g.s.at.room === light.at.room && g.s.at.x === tx && g.s.at.y === ty) return [...p.path, d];
-        if (configKey(getLight(g)) !== blocks || g.progSig() !== sig) continue;
+        if (configKey(g, getLight(g)) !== blocks || g.progSig() !== sig) continue;
         const k = `${g.s.at.x},${g.s.at.y}`;
         if (seen.has(k)) continue;
         seen.add(k);

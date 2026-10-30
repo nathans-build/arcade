@@ -1,111 +1,26 @@
 /*
- * Quest of the Lost Library: the world map.
+ * Quest 1, Quest of the Lost Library: the world map (the original quest, unchanged).
  *
- * Every room is a 20 x 12 grid of 16 px tiles. Rooms sit on a grid inside their area; the doors
- * between neighbouring rooms are listed once per area (DoorDef), so both sides always agree.
- * Door gaps are carved into the border automatically:
- *   north / south: columns 9-10 of row 0 / row 11       west / east: rows 5-6 of column 0 / column 19
- *
- * Tiles (rows):
- *   #  wall (bookshelves in a wing, hedge in town)   W  building wall (a wing gate or the grand library)
- *   .  floor          ,  rug (floor)     =  path (floor)   f  flowers (floor)   E  ink sprite / dust bunny spawn (floor)
- *   B  book crate (pushable block)       S  pressure switch (floor)
- *   T  cold torch (light it with the lantern: face it, press X)   Y  lit wall torch (decoration)
- *   R  crystal switch (hit it with the Bookmark Boomerang)
- *   _  gap (can't walk; the Grappling Quill pulls across to a hook post o)   o  hook post
- *   i  invisible-ink bridge (a gap until the Magnifier reveals it)
- *   ^  ink puddle (costs a heart from grade 3 up; a harmless dry stain for K-2)
- *   K / k  small key (k appears when the room's puzzle is solved)   M / m  wing map (same rule)
- *   C / c  chest (same rule; contents in RoomDef.chest)
- *   N  lectern / sign (Enter reads it)   F  Madame Folio, the head librarian (Enter talks)
- *   G  guardian (2 x 2 tiles; Enter starts the guardian's questions)
- *   P  gate door: warps to RoomDef.warp (a sealed gate opens when all four wings are restored)
- *   t  tree   ~  water   O  globe (decoration)
- *
- * Pure data + tiny helpers (no DOM), so scripts/check-rules.ts can load it under tsx.
+ * The tile legend and the room rules are in quest.ts. Pure data + tiny helpers (no DOM), so
+ * scripts/check-rules.ts can load it under tsx.
  */
-import type { Subject } from "../kit/types";
+import { BONUS_BOOK, BOOKS, WING_BOOK } from "./books";
+import {
+  ENTRANCE, GUARDIAN_HALL, P, worldOf,
+  type AreaDef, type DoorDef, type GuardianDef, type ItemDef, type Pal, type Place, type QuestDef, type RoomDef, type RoomDoor,
+} from "./quest";
 
-export const COLS = 20;
-export const ROWS = 12;
-
-export type Dir = "up" | "down" | "left" | "right";
-export const DIRS: Dir[] = ["up", "down", "left", "right"];
-export const DELTA: Record<Dir, [number, number]> = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
-export const OPPOSITE: Record<Dir, Dir> = { up: "down", down: "up", left: "right", right: "left" };
+export { COLS, ROWS, DIRS, DELTA, OPPOSITE, gapTiles, sideToward } from "./quest";
+export type { Dir, DoorKind, PuzzleKind, DoorDef, Place, RoomDef, AreaDef, GuardianDef, RoomDoor } from "./quest";
 
 export type WingId = "math" | "science" | "story" | "history";
 export type AreaId = "hub" | WingId | "reading";
 export type ItemId = "boomerang" | "quill" | "magnifier" | "bell";
-export type DoorKind = "open" | "locked" | "question" | "shutter" | "hidden";
-export type PuzzleKind = "blocks" | "torches" | "crystal" | "secret";
+export type GuardianId = "tallyshell" | "petri" | "inkwhisker" | "kitewing" | "smudge";
+/** The book each wing's guardian gives back, the bonus book hidden in each wing, and the final one. */
+export type BookId = "math" | "science" | "story" | "history" | "math-bonus" | "science-bonus" | "story-bonus" | "history-bonus" | "reading";
 
 export const WINGS: WingId[] = ["math", "science", "story", "history"];
-
-export interface DoorDef {
-  /** Unique across the whole game. */
-  id: string;
-  /** Two rooms of the same area that are grid neighbours. */
-  a: string;
-  b: string;
-  kind: DoorKind;
-}
-
-export interface Place {
-  area: AreaId;
-  room: string;
-  x: number;
-  y: number;
-  facing: Dir;
-}
-
-export interface RoomDef {
-  id: string;
-  name: string;
-  /** Column, row on the area grid. */
-  at: [number, number];
-  rows: string[];
-  /** Solving it opens `opens` doors and makes the room's lower-case k / m / c tiles appear. */
-  puzzle?: { kind: PuzzleKind; opens?: string[] };
-  chest?: "item" | "book" | "key" | "map";
-  /** Sign texts, in reading order of the N tiles (left to right, top to bottom). */
-  signs?: string[];
-  /** Text only the Magnifier shows (a "secret" puzzle room). */
-  secret?: string;
-  /** Where the room's P tiles lead. */
-  warp?: Place;
-  /** The P tiles stay shut until all four wings are restored (the Reading Room door). */
-  sealed?: boolean;
-  /** A side of the room that leads out of the area. */
-  exit?: { side: Dir; to: Place };
-}
-
-export interface AreaDef {
-  id: AreaId;
-  name: string;
-  /** Short HUD / map label. */
-  short: string;
-  subject: Subject | null;
-  item: ItemId | null;
-  /** Where a player starts (and comes back to after running out of hearts). */
-  start: Place;
-  rooms: RoomDef[];
-  doors: DoorDef[];
-  guardian: GuardianId | null;
-}
-
-export type GuardianId = "tallyshell" | "petri" | "inkwhisker" | "kitewing" | "smudge";
-
-export interface GuardianDef {
-  id: GuardianId;
-  name: string;
-  title: string;
-  area: AreaId;
-  /** Right answers needed (wrong ones only explain and ask another). */
-  need: number;
-  intro: string;
-  win: string;
-}
 
 export const GUARDIANS: Record<GuardianId, GuardianDef> = {
   tallyshell: {
@@ -135,19 +50,27 @@ export const GUARDIANS: Record<GuardianId, GuardianDef> = {
   },
 };
 
-export const ITEMS: Record<ItemId, { name: string; short: string; wing: WingId; how: string }> = {
-  boomerang: { name: "Bookmark Boomerang", short: "BOOMERANG", wing: "math", how: "Press X to throw it. It flies over gaps, hits crystal switches and tidies ink sprites, then comes back." },
-  quill: { name: "Grappling Quill", short: "QUILL", wing: "science", how: "Face a brass hook post across a gap and press X. The quill hooks on and pulls you over." },
-  magnifier: { name: "Magnifier", short: "MAGNIFIER", wing: "story", how: "Press X to look closely. It shows invisible-ink bridges and secret writing in the room." },
-  bell: { name: "Echo Bell", short: "ECHO BELL", wing: "history", how: "Press X to ring it. Its echo finds hidden doors behind cracked shelves." },
+export const ITEMS: Record<ItemId, ItemDef> = {
+  boomerang: { id: "boomerang", name: "Bookmark Boomerang", short: "BOOMERANG", wing: "math", power: "boomerang", color: "#e3262f", how: "Press X to throw it. It flies over gaps, hits crystal switches and tidies ink sprites, then comes back." },
+  quill: { id: "quill", name: "Grappling Quill", short: "QUILL", wing: "science", power: "grapple", color: "#f2f4ff", how: "Face a brass hook post across a gap and press X. The quill hooks on and pulls you over." },
+  magnifier: { id: "magnifier", name: "Magnifier", short: "MAGNIFIER", wing: "story", power: "reveal", color: "#b05cff", how: "Press X to look closely. It shows invisible-ink bridges and secret writing in the room." },
+  bell: { id: "bell", name: "Echo Bell", short: "ECHO BELL", wing: "history", power: "echo", color: "#6ea0ff", how: "Press X to ring it. Its echo finds hidden doors behind cracked shelves." },
 };
 
-const P = (area: AreaId, room: string, x: number, y: number, facing: Dir): Place => ({ area, room, x, y, facing });
+const PAL: Record<AreaId, Pal> = {
+  hub: { floorA: "#3f8f3a", floorB: "#3a8636", rug: "#c9a66b", rugEdge: "#a8854f", shelf: "#1f5a2a", shelfDark: "#143d1c", accent: "#ffd23f", building: "#8a7a6a", buildingDark: "#5c4f44" },
+  math: { floorA: "#6b3a2a", floorB: "#5e3224", rug: "#a3242c", rugEdge: "#ffd23f", shelf: "#5a2a1a", shelfDark: "#341509", accent: "#e3262f", building: "#a3242c", buildingDark: "#6a141a" },
+  science: { floorA: "#2e5a4a", floorB: "#2a5244", rug: "#1f8f55", rugEdge: "#8affc1", shelf: "#23402f", shelfDark: "#132619", accent: "#2fbf71", building: "#1f8f55", buildingDark: "#0f5532" },
+  story: { floorA: "#4a2f63", floorB: "#43295a", rug: "#7a3aa8", rugEdge: "#ff8ad8", shelf: "#3a1f4f", shelfDark: "#1f0f2c", accent: "#b05cff", building: "#7a3aa8", buildingDark: "#4a1f6a" },
+  history: { floorA: "#6a5232", floorB: "#614a2c", rug: "#2456e8", rugEdge: "#ffd23f", shelf: "#3a2a1a", shelfDark: "#21170c", accent: "#6ea0ff", building: "#2456e8", buildingDark: "#14348c" },
+  reading: { floorA: "#6b4a2a", floorB: "#634426", rug: "#b8862a", rugEdge: "#ffe9a0", shelf: "#4a3410", shelfDark: "#2a1d08", accent: "#ffd23f", building: "#b8862a", buildingDark: "#7a5612" },
+};
+const look = (a: AreaId): AreaDef["look"] => (a === "hub" ? { wall: "hedge", floor: "grass", pal: PAL.hub } : { wall: "shelf", floor: "boards", pal: PAL[a] });
 
 /* ------------------------------------------------------------------------------------ hub */
 
 const HUB: AreaDef = {
-  id: "hub", name: "Bramblebury Town", short: "TOWN", subject: null, item: null, guardian: null,
+  id: "hub", look: look("hub"), name: "Bramblebury Town", short: "TOWN", subject: null, item: null, guardian: null,
   start: P("hub", "h-square", 9, 8, "up"),
   rooms: [
     {
@@ -285,40 +208,10 @@ export const GATE_FRONT: Record<WingId | "reading", Place> = {
   reading: P("hub", "h-steps", 9, 4, "down"),
 };
 
-/* Shared room shapes */
-const ENTRANCE = (sign: string): string[] => [
-  "####################",
-  "#Y................Y#",
-  "#..................#",
-  sign,
-  "#..................#",
-  "#..................#",
-  "#..................#",
-  "#.......,,,,.......#",
-  "#.......,,,,.......#",
-  "#.......,,,,.......#",
-  "#.......,,,,.......#",
-  "####################",
-];
-const GUARDIAN_HALL = [
-  "####################",
-  "#Y................Y#",
-  "#..................#",
-  "#........GG........#",
-  "#........GG........#",
-  "#..................#",
-  "#.....,,,,,,,,.....#",
-  "#.....,,,,,,,,.....#",
-  "#..................#",
-  "#Y................Y#",
-  "#..................#",
-  "####################",
-];
-
 /* ------------------------------------------------------------------------------ math wing */
 
 const MATH: AreaDef = {
-  id: "math", name: "Math Wing", short: "MATH WING", subject: "math", item: "boomerang", guardian: "tallyshell",
+  id: "math", look: look("math"), name: "Math Wing", short: "MATH WING", subject: "math", item: "boomerang", guardian: "tallyshell",
   start: P("math", "m1", 9, 10, "up"),
   rooms: [
     {
@@ -436,7 +329,7 @@ const MATH: AreaDef = {
 /* --------------------------------------------------------------------------- science wing */
 
 const SCIENCE: AreaDef = {
-  id: "science", name: "Science Wing", short: "SCIENCE WING", subject: "science", item: "quill", guardian: "petri",
+  id: "science", look: look("science"), name: "Science Wing", short: "SCIENCE WING", subject: "science", item: "quill", guardian: "petri",
   start: P("science", "s1", 9, 10, "up"),
   rooms: [
     {
@@ -550,7 +443,7 @@ const SCIENCE: AreaDef = {
 /* ----------------------------------------------------------------------------- story wing */
 
 const STORY: AreaDef = {
-  id: "story", name: "Story Wing", short: "STORY WING", subject: "ela", item: "magnifier", guardian: "inkwhisker",
+  id: "story", look: look("story"), name: "Story Wing", short: "STORY WING", subject: "ela", item: "magnifier", guardian: "inkwhisker",
   start: P("story", "e1", 9, 10, "up"),
   rooms: [
     {
@@ -671,7 +564,7 @@ const STORY: AreaDef = {
 /* --------------------------------------------------------------------------- history wing */
 
 const HISTORY: AreaDef = {
-  id: "history", name: "History & Maps Wing", short: "HISTORY WING", subject: "social", item: "bell", guardian: "kitewing",
+  id: "history", look: look("history"), name: "History & Maps Wing", short: "HISTORY WING", subject: "social", item: "bell", guardian: "kitewing",
   start: P("history", "g1", 9, 10, "up"),
   rooms: [
     {
@@ -769,7 +662,7 @@ const HISTORY: AreaDef = {
 /* --------------------------------------------------------------------------- reading room */
 
 const READING: AreaDef = {
-  id: "reading", name: "The Reading Room", short: "READING ROOM", subject: null, item: null, guardian: "smudge",
+  id: "reading", look: look("reading"), name: "The Reading Room", short: "READING ROOM", subject: null, item: null, guardian: "smudge",
   start: P("reading", "rr", 9, 10, "up"),
   rooms: [
     {
@@ -799,74 +692,77 @@ export const AREA_IDS = Object.keys(AREAS) as AreaId[];
 
 /** Each wing's guardian and its room. */
 export const GUARDIAN_ROOM: Record<GuardianId, string> = { tallyshell: "m6", petri: "s6", inkwhisker: "e6", kitewing: "g6", smudge: "rr" };
+export const WING_BONUS_ROOM: Record<WingId, string> = { math: "m7", science: "s7", story: "e7", history: "g7" };
 
-const ROOM_INDEX = new Map<string, { area: AreaDef; room: RoomDef }>();
-for (const area of Object.values(AREAS)) for (const room of area.rooms) ROOM_INDEX.set(room.id, { area, room });
+export const LIBRARY: QuestDef = {
+  id: "library",
+  title: "The Lost Library",
+  tagline: "Restore the four wings of the Grand Lantern Library.",
+  story: "The Ink Smudge has knocked every book off the shelves of the Grand Lantern Library! Restore the four wings and find the lost books.",
+  saveKey: "arcade.lost-library.save.v1",
+  theme: "library",
+  hub: "hub",
+  final: "reading",
+  wings: WINGS,
+  areas: AREAS,
+  guardians: GUARDIANS,
+  items: ITEMS,
+  gateFront: GATE_FRONT,
+  books: BOOKS,
+  wingBook: WING_BOOK,
+  bonusBook: BONUS_BOOK,
+  finalBook: "reading",
+  bonusRoom: WING_BONUS_ROOM,
+  pests: { hub: "bunny", wing: "sprite", name: "ink sprite" },
+  music: { hub: "town", wings: { math: "math", science: "science", story: "story", history: "history" }, final: "readingRoom" },
+  gateColor: {
+    "h-math": ["#a3242c", "#6a141a"],
+    "h-sci": ["#1f8f55", "#0f5532"],
+    "h-story": ["#7a3aa8", "#4a1f6a"],
+    "h-hist": ["#2456e8", "#14348c"],
+    "h-steps": ["#b0a090", "#7a6a5a"],
+  },
+  terms: { wing: "wing", wings: "wings", treasure: "book", treasures: "books", shelf: "YOUR BOOKSHELF", found: "A LOST BOOK IS FOUND!", pests: "ink sprites" },
+  helper: {
+    name: "MADAME FOLIO",
+    first: "Pip! Thank goodness. The Ink Smudge knocked every book off our shelves. Each wing's guardian is keeping one safe. Visit the four wings and bring the books home. I filled your hearts!",
+    progress: (left) => `Wonderful work! Still to restore: ${left}. I filled your hearts!`,
+    all: "All four wings are restored! The Reading Room door on the Library Steps is open. Go north!",
+    done: "You found the lost library, Pip! Every book is home. Come back anytime to read.",
+    wingNames: { math: "Math (west)", science: "Science (north-west)", story: "Story (north-east)", history: "History & Maps (east)" },
+  },
+  texts: {
+    intro: [
+      { title: "MADAME FOLIO", text: "Pip Lampwick! Thank goodness you're here. The Ink Smudge knocked every book off the shelves of the Grand Lantern Library, and ink sprites are everywhere! Each of our four wings has a guardian keeping its book safe." },
+    ],
+    howTo: "Arrow keys walk. Z swings your feather duster to tidy ink sprites. X uses your item (your lantern lights cold torches). Enter reads signs and talks. Esc shows the map. Answer questions with 1-4 or A-D.",
+    faint: "Whoops, too much ink! Madame Folio's tidy-up spell carried you back to the entrance. You kept every key, item and book.",
+    sealed: (n, total) => `The Reading Room door has four book-shaped holes. Restore all four wings to open it. (${n} of ${total} restored)`,
+    thanks: "Thank you for caring for the library!",
+    finalThanks: "Splotch! Thanks for reading with me.",
+    crack: "This shelf has a big crack in it. It sounds hollow...",
+    decor: "A dusty old globe. It still spins!",
+    endingTitle: "THE LOST LIBRARY IS FOUND!",
+    endingText: "restored all four wings and the Reading Room.",
+    carries: "carries a feather duster and a lantern",
+    hubName: "the town",
+    finalName: "the Reading Room",
+  },
+};
 
+const W1 = worldOf(LIBRARY);
 export function roomById(id: string): RoomDef {
-  const r = ROOM_INDEX.get(id);
-  if (!r) throw new Error(`no room ${id}`);
-  return r.room;
+  return W1.room(id);
 }
 export function areaOfRoom(id: string): AreaDef {
-  const r = ROOM_INDEX.get(id);
-  if (!r) throw new Error(`no room ${id}`);
-  return r.area;
+  return W1.areaOf(id);
 }
 export function allRooms(): RoomDef[] {
-  return [...ROOM_INDEX.values()].map((r) => r.room);
+  return W1.allRooms();
 }
-
-/** The side of room `from` that faces its grid neighbour `to` (null if they don't touch). */
-export function sideToward(from: RoomDef, to: RoomDef): Dir | null {
-  const dx = to.at[0] - from.at[0];
-  const dy = to.at[1] - from.at[1];
-  if (dx === 1 && dy === 0) return "right";
-  if (dx === -1 && dy === 0) return "left";
-  if (dx === 0 && dy === 1) return "down";
-  if (dx === 0 && dy === -1) return "up";
-  return null;
-}
-
-/** The two border tiles of a side's door gap. */
-export function gapTiles(side: Dir): [number, number][] {
-  switch (side) {
-    case "up": return [[9, 0], [10, 0]];
-    case "down": return [[9, ROWS - 1], [10, ROWS - 1]];
-    case "left": return [[0, 5], [0, 6]];
-    case "right": return [[COLS - 1, 5], [COLS - 1, 6]];
-  }
-}
-
-export interface RoomDoor {
-  door: DoorDef;
-  side: Dir;
-  /** The room on the other side. */
-  other: string;
-}
-
-const DOORS_OF = new Map<string, RoomDoor[]>();
-for (const area of Object.values(AREAS)) {
-  for (const d of area.doors) {
-    const a = roomById(d.a);
-    const b = roomById(d.b);
-    const sa = sideToward(a, b);
-    const sb = sideToward(b, a);
-    if (!sa || !sb) continue; // check-rules reports it
-    DOORS_OF.set(d.a, [...(DOORS_OF.get(d.a) ?? []), { door: d, side: sa, other: d.b }]);
-    DOORS_OF.set(d.b, [...(DOORS_OF.get(d.b) ?? []), { door: d, side: sb, other: d.a }]);
-  }
-}
-
 export function doorsOf(roomId: string): RoomDoor[] {
-  return DOORS_OF.get(roomId) ?? [];
+  return W1.doorsOf(roomId);
 }
-
 export function doorById(id: string): DoorDef | undefined {
-  for (const a of Object.values(AREAS)) for (const d of a.doors) if (d.id === id) return d;
-  return undefined;
+  return W1.doorById(id);
 }
-
-/** The book each wing's guardian gives back, the bonus book hidden in each wing, and the final one. */
-export type BookId = "math" | "science" | "story" | "history" | "math-bonus" | "science-bonus" | "story-bonus" | "history-bonus" | "reading";
-export const WING_BONUS_ROOM: Record<WingId, string> = { math: "m7", science: "s7", story: "e7", history: "g7" };
